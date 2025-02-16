@@ -11,6 +11,7 @@
   "dependencies": {
     "@creit.tech/stellar-wallets-kit": "^1.4.1",
     "@headlessui/react": "^2.2.0",
+    "better-auth": "^1.1.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "framer-motion": "^12.4.3",

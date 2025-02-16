@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { motion } from "framer-motion";
+import { authClient } from "@/lib/auth";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,10 +16,17 @@ export default function LoginPage() {
     password: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     // login logic here
-    router.push("/");
+
+    const { data, error } = await authClient.signIn.email({
+      email: formData.email,
+      password: formData.password,
+      callbackURL: "/",
+    });
+
+    console.log(data, error);
   };
 
   return (
