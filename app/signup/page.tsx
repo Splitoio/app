@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock } from "lucide-react";
 import { motion } from "framer-motion";
+import { authClient } from "@/lib/auth";
+
 
 export default function SignupPage() {
   const router = useRouter();
@@ -17,11 +19,33 @@ export default function SignupPage() {
     agreeToTerms: false,
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    console.log(formData);
     // signup logic here
-    router.push("/");
+    // router.push("/");
+
+    const { data, error } = await authClient.signUp.email({
+      email: formData.email, // user email address
+      password: formData.password, // user password -> min 8 characters by default
+      name: formData.email, // user display name
+      callbackURL: "/dashboard" // a url to redirect to after the user verifies their email (optional)
+    }, {
+      onRequest: (ctx) => {
+          //show loading
+      },
+      onSuccess: (ctx) => {
+          //redirect to the dashboard or sign in page
+      },
+      onError: (ctx) => {
+          // display the error message
+          alert(ctx.error.message);
+      },
+    });
   };
+
+  
 
   return (
     <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative">

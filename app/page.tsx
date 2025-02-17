@@ -12,6 +12,9 @@ import {
   calculateBalances,
   getTransactionsFromGroups,
 } from "@/utils/calculations";
+import { authClient } from "@/lib/auth";
+
+
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -23,6 +26,15 @@ export default function Page() {
     address
   );
   const transactions = getTransactionsFromGroups(groups, address);
+
+  const { 
+    data: session, 
+    isPending, //loading state
+    error, //error object
+    refetch //refetch the session
+  } = authClient.useSession();
+
+  console.log(session);
 
   return (
     <div>
