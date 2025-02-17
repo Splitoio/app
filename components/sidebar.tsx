@@ -3,14 +3,14 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, Users, Plus } from "lucide-react";
+import { Home, Users2, UserPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 
 const navigation = [
   { name: "Overview", href: "/", icon: Home },
-  { name: "My Groups", href: "/groups", icon: Users },
-  { name: "Friends", href: "/friends", icon: Users },
+  { name: "My Groups", href: "/groups", icon: Users2 },
+  { name: "Friends", href: "/friends", icon: UserPlus },
 ];
 
 export function Sidebar() {

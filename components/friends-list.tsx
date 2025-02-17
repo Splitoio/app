@@ -109,7 +109,7 @@ export function FriendsList() {
             <span
               className={
                 (friend.balance.type === "owes_you"
-                  ? "text-[#67B76C]"
+                  ? "text-[#53e45d]"
                   : "text-[#FF4444]")
               }
             >

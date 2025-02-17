@@ -78,7 +78,7 @@ export function SettleDebtsModal({ isOpen, onClose }: SettleDebtsModalProps) {
                     Settle with everyone{" "}
                     <span
                       className={
-                        totalOwe > 0 ? "text-[#FF4444]" : "text-[#67B76C]"
+                        totalOwe > 0 ? "text-[#FF4444]" : "text-[#53e45d]"
                       }
                     >
                       (${totalOwe.toFixed(2)})

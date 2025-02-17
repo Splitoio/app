@@ -78,7 +78,7 @@ export function TransactionRequests() {
                 </div>
               </div>
               <div className="flex gap-2 justify-end">
-                <button className="flex h-8 w-8 items-center justify-center rounded-full bg-[#67B76C] text-white transition-all hover:bg-[#5aa55e] hover:shadow-[0_0_15px_rgba(103,183,108,0.3)] lg:h-10 lg:w-10">
+                <button className="flex h-8 w-8 items-center justify-center rounded-full bg-[#53e45d] text-white transition-all hover:bg-[#17ff23] hover:shadow-[0_0_15px_rgba(103,183,108,0.3)] lg:h-10 lg:w-10">
                   <Check className="h-4 w-4 lg:h-5 lg:w-5" />
                 </button>
                 <button className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF4444] text-white transition-all hover:bg-[#ff3333] hover:shadow-[0_0_15px_rgba(255,68,68,0.3)] lg:h-10 lg:w-10">

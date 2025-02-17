@@ -6,6 +6,8 @@ import { useWallet } from "@/hooks/useWallet";
 import { PageTitle } from "@/components/page-title";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { SettleDebtsModal } from "@/components/settle-debts-modal";
 
 export default function GroupDetailsPage({
   params,
@@ -15,6 +17,7 @@ export default function GroupDetailsPage({
   const { groups } = useGroups();
   const { address } = useWallet();
   const router = useRouter();
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const group = groups.find((g) => g.id === params.id);
 
   if (!group) return null;
@@ -22,44 +25,10 @@ export default function GroupDetailsPage({
   return (
     <div className="w-full space-y-8">
       <PageTitle />
-
-      <div className="flex items-start gap-6">
-        <div className="h-32 w-32 overflow-hidden rounded-full">
-          <Image
-            src={group.image || "/group_icon_placeholder.png"}
-            alt={group.name}
-            width={128}
-            height={128}
-            className="h-full w-full object-cover"
-          />
-        </div>
-
-        <div className="flex-1 pt-2">
-          <h1 className="text-h1 text-white mb-3">{group.name}</h1>
-          <div className="inline-flex items-center rounded-xl bg-[#1F1F23]/50 px-3 py-1">
-            <span className="text-body text-white/70">
-              Total Group Balance:{" "}
-              <span className="text-[#67B76C]">${group.amount}</span>
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col gap-3 -mt-2">
-          <div className="animate-border-light w-[173px]">
-            <button
-              onClick={() => router.push(`/groups/${params.id}/edit`)}
-              className="w-full h-[46px] rounded-[15px] bg-[#000000] bg-opacity-80 text-body font-medium text-white hover:bg-[#383838] transition-colors"
-            >
-              Add Expense
-            </button>
-          </div>
-          <div className="animate-border-light w-[173px]">
-            <button className="w-full h-[46px] rounded-[15px] bg-[#454864] bg-opacity-80 text-sm font-medium text-white hover:bg-[#383838] transition-colors">
-              Settle Debts
-            </button>
-          </div>
-        </div>
-      </div>
+      <GroupInfoHeader
+        groupId={params.id}
+        onSettleClick={() => setIsSettleModalOpen(true)}
+      />
 
       <div>
         <div className="flex items-center justify-between mb-6">
@@ -114,13 +83,13 @@ export default function GroupDetailsPage({
                 <div className="text-right text-[#FF4444]">
                   ${owed.toFixed(2)}
                 </div>
-                <div className="text-right text-[#67B76C]">
+                <div className="text-right text-[#53e45d]">
                   ${owe.toFixed(2)}
                 </div>
                 <div className="flex justify-end">
                   {owed === 0 && owe === 0 ? (
                     <span className="inline-flex items-center gap-1 px-2 py-1 rounded-md bg-[#1F1F23]/50">
-                      <span className="text-body-sm text-[#67B76C]">Paid</span>
+                      <span className="text-body-sm text-[#53e45d]">Paid</span>
                       <span className="text-caption text-white/50">via</span>
                       <svg
                         className="h-4 w-4"
@@ -174,24 +143,30 @@ export default function GroupDetailsPage({
                     </div>
                     <div className="space-y-2">
                       <p className="text-h3">
-                        {debt.to === address ? (
+                        {debt.from === address ? (
                           <>
-                            <span className="text-[#67B76C] font-semibold">
+                            <span className="text-[#FF4444] font-semibold">
+                              you owe
+                            </span>{" "}
+                            <span className="text-[#FF4444] font-semibold">
+                              ${debt.amount}
+                            </span>
+                          </>
+                        ) : debt.to === address ? (
+                          <>
+                            <span className="text-[#53e45d] font-semibold">
                               owes you
                             </span>{" "}
-                            <span className="text-[#67B76C] font-semibold">
+                            <span className="text-[#53e45d] font-semibold">
                               ${debt.amount}
                             </span>
                           </>
                         ) : (
                           <>
-                            <span className="text-[#FF4444] font-semibold">
+                            <span className="text-white/70 font-semibold">
                               owes
                             </span>{" "}
                             <span className="text-white/70 font-semibold">
-                              you
-                            </span>{" "}
-                            <span className="text-[#67B76C] font-semibold">
                               ${debt.amount}
                             </span>
                           </>
@@ -208,6 +183,11 @@ export default function GroupDetailsPage({
           ))}
         </div>
       </div>
+
+      <SettleDebtsModal
+        isOpen={isSettleModalOpen}
+        onClose={() => setIsSettleModalOpen(false)}
+      />
     </div>
   );
 }

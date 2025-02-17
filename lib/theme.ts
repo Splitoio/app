@@ -6,7 +6,7 @@ export const theme = {
     border: '#FFFFFF',
     text: '#FFFFFF',
     textSecondary: 'rgba(255, 255, 255, 0.7)',
-    success: '#67B76C',
+    success: '#53e45d',
     error: '#FF4444',
   },
   spacing: {

@@ -39,11 +39,11 @@ export default function Page() {
   return (
     <div>
       <PageTitle />
-      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+      <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 relative z-0">
         <div className="lg:col-span-2 space-y-8">
           <div>
             <div className="mb-6 space-y-4">
-              <h2 className="text-display text-white mt-12 flex items-center justify-between">
+              <h2 className="text-display text-white mt-2 flex items-center justify-between">
                 <div>
                   {netBalance < 0 ? (
                     <>
@@ -55,7 +55,7 @@ export default function Page() {
                   ) : netBalance > 0 ? (
                     <>
                       Overall, you are owed{" "}
-                      <span className="text-[#67B76C]">
+                      <span className="text-[#53e45d]">
                         ${netBalance.toFixed(2)}
                       </span>
                     </>
@@ -75,9 +75,11 @@ export default function Page() {
             </div>
             <TransactionList transactions={transactions} />
           </div>
-          <GroupsList />
+          <div className="relative z-10">
+            <GroupsList />
+          </div>
         </div>
-        <div>
+        <div className="relative z-0">
           <TransactionRequests />
         </div>
       </div>

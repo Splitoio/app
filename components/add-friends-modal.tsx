@@ -53,7 +53,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
                 <input
                   type="text"
                   placeholder="Enter name or email address"
-                  className="w-full h-[45px] lg:h-[52px] bg-white/15 rounded-[40px] pl-[60px] lg:pl-[72px] pr-4 lg:pr-6 text-base lg:text-[20px] font-semibold tracking-[-0.03em] text-white/30 font-instrument-sans focus:outline-none placeholder:text-white/30"
+                  className="w-full h-[45px] lg:h-[52px] bg-white/15 rounded-[40px] pl-[60px] lg:pl-[72px] pr-4 lg:pr-6 text-base lg:text-[20px] font-base tracking-[-0.03em] text-white/30 font-instrument-sans focus:outline-none placeholder:text-white/30"
                 />
                 <span className="absolute left-4 lg:left-6 top-1/2 -translate-y-1/2 text-base lg:text-[20px] font-semibold tracking-[-0.03em] text-white font-instrument-sans">
                   To:
@@ -61,7 +61,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
               </div>
 
               <div className="flex justify-end">
-                <button className="rounded-[14.77px] bg-white/15 px-4 lg:px-6 py-2 lg:py-3 text-sm lg:text-[16.94px] font-medium tracking-[-0.04em] text-white font-instrument-sans border border-white hover:bg-white/10 transition-colors">
+                <button className="rounded-[14.77px] bg-white/15 px-4 lg:px-6 py-2 lg:py-3 text-sm lg:text-[16.94px] font-base tracking-[-0.04em] text-white font-instrument-sans border border-white hover:bg-white/10 transition-colors">
                   Send Invite
                 </button>
               </div>

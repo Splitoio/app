@@ -48,7 +48,7 @@ export function TransactionList({ transactions }: TransactionListProps) {
           </div>
           <p
             className={`text-body ${
-              transaction.type === "owe" ? "text-[#FF4444]" : "text-[#67B76C]"
+              transaction.type === "owe" ? "text-[#FF4444]" : "text-[#53e45d]"
             }`}
           >
             ${transaction.amount.toFixed(2)}

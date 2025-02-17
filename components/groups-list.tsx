@@ -7,10 +7,12 @@ import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
+import { useRouter } from "next/navigation";
 
 export function GroupsList() {
   const { groups, deleteGroup, connectedAddress } = useGroups();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -27,27 +29,9 @@ export function GroupsList() {
     };
   }, []);
 
-  useEffect(() => {
-    if (editingId) {
-      const button = document.querySelector(
-        `[data-group-id="${editingId}"] button`
-      ) as HTMLElement;
-      const dropdown = document.querySelector(
-        `[data-group-id="${editingId}"] .group-menu`
-      ) as HTMLElement;
-
-      if (button && dropdown) {
-        const buttonRect = button.getBoundingClientRect();
-        dropdown.style.top = `${buttonRect.bottom + 8}px`;
-        dropdown.style.left = `${buttonRect.right - dropdown.offsetWidth}px`;
-      }
-    }
-  }, [editingId]);
-
   const getMyDebtInfo = (group: Group) => {
     if (!connectedAddress) return { amount: 0, type: "none" };
 
-    // If I'm the payer, find how much others owe me
     if (group.paidBy === connectedAddress) {
       const othersOweMe = group.debts.reduce(
         (sum, debt) => sum + debt.amount,
@@ -56,7 +40,6 @@ export function GroupsList() {
       return { amount: othersOweMe, type: "owed" };
     }
 
-    // If someone else paid, find how much I owe them
     const myDebt = group.debts.find((debt) => debt.from === connectedAddress);
     return {
       amount: myDebt?.amount || 0,
@@ -71,18 +54,11 @@ export function GroupsList() {
       initial="initial"
       animate="animate"
     >
-      <motion.h2 variants={slideUp} className="text-h2 text-white mb-6">
-        Groups
-      </motion.h2>
       <div className="space-y-4">
         {groups.map((group, index) => {
           const debtInfo = getMyDebtInfo(group);
           return (
-            <motion.div
-              key={group.id}
-              variants={slideUp}
-              className="relative z-0"
-            >
+            <motion.div key={group.id} variants={slideUp} className="relative">
               <Link
                 href={`/groups/${group.id}`}
                 className="flex items-center justify-between rounded-xl bg-zinc-950 p-4 transition-all duration-300 hover:bg-[#1a1a1c] relative group"
@@ -103,8 +79,8 @@ export function GroupsList() {
                       src={group.image || "/group_icon_placeholder.png"}
                       alt={group.name}
                       className="h-full w-full object-cover"
-                      width={48}
-                      height={48}
+                      width={80}
+                      height={80}
                     />
                   </div>
                   <div>
@@ -124,7 +100,7 @@ export function GroupsList() {
                     <p
                       className={`text-body ${
                         debtInfo.type === "owed"
-                          ? "text-[#67B76C]"
+                          ? "text-[#53e45d]"
                           : "text-[#FF4444]"
                       }`}
                     >
@@ -145,25 +121,30 @@ export function GroupsList() {
                     </button>
 
                     {editingId === group.id && (
-                      <div className="group-menu absolute right-0 top-[calc(100%+4px)] w-48 rounded-lg border border-white/10 bg-[#1F1F23] py-1 shadow-lg z-[100]">
-                        <Link
-                          href={`/groups/${group.id}/edit`}
+                      <div
+                        className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-[#1F1F23] p-1 shadow-lg"
+                        style={{
+                          zIndex: 9999,
+                        }}
+                      >
+                        <button
                           onClick={(e) => {
+                            e.preventDefault();
                             e.stopPropagation();
-                            setEditingId(null);
+                            router.push(`/groups/${group.id}/edit`);
                           }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-body-sm text-white hover:bg-white/5"
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/5"
                         >
                           <Pencil className="h-4 w-4" />
                           Edit Group
-                        </Link>
+                        </button>
                         <button
                           onClick={(e) => {
                             e.preventDefault();
                             e.stopPropagation();
                             deleteGroup(group.id);
                           }}
-                          className="flex w-full items-center gap-2 px-4 py-2 text-body-sm text-[#FF4444] hover:bg-white/5"
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#FF4444] hover:bg-white/5"
                         >
                           <Trash2 className="h-4 w-4" />
                           Delete Group
