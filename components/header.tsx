@@ -18,7 +18,7 @@ export function Header() {
 
   return (
     <div className="fixed left-0 right-0 top-0 z-10 min-[1025px]:pl-[280px]">
-      <div className="h-[110px]  bg-[#101012] px-4 min-[1025px]:px-8">
+      <div className="h-[90px]  bg-[#101012] px-4 min-[1025px]:px-6">
         <div className="flex h-full items-center">
           <button
             onClick={toggle}
@@ -31,23 +31,14 @@ export function Header() {
             <button
               onClick={handleWalletClick}
               disabled={isConnecting}
-              className="group relative flex h-10 sm:h-12 items-center gap-2 rounded-full border border-white/20 bg-transparent px-4 sm:px-6 text-sm font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)] disabled:cursor-not-allowed disabled:opacity-50"
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                e.currentTarget.style.background = `radial-gradient(circle at ${x}px ${y}px, rgba(255, 255, 255, 0.1), transparent)`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "transparent";
-              }}
+              className="group relative flex h-9 sm:h-10 items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
             >
-              <Wallet className="h-5 w-5" strokeWidth={1.5} />
+              <Wallet className="h-4 w-4 opacity-70" strokeWidth={1.2} />
               <span className="hidden sm:inline">
                 {isConnecting ? (
                   "Connecting..."
                 ) : isConnected && address ? (
-                  <AddressDisplay address={address} />
+                  <AddressDisplay address={address} className="text-white/80" />
                 ) : (
                   "Connect Wallet"
                 )}

@@ -61,7 +61,7 @@ export function GroupsList() {
             <motion.div key={group.id} variants={slideUp} className="relative">
               <Link
                 href={`/groups/${group.id}`}
-                className="flex items-center justify-between rounded-xl bg-zinc-950 p-4 transition-all duration-300 hover:bg-[#1a1a1c] relative group"
+                className="flex items-center justify-between rounded-xl bg-zinc-950/50 p-3 transition-all duration-300 hover:bg-[#1a1a1c] relative group"
                 onMouseMove={(e) => {
                   const rect = e.currentTarget.getBoundingClientRect();
                   const x = e.clientX - rect.left;
@@ -73,8 +73,8 @@ export function GroupsList() {
                   e.currentTarget.style.transition = "background 0.3s ease";
                 }}
               >
-                <div className="flex items-center gap-3">
-                  <div className="h-12 w-12 overflow-hidden rounded-full">
+                <div className="flex items-center gap-2">
+                  <div className="h-10 w-10 overflow-hidden rounded-full">
                     <Image
                       src={group.image || "/group_icon_placeholder.png"}
                       alt={group.name}
@@ -84,24 +84,24 @@ export function GroupsList() {
                     />
                   </div>
                   <div>
-                    <p className="text-body font-medium text-white">
+                    <p className="text-sm font-normal text-white/90">
                       {group.name}
                     </p>
-                    <p className="text-body-sm text-white/70">
+                    <p className="text-[11px] text-white/50">
                       Created by {group.creator} • {group.date}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-lg text-white/70">
+                    <p className="text-sm text-white/60">
                       {debtInfo.type === "owed" ? "you are owed" : "you owe"}
                     </p>
                     <p
-                      className={`text-body ${
+                      className={`text-base ${
                         debtInfo.type === "owed"
-                          ? "text-[#53e45d]"
-                          : "text-[#FF4444]"
+                          ? "text-[#53e45d]/90"
+                          : "text-[#FF4444]/90"
                       }`}
                     >
                       ${debtInfo.amount.toFixed(2)}

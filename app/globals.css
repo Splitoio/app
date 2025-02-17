@@ -45,13 +45,13 @@ input[type="number"] {
 .form-input,
 .form-select,
 .form-textarea {
-  @apply w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-3 text-white 
-  placeholder-white/50 transition-colors duration-200
-  focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/20;
+  @apply w-full rounded-lg border border-white/5 bg-[#1F1F23] px-4 py-3 text-white 
+  placeholder-white/40 transition-colors duration-200
+  focus:border-white/10 focus:outline-none focus:ring-1 focus:ring-white/10;
 }
 
 .form-label {
-  @apply block text-sm font-medium text-white/90 mb-2;
+  @apply block text-sm font-normal text-white/80 mb-2;
 }
 
 .form-group {
@@ -108,34 +108,34 @@ input[type="number"] {
 
 @layer components {
   .text-display {
-    @apply text-4xl font-semibold tracking-tight lg:text-4xl;
+    @apply text-2xl font-medium tracking-tight lg:text-3xl;
   }
 
   .text-h1 {
-    @apply text-2xl font-semibold tracking-tight lg:text-3xl;
+    @apply text-xl font-medium tracking-tight lg:text-2xl;
   }
 
   .text-h2 {
-    @apply text-xl font-semibold tracking-tight lg:text-2xl;
-  }
-
-  .text-h3 {
     @apply text-lg font-medium tracking-tight lg:text-xl;
   }
 
+  .text-h3 {
+    @apply text-base font-normal tracking-tight lg:text-lg;
+  }
+
   .text-body-lg {
-    @apply text-base lg:text-lg;
+    @apply text-sm lg:text-base font-normal;
   }
 
   .text-body {
-    @apply text-sm lg:text-base;
+    @apply text-xs lg:text-sm font-normal;
   }
 
   .text-body-sm {
-    @apply text-xs lg:text-sm;
+    @apply text-[11px] lg:text-xs font-normal;
   }
 
   .text-caption {
-    @apply text-xs text-white/70;
+    @apply text-[10px] text-white/60 font-normal;
   }
 }

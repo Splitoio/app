@@ -49,24 +49,24 @@ export function SettleDebtsModal({ isOpen, onClose }: SettleDebtsModalProps) {
           />
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px]">
             <motion.div className="animate-border-light" {...scaleIn}>
-              <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
-                <div className="flex items-center justify-between mb-6 lg:mb-8">
-                  <h2 className="text-2xl lg:text-[29.28px] font-semibold text-white tracking-[-0.03em] font-instrument-sans">
+              <div className="relative rounded-[14.77px] bg-black p-3 lg:p-6">
+                <div className="flex items-center justify-between mb-4 lg:mb-6">
+                  <h2 className="text-xl lg:text-2xl font-semibold text-white tracking-[-0.03em]">
                     Settle Debts
                   </h2>
                   <button
                     onClick={onClose}
-                    className="rounded-full p-1.5 lg:p-2 hover:bg-white/10 transition-colors"
+                    className="rounded-full p-1 lg:p-1.5 hover:bg-white/10 transition-colors"
                   >
-                    <X className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
+                    <X className="h-4 w-4 lg:h-5 lg:w-5 text-white" />
                   </button>
                 </div>
 
-                <div className="space-y-4">
+                <div className="space-y-3">
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white"
+                    className="w-full h-[42px] rounded-[15px] bg-[#1F1F23] text-sm font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white"
                   >
                     Settle with one
                   </motion.button>

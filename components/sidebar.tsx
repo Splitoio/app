@@ -29,25 +29,27 @@ export function Sidebar() {
 
       <div
         className={cn(
-          "fixed left-0 top-0 z-20 h-screen w-[280px] bg-[#101012] transition-transform duration-300 min-[1025px]:translate-x-0 overflow-hidden",
+          "fixed left-0 top-0 z-20 h-screen w-[280px] bg-[#101012] transition-transform duration-300 min-[1025px]:translate-x-0 overflow-hidden flex flex-col",
           isOpen ? "translate-x-0" : "-translate-x-full"
         )}
       >
-        <div className="relative h-full">
-          <div className="p-8">
-            <Link href="/" className="block" onClick={close}>
-              <Image
-                src={logo}
-                alt="Logo"
-                width={140}
-                height={56}
-                className="h-14 w-auto"
-                priority
-              />
-            </Link>
-          </div>
+        {/* Logo Section */}
+        <div className="flex-none p-6 border-b border-white/[0.02]">
+          <Link href="/" className="block" onClick={close}>
+            <Image
+              src={logo}
+              alt="Logo"
+              width={120}
+              height={48}
+              className="h-12 w-auto"
+              priority
+            />
+          </Link>
+        </div>
 
-          <nav className="flex flex-col justify-center h-[60%] mt-8 space-y-12 px-8">
+        {/* Main Navigation */}
+        <div className="flex-1 px-3 py-8">
+          <div className="space-y-1">
             {navigation.map((item) => {
               const isActive = pathname === item.href;
               return (
@@ -56,16 +58,34 @@ export function Sidebar() {
                   href={item.href}
                   onClick={close}
                   className={cn(
-                    "flex items-center gap-4 text-[18px] font-medium text-white/80 transition-colors hover:text-white",
-                    isActive && "text-white"
+                    "flex items-center gap-3 px-3 py-2.5 text-sm font-normal rounded-lg transition-colors",
+                    isActive 
+                      ? "text-white/90 bg-white/[0.06]" 
+                      : "text-white/60 hover:text-white/90 hover:bg-white/[0.03]"
                   )}
                 >
-                  <item.icon className="h-5 w-5" strokeWidth={1.5} />
+                  <item.icon 
+                    className={cn(
+                      "h-4 w-4",
+                      isActive ? "opacity-90" : "opacity-70"
+                    )} 
+                    strokeWidth={1.2} 
+                  />
                   {item.name}
                 </Link>
               );
             })}
-          </nav>
+          </div>
+        </div>
+
+        {/* Bottom Section - Could add user profile or other controls here */}
+        <div className="flex-none p-6 border-t border-white/[0.02]">
+          <div className="flex items-center gap-3 px-3 py-2 rounded-lg text-white/40 text-sm">
+            <div className="h-8 w-8 rounded-full bg-white/[0.03] flex items-center justify-center">
+              <Users2 className="h-4 w-4 opacity-40" strokeWidth={1.2} />
+            </div>
+            <span>Splito v0.1.0</span>
+          </div>
         </div>
       </div>
     </>
