@@ -75,22 +75,18 @@ export function GroupInfoHeader({
           </div>
         </div>
         <div className="flex flex-col gap-3 -mt-2">
-          <div className="animate-border-light w-[173px]">
             <button
               onClick={() => router.push(`/groups/${groupId}/edit`)}
-              className="w-full h-[46px] rounded-[15px] bg-[#000000] bg-opacity-80 text-body font-medium text-white hover:bg-[#383838] transition-colors"
+              className="group relative flex h-9 sm:h-10 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
             >
               Add Expense
             </button>
-          </div>
-          <div className="animate-border-light w-[173px]">
             <button
               onClick={onSettleClick}
-              className="w-full h-[46px] rounded-[15px] bg-[#3d426e] bg-opacity-80 text-body font-medium text-white hover:bg-[#383838] transition-colors"
+              className="group relative flex h-9 sm:h-10 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
             >
               Settle Debts
             </button>
-          </div>
         </div>
       </div>
     </div>

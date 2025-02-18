@@ -21,9 +21,9 @@ const mockFriends: Friend[] = [
   {
     id: "1",
     name: "Mike",
-    email: "email/contact",
-    address: "<address>",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Mike",
+    email: "mike@something.com",
+    address: "GDUY7J7A33TQWOSOQGDO776GGLM3UQERL4J3SPT56F6YS4ID7MLDERI4",
+    image: "https://api.dicebear.com/7.x/identicon/svg?seed=Mike",
     balance: {
       amount: 167.0,
       type: "you_owe",
@@ -32,9 +32,9 @@ const mockFriends: Friend[] = [
   {
     id: "2",
     name: "Harris",
-    email: "email/contact",
-    address: "<address>",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Harris",
+    email: "harris@something.com",
+    address: "GDKIJJIKXLOM2NRMPNQZUUYK24ZPVFC6426GZAEP3KUK6KEJLACCWNMX",
+    image: "https://api.dicebear.com/7.x/identicon/svg?seed=Harris",
     balance: {
       amount: 54.5,
       type: "owes_you",
@@ -43,9 +43,9 @@ const mockFriends: Friend[] = [
   {
     id: "3",
     name: "Tyson",
-    email: "email/contact",
-    address: "<address>",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Tyson",
+    email: "tyson@something.com",
+    address: "GCWEER57MBVRXA4I426VL3PSWWM72SSZ3AZ5TGBDSWJMTDFVCABWNZIF",
+    image: "https://api.dicebear.com/7.x/identicon/svg?seed=Tyson",
     balance: {
       amount: 90.0,
       type: "you_owe",
@@ -54,9 +54,9 @@ const mockFriends: Friend[] = [
   {
     id: "4",
     name: "Kamala",
-    email: "email/contact",
-    address: "<address>",
-    image: "https://api.dicebear.com/7.x/avataaars/svg?seed=Kamala",
+    email: "kamala@something.com",
+    address: "GACVB2E6IEV2UT6IDVOO5B5CNN7WPKJFR36B7KD7ZNXDANPTSYNMZYQM",
+    image: "https://api.dicebear.com/7.x/identicon/svg?seed=Kamala",
     balance: {
       amount: 35.0,
       type: "owes_you",
@@ -96,10 +96,6 @@ export function FriendsList() {
               </p>
               <p className="text-xs lg:text-sm text-white/70">{friend.email}</p>
             </div>
-          </div>
-
-          <div className="text-center text-sm lg:text-lg text-white/50">
-            {friend.address}
           </div>
 
           <div className="text-right min-w-[80px] lg:min-w-[100px] flex flex-col">

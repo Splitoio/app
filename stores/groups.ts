@@ -1,6 +1,57 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+const mockGroups: Group[] = [
+  {
+    id: "3e3",
+    name: "3e3",
+    image: "/group_icon_placeholder.png",
+    creator: "You",
+    creatorAddress: "GBFLT2OQBK7YCFDTXO2BXLQKQZHRFHZL5PUIE5ZPOI4UF6LHFKJYCX4",
+    date: "2/18/2025",
+    amount: 0,
+    paidBy: "GBFLT2OQBK7YCFDTXO2BXLQKQZHRFHZL5PUIE5ZPOI4UF6LHFKJYCX4",
+    members: [],
+    splits: [],
+    debts: [],
+    splitType: "equal",
+    currency: "USD",
+    description: "",
+  },
+  {
+    id: "2323",
+    name: "2323",
+    image: "/group_icon_placeholder.png",
+    creator: "You",
+    creatorAddress: "GBFLT2OQBK7YCFDTXO2BXLQKQZHRFHZL5PUIE5ZPOI4UF6LHFKJYCX4",
+    date: "2/18/2025",
+    amount: 0,
+    paidBy: "GBFLT2OQBK7YCFDTXO2BXLQKQZHRFHZL5PUIE5ZPOI4UF6LHFKJYCX4",
+    members: [],
+    splits: [],
+    debts: [],
+    splitType: "equal",
+    currency: "USD",
+    description: "",
+  },
+  {
+    id: "232",
+    name: "232",
+    image: "/group_icon_placeholder.png",
+    creator: "You",
+    creatorAddress: "GBFLT2OQBK7YCFDTXO2BXLQKQZHRFHZL5PUIE5ZPOI4UF6LHFKJYCX4",
+    date: "2/18/2025",
+    amount: 0,
+    paidBy: "GBFLT2OQBK7YCFDTXO2BXLQKQZHRFHZL5PUIE5ZPOI4UF6LHFKJYCX4",
+    members: [],
+    splits: [],
+    debts: [],
+    splitType: "equal",
+    currency: "USD",
+    description: "",
+  },
+];
+
 export type Split = {
   address: string;
   amount: number;
@@ -43,7 +94,7 @@ type GroupStore = {
 export const useGroups = create<GroupStore>()(
   persist(
     (set) => ({
-      groups: [],
+      groups: mockGroups,
       connectedAddress: null,
       setConnectedAddress: (address) => set({ connectedAddress: address }),
       addGroup: (group) =>

@@ -4,7 +4,6 @@ import { useGroups, type Group, type Split, type Debt } from "@/stores/groups";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { PageTitle } from "@/components/page-title";
 import Image from "next/image";
 
 export default function CreateGroupPage() {
@@ -16,7 +15,7 @@ export default function CreateGroupPage() {
   useEffect(() => {
     // Check if wallet is connected on mount
     if (!isConnected && !address) {
-      connectWallet();
+      // connectWallet();
     }
   }, [isConnected, address, connectWallet]);
 
@@ -207,7 +206,9 @@ export default function CreateGroupPage() {
 
   return (
     <div className="w-full space-y-8">
-      <PageTitle />
+      <h1 className="text-display text-white capitalize inline-block mb-8">
+        Create Group
+      </h1>
       <div>
         <h1 className="text-2xl lg:text-3xl font-semibold text-white">
           New Group
