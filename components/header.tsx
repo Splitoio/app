@@ -31,14 +31,14 @@ export function Header() {
             <button
               onClick={handleWalletClick}
               disabled={isConnecting}
-              className="group relative flex h-9 sm:h-10 items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+              className="group relative flex h-9 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-6 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
             >
-              <Wallet className="h-4 w-4 opacity-70" strokeWidth={1.2} />
+              <Wallet className="h-6 w-6 opacity-70" strokeWidth={1.2} />
               <span className="hidden sm:inline">
                 {isConnecting ? (
                   "Connecting..."
                 ) : isConnected && address ? (
-                  <AddressDisplay address={address} className="text-white/80" />
+                  <AddressDisplay address={address} className="text-white/80 text-base" />
                 ) : (
                   "Connect Wallet"
                 )}

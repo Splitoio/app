@@ -84,10 +84,10 @@ export function GroupsList() {
                     />
                   </div>
                   <div>
-                    <p className="text-sm font-normal text-white/90">
+                    <p className="text-lg font-normal text-white/90 ">
                       {group.name}
                     </p>
-                    <p className="text-[11px] text-white/50">
+                    <p className="text-[13px] text-white/50">
                       Created by {group.creator} • {group.date}
                     </p>
                   </div>

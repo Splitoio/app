@@ -8,88 +8,83 @@ import { useWallet } from "@/hooks/useWallet";
 import { useGroups } from "@/stores/groups";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import {
-    calculateBalances,
-    getTransactionsFromGroups,
+  calculateBalances,
+  getTransactionsFromGroups,
 } from "@/utils/calculations";
 import { authClient } from "@/lib/auth";
 
 export default function Page() {
-    const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
-    const { isConnected, address } = useWallet();
-    const { groups } = useGroups();
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const { isConnected, address } = useWallet();
+  const { groups } = useGroups();
 
-    const { totalOwed, totalOwe, netBalance } = calculateBalances(
-        groups,
-        address
-    );
-    const transactions = getTransactionsFromGroups(groups, address);
+  const { totalOwed, totalOwe, netBalance } = calculateBalances(
+    groups,
+    address
+  );
+  const transactions = getTransactionsFromGroups(groups, address);
 
-    const {
-        data: session,
-        isPending, //loading state
-        error, //error object
-        refetch, //refetch the session
-    } = authClient.useSession();
+  const {
+    data: session,
+    isPending, //loading state
+    error, //error object
+    refetch, //refetch the session
+  } = authClient.useSession();
 
-    console.log(session);
+  console.log(session);
 
-    return (
-        <div>
-            <h1 className="text-display text-white capitalize inline-block mb-8">
-                Overview
-            </h1>
-            <div className="grid grid-cols-1 gap-8 lg:grid-cols-3 relative z-0">
-                <div className="lg:col-span-2 space-y-8">
-                    <div>
-                        <div className="mb-6 space-y-4">
-                            <h2 className="text-display text-white mt-2 flex items-center justify-between">
-                                <div>
-                                    {netBalance < 0 ? (
-                                        <>
-                                            Overall, you owe{" "}
-                                            <span className="text-[#FF4444]">
-                                                $
-                                                {Math.abs(netBalance).toFixed(
-                                                    2
-                                                )}
-                                            </span>
-                                        </>
-                                    ) : netBalance > 0 ? (
-                                        <>
-                                            Overall, you are owed{" "}
-                                            <span className="text-[#53e45d]">
-                                                ${netBalance.toFixed(2)}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <>You're all settled up!</>
-                                    )}
-                                </div>
-                                {/* <div className=""> */}
-                                <button
-                                    onClick={() => setIsSettleModalOpen(true)}
-                                    className="group relative flex h-9 sm:h-10 items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-                                >
-                                    Settle Debts
-                                </button>
-                                {/* </div> */}
-                            </h2>
-                        </div>
-                        <TransactionList transactions={transactions} />
-                    </div>
-                    <div className="relative z-10">
-                        <GroupsList />
-                    </div>
+  return (
+    <div>
+      <h1 className="text-display text-white capitalize inline-block mb-4 min-[1025px]:mb-8">
+        Overview
+      </h1>
+      <div className="grid grid-cols-1 gap-4 min-[1025px]:gap-8 min-[1025px]:grid-cols-3 relative z-0">
+        <div className="min-[1025px]:col-span-2 space-y-4 min-[1025px]:space-y-8">
+          <div>
+            <div className="mb-4 min-[1025px]:mb-6 space-y-4">
+              <h2 className="text-display text-white mt-2 flex flex-col min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between gap-4">
+                <div className="text-base min-[1025px]:text-xl">
+                  {netBalance < 0 ? (
+                    <>
+                      Overall, you owe{" "}
+                      <span className="text-[#FF4444]">
+                        ${Math.abs(netBalance).toFixed(2)}
+                      </span>
+                    </>
+                  ) : netBalance > 0 ? (
+                    <>
+                      Overall, you are owed{" "}
+                      <span className="text-[#53e45d]">
+                        ${netBalance.toFixed(2)}
+                      </span>
+                    </>
+                  ) : (
+                    <>You're all settled up!</>
+                  )}
                 </div>
-                <div className="relative z-0">
-                    <TransactionRequests />
-                </div>
+                <button
+                  onClick={() => setIsSettleModalOpen(true)}
+                  className="group relative flex h-10 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-4 sm:px-6 text-sm sm:text-base font-normal text-white/90 transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] justify-center"
+                >
+                  Settle Debts
+                </button>
+              </h2>
             </div>
-
-            <SettleDebtsModal
-                isOpen={isSettleModalOpen}
-                onClose={() => setIsSettleModalOpen(false)}
-            />
+            <TransactionList transactions={transactions} />
+          </div>
+          <div className="relative z-10">
+            <GroupsList />
+          </div>
         </div>
-    );
+        <div className="relative z-0">
+          <TransactionRequests />
+        </div>
+      </div>
+
+      <SettleDebtsModal
+        isOpen={isSettleModalOpen}
+        onClose={() => setIsSettleModalOpen(false)}
+      />
+    </div>
+  );
 }
