@@ -395,7 +395,9 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
 
             {formData.splitType === "percentage" && splits.length > 0 && (
               <div className="mt-6 space-y-4">
-                <h3 className="text-lg font-medium text-white">Percentage Split</h3>
+                <h3 className="text-lg font-medium text-white">
+                  Percentage Split
+                </h3>
                 {splits.map((split) => (
                   <div key={split.address} className="flex items-center gap-4">
                     <span className="text-sm text-white/70 w-40 truncate">
@@ -417,9 +419,11 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                   </div>
                 ))}
                 <div className="mt-2 text-sm text-white/70">
-                  Total: {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
+                  Total:{" "}
+                  {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
                   {Math.abs(
-                    Object.values(percentages).reduce((sum, p) => sum + p, 0) - 100
+                    Object.values(percentages).reduce((sum, p) => sum + p, 0) -
+                      100
                   ) > 0.01 && (
                     <span className="text-red-500 ml-2">(Must equal 100%)</span>
                   )}
@@ -444,7 +448,9 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       className="w-32 rounded-lg border border-white/10 bg-zinc-900 px-4 py-2 text-white"
                       placeholder="Amount"
                     />
-                    <span className="text-sm text-white/70">{formData.currency}</span>
+                    <span className="text-sm text-white/70">
+                      {formData.currency}
+                    </span>
                   </div>
                 ))}
                 <div className="mt-2 text-sm text-white/70">
@@ -455,7 +461,8 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       Number(formData.amount)
                   ) > 0.01 && (
                     <span className="text-red-500 ml-2">
-                      (Must equal total amount: {formData.amount} {formData.currency})
+                      (Must equal total amount: {formData.amount}{" "}
+                      {formData.currency})
                     </span>
                   )}
                 </div>

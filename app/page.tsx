@@ -12,6 +12,7 @@ import {
   getTransactionsFromGroups,
 } from "@/utils/calculations";
 import { authClient } from "@/lib/auth";
+import Image from "next/image";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -64,8 +65,14 @@ export default function Page() {
                 </div>
                 <button
                   onClick={() => setIsSettleModalOpen(true)}
-                  className="group relative flex h-10 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-4 sm:px-6 text-sm sm:text-base font-normal text-white/90 transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] justify-center"
+                  className="group relative flex h-10 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-2 sm:px-4 text-sm sm:text-base font-normal text-white/90 transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] justify-center -mt-3"
                 >
+                  <Image
+                    src={"/moneySend.svg"}
+                    alt="Settle"
+                    width={20}
+                    height={20}
+                  />
                   Settle Debts
                 </button>
               </h2>

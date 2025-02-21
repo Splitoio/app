@@ -8,6 +8,8 @@ import { calculateBalances } from "@/utils/calculations";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 
+import Image from "next/image";
+
 interface SettleDebtsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -47,7 +49,7 @@ export function SettleDebtsModal({ isOpen, onClose }: SettleDebtsModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px]">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[400px]">
             <motion.div className="animate-border-light" {...scaleIn}>
               <div className="relative rounded-[14.77px] bg-black p-3 lg:p-6">
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
@@ -66,15 +68,27 @@ export function SettleDebtsModal({ isOpen, onClose }: SettleDebtsModalProps) {
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full h-[42px] rounded-[15px] bg-[#1F1F23] text-sm font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white"
+                    className="w-full h-[42px] rounded-[15px] bg-[#1F1F23] text-sm font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2"
                   >
+                    <Image
+                      src={"/settleOne.svg"}
+                      alt="Settle One"
+                      width={20}
+                      height={20}
+                    />
                     Settle with one
                   </motion.button>
                   <motion.button
                     whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
-                    className="w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white"
+                    className="w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2"
                   >
+                    <Image
+                      src={"/settleEveryone.svg"}
+                      alt="Settle Everyone"
+                      width={20}
+                      height={20}
+                    />
                     Settle with everyone{" "}
                     <span
                       className={
