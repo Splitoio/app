@@ -75,18 +75,25 @@ export function GroupInfoHeader({
           </div>
         </div>
         <div className="flex flex-col gap-3 -mt-2">
-            <button
-              onClick={() => router.push(`/groups/${groupId}/edit`)}
-              className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-6 sm:px-8 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-            >
-              Add Expense
-            </button>
-            <button
-              onClick={onSettleClick}
-              className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-6 sm:px-8 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-            >
-              Settle Debts
-            </button>
+          <button
+            onClick={() => router.push(`/groups/${groupId}/edit`)}
+            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+          >
+            <Image
+              src={"/addExpenseIcon.svg"}
+              alt="Add"
+              width={20}
+              height={20}
+            />
+            Add Expense
+          </button>
+          <button
+            onClick={onSettleClick}
+            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 !pl-1 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+          >
+            <Image src={"/moneySend.svg"} alt="Settle" width={20} height={20} />
+            Settle Debts
+          </button>
         </div>
       </div>
     </div>

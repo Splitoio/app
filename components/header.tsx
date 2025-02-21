@@ -17,7 +17,7 @@ export function Header() {
   };
 
   return (
-    <div className="fixed left-0 right-0 top-0 z-10 min-[1025px]:pl-[280px]">
+    <div className="fixed left-0 right-0 top-0 z-10 min-[1025px]:pl-[220px]">
       <div className="h-[90px]  bg-[#101012] px-4 min-[1025px]:px-6">
         <div className="flex h-full items-center">
           <button
@@ -38,7 +38,10 @@ export function Header() {
                 {isConnecting ? (
                   "Connecting..."
                 ) : isConnected && address ? (
-                  <AddressDisplay address={address} className="text-white/80 text-base" />
+                  <AddressDisplay
+                    address={address}
+                    className="text-white/80 text-base"
+                  />
                 ) : (
                   "Connect Wallet"
                 )}

@@ -37,7 +37,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
         <div className="animate-border-light">
           <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
             <div className="flex items-center justify-between mb-6 lg:mb-8">
-              <h2 className="text-2xl lg:text-[29.28px] font-semibold text-white tracking-[-0.03em] font-instrument-sans">
+              <h2 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em] font-instrument-sans">
                 Add Friends
               </h2>
               <button
@@ -60,19 +60,23 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
                   placeholder:text-white/30
                   focus:outline-none focus:border-white/20 focus:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
                 />
-                <span className="absolute left-6 top-1/2 -translate-y-1/2 
-                  text-base lg:text-lg font-medium text-white/50">
+                <span
+                  className="absolute left-6 top-1/2 -translate-y-1/2 
+                  text-base lg:text-lg font-medium text-white/50"
+                >
                   To:
                 </span>
               </div>
 
               <div className="flex justify-end">
-                <button className="h-11 lg:h-12 px-6 lg:px-8
+                <button
+                  className="h-11 lg:h-12 px-6 lg:px-8
                   rounded-2xl bg-white/10 
                   text-sm lg:text-base font-medium text-white 
                   border border-white/10
                   transition-all duration-300
-                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]">
+                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                >
                   Send Invite
                 </button>
               </div>

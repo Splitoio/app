@@ -509,7 +509,7 @@ export default function CreateGroupPage() {
                           updatePercentage(split.address, Number(value));
                         }
                       }}
-                      className="w-32"
+                      className="w-32 bg-[#1F1F23] text-white/90"
                       placeholder="Percentage"
                     />
                     <span className="text-sm text-muted-foreground">%</span>

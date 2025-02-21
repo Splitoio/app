@@ -81,7 +81,7 @@ export function FriendsList() {
           className="grid grid-cols-[auto_1fr_auto] items-center gap-3 lg:gap-8 rounded-xl bg-zinc-950 p-3 lg:p-4 pointer-events-none"
         >
           <div className="flex items-center gap-2 lg:gap-3">
-            <div className="h-12 w-12 lg:h-20 lg:w-20 overflow-hidden rounded-full">
+            <div className="h-8 w-8 lg:h-16 lg:w-16 overflow-hidden rounded-full">
               <Image
                 src={friend.image}
                 alt={friend.name}
@@ -91,7 +91,7 @@ export function FriendsList() {
               />
             </div>
             <div>
-              <p className="text-lg lg:text-xl font-semibold text-white">
+              <p className="text-base lg:text-lg font-semibold text-white">
                 {friend.name}
               </p>
               <p className="text-xs lg:text-sm text-white/70">{friend.email}</p>
@@ -104,9 +104,9 @@ export function FriendsList() {
             </span>
             <span
               className={
-                (friend.balance.type === "owes_you"
+                friend.balance.type === "owes_you"
                   ? "text-[#53e45d]"
-                  : "text-[#FF4444]")
+                  : "text-[#FF4444]"
               }
             >
               ${friend.balance.amount.toFixed(2)}
