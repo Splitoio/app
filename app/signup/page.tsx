@@ -45,7 +45,13 @@ export default function SignupPage() {
     });
   };
 
-  
+  const handleGoogleSignup = async () => {
+    await authClient.signIn.social({
+      provider: "google",
+      callbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+      errorCallbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+    });
+  };
 
   return (
     <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative">
@@ -192,6 +198,20 @@ export default function SignupPage() {
                   transition-all duration-200 hover:bg-white/5"
                 >
                   Sign up
+                </button>
+              </div>
+
+              <div className="flex justify-center mt-4">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignup}
+                  className="w-full h-[58px] flex items-center justify-center mt-6
+                  bg-[#101012] border border-white/75 rounded-[19px]
+                  text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
+                  transition-all duration-200 hover:bg-white/5"
+                >
+                  {/* <Google className="h-5 w-5 mr-2" /> */}
+                  Sign up with Google
                 </button>
               </div>
 

@@ -25,15 +25,6 @@ export default function Page() {
   );
   const transactions = getTransactionsFromGroups(groups, address);
 
-  const {
-    data: session,
-    isPending, //loading state
-    error, //error object
-    refetch, //refetch the session
-  } = authClient.useSession();
-
-  console.log(session);
-
   return (
     <div>
       <h1 className="text-display text-white capitalize inline-block mb-4 min-[1025px]:mb-8">
