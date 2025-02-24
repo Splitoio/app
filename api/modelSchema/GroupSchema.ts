@@ -1,4 +1,4 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /////////////////////////////////////////
 // GROUP SCHEMA
@@ -13,8 +13,8 @@ export const GroupSchema = z.object({
   defaultCurrency: z.string(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
-})
+});
 
-export type Group = z.infer<typeof GroupSchema>
+export type Group = z.infer<typeof GroupSchema>;
 
 export default GroupSchema;

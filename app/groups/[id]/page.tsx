@@ -7,17 +7,25 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
+import { AddMemberModal } from "@/components/add-member-modal";
+import { useGetGroupById } from "@/features/groups/hooks/use-create-group";
+import { AddExpenseModal } from "@/components/add-expense-modal";
 
 export default function GroupDetailsPage({
     params,
 }: {
     params: { id: string };
 }) {
+    const { data: group, isLoading } = useGetGroupById(params.id);
     const { groups } = useGroups();
     const { address } = useWallet();
     const router = useRouter();
     const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
-    const group = groups.find((g) => g.id === params.id);
+    const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
+    const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
+    // const group = groups.find((g) => g.id === params.id);
+
+    // console.log("groupData", groupData)
 
     if (!group) return null;
 
@@ -30,13 +38,24 @@ export default function GroupDetailsPage({
             <GroupInfoHeader
                 groupId={params.id}
                 onSettleClick={() => setIsSettleModalOpen(true)}
+                onAddExpenseClick={() => setIsAddExpenseModalOpen(true)}
+                group={group}
             />
 
             <div>
                 <div className="flex items-center justify-between mb-6">
                     <h2 className="text-h2 text-white">
-                        Group Members ({group.members.length})
+                        Group Members ({group.groupUsers.length})
                     </h2>
+
+                    <button
+                        onClick={() => setIsAddMemberModalOpen(true)}
+                        className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4  text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                    >
+                        Add Member
+                    </button>
+
+
                 </div>
                 <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent mb-6" />
 
@@ -48,39 +67,41 @@ export default function GroupDetailsPage({
                         <div className="text-right">Status</div>
                     </div>
 
-                    {group.members.map((member) => {
-                        const memberDebts = group.debts.filter(
-                            (debt) => debt.from === member || debt.to === member
-                        );
+                    {group.groupUsers.map((member) => {
+                        // const memberDebts = group.debts.filter(
+                        //     (debt) => debt.from === member || debt.to === member
+                        // );
 
-                        // Calculate how much they owe others
-                        const owe = memberDebts
-                            .filter((debt) => debt.from === member)
-                            .reduce((sum, debt) => sum + debt.amount, 0);
+                        // // Calculate how much they owe others
+                        // const owe = memberDebts
+                        //     .filter((debt) => debt.from === member)
+                        //     .reduce((sum, debt) => sum + debt.amount, 0);
 
-                        // Calculate how much they are owed
-                        const owed = memberDebts
-                            .filter((debt) => debt.to === member)
-                            .reduce((sum, debt) => sum + debt.amount, 0);
+                        // // Calculate how much they are owed
+                        // const owed = memberDebts
+                        //     .filter((debt) => debt.to === member)
+                        //     .reduce((sum, debt) => sum + debt.amount, 0);
+
+                        const owed = 0;
+                        const owe = 0;
 
                         return (
                             <div
-                                key={member}
+                                key={member.user.id}
                                 className="grid grid-cols-4 gap-4 items-center px-2 py-3"
                             >
                                 <div className="flex items-center gap-2">
-                                    <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full">
+                                    <div className="h-8 w-8 sm:h-10 shrink-0 sm:w-10 overflow-hidden rounded-full">
                                         <Image
-                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member}`}
-                                            alt={member}
+                                            src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user.id}`}
+                                            alt={member.user.id}
                                             width={40}
                                             height={40}
                                             className="h-full w-full"
                                         />
                                     </div>
                                     <span className="text-body font-medium text-white">
-                                        {member.slice(0, 5)}...
-                                        {member.slice(-2)}
+                                        {member.user.name}
                                     </span>
                                 </div>
                                 <div className="text-right text-[#FF4444]">
@@ -126,7 +147,7 @@ export default function GroupDetailsPage({
                 <h2 className="text-h2 text-white mb-6">Group Activities</h2>
                 <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent mb-6" />
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {group.debts.map((debt, index) => (
                         <div key={index} className="animate-border-light">
                             <div className="rounded-[24px] bg-[#262627] p-6 min-h-[160px]">
@@ -191,12 +212,22 @@ export default function GroupDetailsPage({
                             </div>
                         </div>
                     ))}
-                </div>
+                </div> */}
             </div>
 
             <SettleDebtsModal
                 isOpen={isSettleModalOpen}
                 onClose={() => setIsSettleModalOpen(false)}
+            />
+
+            <AddMemberModal
+                isOpen={isAddMemberModalOpen}
+                onClose={() => setIsAddMemberModalOpen(false)}
+            />
+
+            <AddExpenseModal
+                isOpen={isAddExpenseModalOpen}
+                onClose={() => setIsAddExpenseModalOpen(false)}
             />
         </div>
     );

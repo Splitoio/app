@@ -8,9 +8,13 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useRouter } from "next/navigation";
+import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
+import dayjs from "dayjs";
 
 export function GroupsList() {
   const { groups, deleteGroup, connectedAddress } = useGroups();
+  const { data: groupsData, isLoading: isGroupsLoading } = useGetAllGroups();
+  
   const [editingId, setEditingId] = useState<string | null>(null);
   const router = useRouter();
 
@@ -47,6 +51,10 @@ export function GroupsList() {
     };
   };
 
+  if (isGroupsLoading || !groupsData) {
+    return <div>Loading...</div>;
+  }
+
   return (
     <motion.div
       className="py-12"
@@ -55,8 +63,8 @@ export function GroupsList() {
       animate="animate"
     >
       <div className="space-y-4">
-        {groups.map((group, index) => {
-          const debtInfo = getMyDebtInfo(group);
+        {groupsData.map((group, index) => {
+          // const debtInfo = getMyDebtInfo(group);
           return (
             <motion.div key={group.id} variants={slideUp} className="relative">
               <Link
@@ -88,12 +96,13 @@ export function GroupsList() {
                       {group.name}
                     </p>
                     <p className="text-[13px] text-white/50">
-                      Created by {group.creator} • {group.date}
+                      Created by {group.createdBy.name} •{" "}
+                      {dayjs(group.createdAt).format("DD/MM/YYYY")}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <div className="text-right">
+                  {/* <div className="text-right">
                     <p className="text-sm text-white/60">
                       {debtInfo.type === "owed" ? "you are owed" : "you owe"}
                     </p>
@@ -106,7 +115,7 @@ export function GroupsList() {
                     >
                       ${debtInfo.amount.toFixed(2)}
                     </p>
-                  </div>
+                  </div> */}
 
                   <div className="relative" data-group-id={group.id}>
                     <button

@@ -20,6 +20,8 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Camera, Loader2 } from "lucide-react";
+import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function CreateGroupPage() {
   const router = useRouter();
@@ -27,6 +29,8 @@ export default function CreateGroupPage() {
   const { isConnected, address, connectWallet } = useWallet();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const mutatation = useCreateGroup()
 
   useEffect(() => {
     if (!isConnected && !address) {
@@ -152,44 +156,51 @@ export default function CreateGroupPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    if (!isConnected || !address) {
-      alert("Please connect your wallet first!");
+    if (!isAuthenticated) {
+      alert("Please sign in first!");
       setIsSubmitting(false);
       return;
     }
 
-    if (formData.splitType === "custom" && !validateSplits()) {
-      alert("The sum of splits must equal the total amount!");
-      setIsSubmitting(false);
-      return;
-    }
+    // if (formData.splitType === "custom" && !validateSplits()) {
+    //   alert("The sum of splits must equal the total amount!");
+    //   setIsSubmitting(false);
+    //   return;
+    // }
 
     let imageUrl = "/group_icon_placeholder.png";
-    if (formData.image) {
-      imageUrl = URL.createObjectURL(formData.image);
-    }
+    // if (formData.image) {
+    //   imageUrl = URL.createObjectURL(formData.image);
+    // }
 
-    const debts = calculateDebts(splits, formData.paidBy);
+    // const debts = calculateDebts(splits, formData.paidBy);
 
-    const newGroup: Group = {
-      id: Date.now().toString(),
-      name: formData.name,
-      image: imageUrl,
-      creator: "You",
-      creatorAddress: address,
-      date: new Date().toLocaleDateString(),
-      amount: Number(formData.amount),
-      paidBy: formData.paidBy,
-      members: formData.members.split(",").map((m) => m.trim()),
-      splits,
-      debts,
-      splitType: formData.splitType as "equal" | "percentage" | "custom",
-      currency: formData.currency as "USD" | "ETH",
-      description: formData.description,
-    };
+    // const newGroup: Group = {
+    //   id: Date.now().toString(),
+    //   name: formData.name,
+    //   image: imageUrl,
+    //   creator: "You",
+    //   creatorAddress: address,
+    //   date: new Date().toLocaleDateString(),
+    //   amount: Number(formData.amount),
+    //   paidBy: formData.paidBy,
+    //   members: formData.members.split(",").map((m) => m.trim()),
+    //   splits,
+    //   debts,
+    //   splitType: formData.splitType as "equal" | "percentage" | "custom",
+    //   currency: formData.currency as "USD" | "ETH",
+    //   description: formData.description,
+    // };
 
-    addGroup(newGroup);
+    // addGroup(newGroup);
     setIsSubmitting(false);
+    await mutatation.mutateAsync({
+      members: formData.members.split(",").map((m) => m.trim()),
+      name: formData.name,
+      currency: formData.currency,
+      description: formData.description,
+      imageUrl: imageUrl,
+    });
     router.push("/groups");
   };
 
@@ -221,7 +232,7 @@ export default function CreateGroupPage() {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
               <div className="space-y-6">
                 <div>
                   <Label htmlFor="group-image" className="text-white">
@@ -294,7 +305,26 @@ export default function CreateGroupPage() {
                   />
                 </div>
 
-                <div>
+                {/* <div>
+                  <Label htmlFor="members" className="text-white">
+                    Members (Email Addresses)
+                  </Label>
+                  <Textarea
+                    id="members"
+                    value={formData.members}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        members: e.target.value,
+                      }))
+                    }
+                    placeholder="Enter email addresses separated by commas"
+                    rows={3}
+                    className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
+                    required
+                  />
+                </div> */}
+                {/* <div>
                   <Label htmlFor="members" className="text-white">
                     Members (Wallet Addresses)
                   </Label>
@@ -312,10 +342,10 @@ export default function CreateGroupPage() {
                     className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
                     required
                   />
-                </div>
+                </div> */}
               </div>
 
-              <div className="space-y-6">
+              {/* <div className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="amount" className="text-white">
@@ -451,10 +481,10 @@ export default function CreateGroupPage() {
                     </SelectContent>
                   </Select>
                 </div>
-              </div>
+              </div> */}
             </div>
 
-            {formData.splitType === "custom" && splits.length > 0 && (
+            {/* {formData.splitType === "custom" && splits.length > 0 && (
               <div className="mt-6 space-y-4">
                 <h3 className="text-lg font-medium">Custom Split</h3>
                 {splits.map((split) => (
@@ -528,15 +558,15 @@ export default function CreateGroupPage() {
                   )}
                 </div>
               </div>
-            )}
+            )} */}
 
             <div className="flex gap-4 pt-4">
               <Button
                 type="submit"
                 className="flex-1 bg-zinc-900 text-white hover:bg-zinc-800"
-                disabled={isSubmitting}
+                disabled={mutatation.isPending}
               >
-                {isSubmitting ? (
+                {mutatation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
