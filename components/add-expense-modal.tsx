@@ -159,7 +159,7 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
     //   return;
     // }
 
-    let imageUrl = "/group_icon_placeholder.png";
+    const imageUrl = "/group_icon_placeholder.png";
     // if (formData.image) {
     //   imageUrl = URL.createObjectURL(formData.image);
     // }

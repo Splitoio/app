@@ -168,7 +168,7 @@ export default function CreateGroupPage() {
     //   return;
     // }
 
-    let imageUrl = "/group_icon_placeholder.png";
+    const imageUrl = "/group_icon_placeholder.png";
     // if (formData.image) {
     //   imageUrl = URL.createObjectURL(formData.image);
     // }
