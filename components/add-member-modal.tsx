@@ -1,15 +1,22 @@
 "use client";
 
+import { useAddMembersToGroup } from "@/features/groups/hooks/use-create-group";
 import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 interface AddMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
+  groupId: string;
 }
 
-export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
+export function AddMemberModal({
+  isOpen,
+  onClose,
+  groupId,
+}: AddMemberModalProps) {
   const [email, setEmail] = useState("");
+  const { mutate: addMembersToGroup } = useAddMembersToGroup();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -54,6 +61,8 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
               <div className="relative">
                 <input
                   type="text"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter name or email address"
                   className="w-full h-12 lg:h-14 bg-[#1F1F23] rounded-2xl pl-4 pr-4 
                   text-base lg:text-lg font-normal text-white 
@@ -66,6 +75,20 @@ export function AddMemberModal({ isOpen, onClose }: AddMemberModalProps) {
 
               <div className="flex justify-end">
                 <button
+                  onClick={() =>
+                    addMembersToGroup(
+                      {
+                        groupId: groupId,
+                        memberIdentifier: email,
+                      },
+                      {
+                        onSuccess: () => onClose(),
+                        onError: (error, variables) => {
+                          alert(error.message);
+                        },
+                      }
+                    )
+                  }
                   className="h-11 lg:h-12 px-6 lg:px-8
                   rounded-2xl bg-white/10 
                   text-sm lg:text-base font-medium text-white 

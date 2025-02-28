@@ -48,7 +48,7 @@ export function Header() {
                   "loading..."
                 ) : user ? (
                   <AddressDisplay
-                    address={user.email}
+                    address={user.email || ""}
                     className="text-white/80 text-base"
                   />
                 ) : (

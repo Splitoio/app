@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  addMembersToGroup,
   addOrEditExpense,
   createGroup,
   ExpensePayload,
@@ -70,5 +71,22 @@ export const useGetGroupById = (groupId: string) => {
   return useQuery({
     queryKey: [QueryKeys.GROUPS, groupId],
     queryFn: () => getGroupById(groupId),
+  });
+};
+
+export const useAddMembersToGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      groupId,
+      memberIdentifier,
+    }: {
+      groupId: string;
+      memberIdentifier: string;
+    }) => addMembersToGroup(groupId, memberIdentifier),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+    },
   });
 };

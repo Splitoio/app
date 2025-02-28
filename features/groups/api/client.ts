@@ -8,6 +8,11 @@ import {
 } from "@/api/modelSchema";
 import { z } from "zod";
 
+export const GenericResponseSchema = z.object({
+  message: z.string(),
+  success: z.boolean(),
+});
+
 export const GetAllGroupsScheama = z.object({
   ...GroupSchema.shape,
 
@@ -64,6 +69,17 @@ export const getAllGroupsWithBalances = async () => {
 export const joinGroup = async (groupId: string) => {
   const response = await apiClient.post(`/groups/join/${groupId}`);
   return GroupSchema.parse(response);
+};
+
+export const addMembersToGroup = async (
+  groupId: string,
+  memberIdentifier: string
+) => {
+  const response = await apiClient.post(`/groups/addMember`, {
+    groupId,
+    memberIdentifier,
+  });
+  return GenericResponseSchema.parse(response);
 };
 
 export interface ExpensePayload {

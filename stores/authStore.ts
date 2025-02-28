@@ -1,4 +1,4 @@
-import { User } from "better-auth/types";
+import { User } from "@/api/modelSchema/UserSchema";
 import { create } from "zustand";
 
 interface AuthState {

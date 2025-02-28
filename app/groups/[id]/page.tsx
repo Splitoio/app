@@ -16,7 +16,8 @@ export default function GroupDetailsPage({
 }: {
     params: { id: string };
 }) {
-    const { data: group, isLoading } = useGetGroupById(params.id);
+    const groupId = params.id;
+    const { data: group, isLoading } = useGetGroupById(groupId);
     const { groups } = useGroups();
     const { address } = useWallet();
     const router = useRouter();
@@ -223,6 +224,7 @@ export default function GroupDetailsPage({
             <AddMemberModal
                 isOpen={isAddMemberModalOpen}
                 onClose={() => setIsAddMemberModalOpen(false)}
+                groupId={groupId}
             />
 
             <AddExpenseModal
