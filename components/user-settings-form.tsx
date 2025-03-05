@@ -9,10 +9,9 @@ import { User } from "@/api/modelSchema/UserSchema";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { UserDetails } from "@/features/user/api/client";
 
-export function UserSettingsForm({user}: {user: User}) {
+export function UserSettingsForm({ user }: { user: User }) {
+  const { mutateAsync: updateUser } = useUpdateUser();
 
-  const {mutateAsync: updateUser} = useUpdateUser();
-  
   const [formData, setFormData] = useState<UserDetails>({
     name: user.name || "",
     image: user.image || "",
@@ -22,14 +21,14 @@ export function UserSettingsForm({user}: {user: User}) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     await updateUser({
       name: formData.name || undefined,
       image: formData.image || undefined,
       stellarAccount: formData.stellarAccount || undefined,
       currency: formData.currency || undefined,
     });
-    
+
     // Show success message
     alert("Profile updated successfully!");
   };
@@ -66,7 +65,9 @@ export function UserSettingsForm({user}: {user: User}) {
                   />
                 ) : (
                   <Image
-                    src={`https://api.dicebear.com/7.x/identicon/svg?seed=${formData.stellarAccount || "user"}`}
+                    src={`https://api.dicebear.com/7.x/identicon/svg?seed=${
+                      formData.stellarAccount || "user"
+                    }`}
                     alt="Profile"
                     width={96}
                     height={96}
@@ -74,7 +75,7 @@ export function UserSettingsForm({user}: {user: User}) {
                   />
                 )}
               </div>
-              <label className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-[#1E1E20] flex items-center justify-center cursor-pointer border border-white/10 hover:bg-white/10 transition-colors">
+              <label className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-[#1E1E20] flex items-center justify-center cursor-pointer border border-white/10 hover:bg-white/10 transition-colors ">
                 <Upload className="h-4 w-4 text-white/70" />
                 <input
                   type="file"
@@ -112,7 +113,10 @@ export function UserSettingsForm({user}: {user: User}) {
               type="text"
               value={formData.stellarAccount}
               onChange={(e) =>
-                setFormData((prev) => ({ ...prev, stellarAccount: e.target.value }))
+                setFormData((prev) => ({
+                  ...prev,
+                  stellarAccount: e.target.value,
+                }))
               }
               className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
                      text-base font-semibold text-white/40 leading-6 border border-white/20"
@@ -139,4 +143,4 @@ export function UserSettingsForm({user}: {user: User}) {
       </div>
     </div>
   );
-} 
+}

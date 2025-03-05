@@ -30,7 +30,7 @@ export default function CreateGroupPage() {
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const mutatation = useCreateGroup()
+  const mutatation = useCreateGroup();
 
   useEffect(() => {
     if (!isConnected && !address) {

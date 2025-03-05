@@ -41,9 +41,8 @@ export const DetailGroupSchema = z.object({
 export type DetailGroup = z.infer<typeof DetailGroupSchema>;
 export const createGroup = async (payload: {
   name: string;
-  currency?: string;
-  members: string[];
   description?: string;
+  currency?: string;
   imageUrl?: string;
 }) => {
   const response = await apiClient.post("/groups", payload);

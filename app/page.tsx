@@ -7,6 +7,7 @@ import { GroupsList } from "@/components/groups-list";
 import { useWallet } from "@/hooks/useWallet";
 import { useGroups } from "@/stores/groups";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
+import { useBalances } from "@/features/balances/hooks/use-balances";
 import {
   calculateBalances,
   getTransactionsFromGroups,
@@ -18,11 +19,20 @@ export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const { isConnected, address } = useWallet();
   const { groups } = useGroups();
+  const { data: balanceData } = useBalances();
 
-  const { totalOwed, totalOwe, netBalance } = calculateBalances(
-    groups,
-    address
-  );
+  // Calculate net balance from API data
+  const netBalance = balanceData?.total || 0;
+  const debts = balanceData?.debts || [];
+
+  const totalOwe = debts
+    .filter((debt) => debt.from === address)
+    .reduce((acc, curr) => acc + Math.abs(curr.amount), 0);
+
+  const totalOwed = debts
+    .filter((debt) => debt.to === address)
+    .reduce((acc, curr) => acc + curr.amount, 0);
+
   const transactions = getTransactionsFromGroups(groups, address);
 
   return (
@@ -68,7 +78,7 @@ export default function Page() {
                 </button>
               </h2>
             </div>
-            <TransactionList transactions={transactions} />
+            <TransactionList currentUserAddress={address} />
           </div>
           <div className="relative z-10">
             <GroupsList />

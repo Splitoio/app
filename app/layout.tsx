@@ -7,6 +7,7 @@ import { MobileMenuProvider } from "@/contexts/mobile-menu";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { usePathname } from "next/navigation";
+import { Toaster } from "sonner";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -42,6 +43,7 @@ export default function RootLayout({
             )}
           </Providers>
         </MobileMenuProvider>
+        <Toaster position="top-right" theme="dark" />
       </body>
     </html>
   );

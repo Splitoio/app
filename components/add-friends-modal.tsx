@@ -1,7 +1,12 @@
 "use client";
 
 import { X } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
+import { toast } from "sonner";
+import { ApiError } from "@/api/client";
+import { ZodError } from "zod";
+import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 
 interface AddFriendsModalProps {
   isOpen: boolean;
@@ -9,6 +14,9 @@ interface AddFriendsModalProps {
 }
 
 export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
+  const [identifier, setIdentifier] = useState("");
+  const { mutate: addFriend, isPending } = useAddFriend();
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -24,6 +32,27 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
       document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
+
+  const handleSubmit = () => {
+    if (!identifier.trim()) return;
+
+    addFriend(identifier.trim(), {
+      onSuccess: (data) => {
+        setIdentifier("");
+        onClose();
+        toast.success(data.message || "Friend added successfully");
+      },
+      onError: (error) => {
+        toast.error(error.message || "Failed to add friend");
+      },
+    });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isPending && identifier.trim()) {
+      handleSubmit();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -52,7 +81,10 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Enter name or email address"
+                  value={identifier}
+                  onChange={(e) => setIdentifier(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Enter email or username"
                   className="w-full h-12 lg:h-14 bg-[#1F1F23] rounded-2xl pl-16 pr-4 
                   text-base lg:text-lg font-normal text-white 
                   border border-white/10 
@@ -70,14 +102,17 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
 
               <div className="flex justify-end">
                 <button
+                  onClick={handleSubmit}
+                  disabled={isPending || !identifier.trim()}
                   className="h-11 lg:h-12 px-6 lg:px-8
                   rounded-2xl bg-white/10 
                   text-sm lg:text-base font-medium text-white 
                   border border-white/10
                   transition-all duration-300
-                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
+                  disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Send Invite
+                  {isPending ? "Adding..." : "Add Friend"}
                 </button>
               </div>
             </div>
