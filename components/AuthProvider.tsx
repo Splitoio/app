@@ -12,7 +12,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       setUser(user);
     }
-  }, [user]);
+  }, [user, setUser]);
 
   return <>{children}</>;
 }

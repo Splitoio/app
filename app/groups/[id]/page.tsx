@@ -10,6 +10,7 @@ import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
 import { useGetGroupById } from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
+import { useGetExpenses } from "@/features/expenses/hooks/use-create-expense";
 
 export default function GroupDetailsPage({
     params,
@@ -24,7 +25,7 @@ export default function GroupDetailsPage({
     const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
-    // const group = groups.find((g) => g.id === params.id);
+    const { data: expense} = useGetExpenses(groupId)    // const group = groups.find((g) => g.id === params.id);
 
     // console.log("groupData", groupData)
 
@@ -149,7 +150,7 @@ export default function GroupDetailsPage({
                 <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent mb-6" />
 
                 {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {group.debts.map((debt, index) => (
+                    {expense?.map((debt: any, index: number) => (
                         <div key={index} className="animate-border-light">
                             <div className="rounded-[24px] bg-[#262627] p-6 min-h-[160px]">
                                 <div className="flex items-start gap-4">
@@ -230,6 +231,8 @@ export default function GroupDetailsPage({
             <AddExpenseModal
                 isOpen={isAddExpenseModalOpen}
                 onClose={() => setIsAddExpenseModalOpen(false)}
+                members={group.groupUsers.map((user) => user.user)}
+                groupId={groupId}
             />
         </div>
     );

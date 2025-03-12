@@ -2,14 +2,11 @@
 
 import type React from "react";
 
-import { useGroups, type Group, type Split, type Debt } from "@/stores/groups";
-import { useRouter } from "next/navigation";
+import { useGroups, type Split, type Debt } from "@/stores/groups";
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -17,98 +14,92 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Camera, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 import { useAuthStore } from "@/stores/authStore";
 import { X } from "lucide-react";
+import { User } from "@/api/modelSchema";
+import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
+  members: User[];
+  groupId: string;
 }
 
-export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
-  const [email, setEmail] = useState("");
-
-  const router = useRouter();
-  const { addGroup, connectedAddress } = useGroups();
-  const { isConnected, address, connectWallet } = useWallet();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+export function AddExpenseModal({
+  isOpen,
+  onClose,
+  members,
+  groupId,
+}: AddExpenseModalProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const mutatation = useCreateGroup();
-
-
 
   const [formData, setFormData] = useState({
     name: "",
     description: "",
     amount: "",
-    members: "",
-    paidBy: "",
     splitType: "equal",
     currency: "USD",
-    image: null as File | null,
   });
 
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
+  const expenseMutation = useCreateExpense(groupId);
 
   useEffect(() => {
-    if (!formData.members || !formData.amount) return;
-
-    const memberAddresses = formData.members.split(",").map((m) => m.trim());
-    const allMembers = [address!, ...memberAddresses].filter(Boolean);
+    const allMembers = members.map((m) => m.id);
 
     let newSplits: Split[] = [];
 
     switch (formData.splitType) {
       case "equal":
         const equalAmount = Number(formData.amount) / allMembers.length;
-        newSplits = allMembers.map((addr) => ({
-          address: addr,
+        newSplits = allMembers.map((id) => ({
+          address: id,
           amount: equalAmount,
         }));
         break;
 
       case "percentage":
         const equalPercentage = 100 / allMembers.length;
-        newSplits = allMembers.map((addr) => ({
-          address: addr,
+        newSplits = allMembers.map((id) => ({
+          address: id,
           amount: (Number(formData.amount) * equalPercentage) / 100,
           percentage: equalPercentage,
         }));
         break;
 
       case "custom":
-        newSplits = allMembers.map((addr) => ({
-          address: addr,
+        newSplits = allMembers.map((id) => ({
+          address: id,
           amount: 0,
         }));
         break;
     }
 
     setSplits(newSplits);
-  }, [formData.members, formData.amount, formData.splitType, address]);
+  }, [members, formData.amount, formData.splitType]);
 
-  const updateCustomSplit = (address: string, amount: number) => {
+  const updateCustomSplit = (id: string, amount: number) => {
     setSplits((current) =>
       current.map((split) =>
-        split.address === address ? { ...split, amount } : split
+        split.address === id ? { ...split, amount } : split
       )
     );
   };
 
-  const updatePercentage = (address: string, percentage: number) => {
+  const updatePercentage = (id: string, percentage: number) => {
     setPercentages((current) => ({
       ...current,
-      [address]: percentage,
+      [id]: percentage,
     }));
 
     setSplits((current) =>
       current.map((split) =>
-        split.address === address
+        split.address === id
           ? {
               ...split,
               amount: (Number(formData.amount) * percentage) / 100,
@@ -145,74 +136,66 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
 
     if (!isAuthenticated) {
       alert("Please sign in first!");
-      setIsSubmitting(false);
       return;
     }
 
-    // if (formData.splitType === "custom" && !validateSplits()) {
-    //   alert("The sum of splits must equal the total amount!");
-    //   setIsSubmitting(false);
-    //   return;
-    // }
+    const memberIds = members.map(m => m.stellarAccount);
+    let shares: number[] = [];
 
-    const imageUrl = "/group_icon_placeholder.png";
-    // if (formData.image) {
-    //   imageUrl = URL.createObjectURL(formData.image);
-    // }
+    switch (formData.splitType) {
+      case "equal":
+        // For equal split, each member gets equal shares (10000 / number of members)
+        const equalShare = Math.floor(10000 / members.length);
+        shares = members.map((_, index) => 
+          index === members.length - 1 
+            ? 10000 - (equalShare * (members.length - 1)) // Last member gets remaining to ensure total is 10000
+            : equalShare
+        );
+        break;
 
-    // const debts = calculateDebts(splits, formData.paidBy);
+      case "percentage":
+        // Convert percentages to shares (multiply by 100 to get basis points)
+        shares = members.map(member => Math.round(percentages[member.id] * 100));
+        break;
 
-    // const newGroup: Group = {
-    //   id: Date.now().toString(),
-    //   name: formData.name,
-    //   image: imageUrl,
-    //   creator: "You",
-    //   creatorAddress: address,
-    //   date: new Date().toLocaleDateString(),
-    //   amount: Number(formData.amount),
-    //   paidBy: formData.paidBy,
-    //   members: formData.members.split(",").map((m) => m.trim()),
-    //   splits,
-    //   debts,
-    //   splitType: formData.splitType as "equal" | "percentage" | "custom",
-    //   currency: formData.currency as "USD" | "ETH",
-    //   description: formData.description,
-    // };
+      case "custom":
+        // Convert amounts to shares based on proportion of total amount
+        const total = splits.reduce((sum, split) => sum + split.amount, 0);
+        shares = splits.map(split => Math.round((split.amount / total) * 10000));
+        break;
+    }
 
-    // addGroup(newGroup);
-    setIsSubmitting(false);
-    await mutatation.mutateAsync({
-      members: formData.members.split(",").map((m) => m.trim()),
-      name: formData.name,
+    expenseMutation.mutate({
+      // @ts-expect-error - TODO: fix this
+      members: memberIds,
+      shares,
+      amount: Number(formData.amount),
       currency: formData.currency,
       description: formData.description,
-      imageUrl: imageUrl,
+    }, {
+      onSuccess: () => {
+        onClose();
+      },
+      onError: (error) => {
+        console.error("Error adding expense:", error);
+      },
     });
-    router.push("/groups");
   };
 
   useEffect(() => {
-    if (address && !formData.paidBy) {
-      setFormData((prev) => ({ ...prev, paidBy: address }));
-    }
-  }, [address, formData.paidBy]);
+    if (formData.splitType !== "percentage") return;
 
-  useEffect(() => {
-    if (!formData.members || formData.splitType !== "percentage") return;
-
-    const memberAddresses = formData.members.split(",").map((m) => m.trim());
-    const allMembers = [address!, ...memberAddresses].filter(Boolean);
+    const allMembers = members.map((m) => m.id);
     const equalPercentage = 100 / allMembers.length;
 
     const initialPercentages = Object.fromEntries(
-      allMembers.map((addr) => [addr, equalPercentage])
+      allMembers.map((id) => [id, equalPercentage])
     );
     setPercentages(initialPercentages);
-  }, [formData.members, formData.splitType, address]);
+  }, [members, formData.splitType]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -257,7 +240,7 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
               <div>
                 <form onSubmit={handleSubmit} className="space-y-8">
                   <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
-                    <div>
+                    {/* <div>
                       <Label htmlFor="members" className="text-white">
                         Members (Email Addresses)
                       </Label>
@@ -275,7 +258,7 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                         className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
                         required
                       />
-                    </div>
+                    </div> */}
 
                     <div className="space-y-6">
                       <div className="grid grid-cols-2 gap-4">
@@ -342,7 +325,30 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                       </div>
 
                       <div>
-                        <Label htmlFor="splitType" className="text-white">Split Type</Label>
+                        <Label htmlFor="amount" className="text-white">
+                          Note
+                        </Label>
+                        <div className="relative mt-2">
+                          <Input
+                            type="text"
+                            id="description"
+                            value={formData.description}
+                            onChange={(e) =>
+                              setFormData((prev) => ({
+                                ...prev,
+                                description: e.target.value,
+                              }))
+                            }
+                            className="bg-zinc-900 border-white/10 text-white"
+                            placeholder="Enter split description"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="splitType" className="text-white">
+                          Split Type
+                        </Label>
                         <Select
                           value={formData.splitType}
                           onValueChange={(value) =>
@@ -381,7 +387,7 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                         </Select>
                       </div>
 
-                      <div>
+                      {/* <div>
                         <Label htmlFor="paidBy" className="text-white">Paid By</Label>
                         <Select
                           value={formData.paidBy || address || ""}
@@ -418,31 +424,34 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                             )}
                           </SelectContent>
                         </Select>
-                      </div>
+                      </div> */}
                     </div>
                   </div>
 
-                  {formData.splitType === "custom" && splits.length > 0 && (
+                  {formData.splitType !== "percentage" && (
                     <div className="mt-6 space-y-4">
-                      <h3 className="text-lg font-medium">Custom Split</h3>
-                      {splits.map((split) => (
+                      {members.map((member) => (
                         <div
-                          key={split.address}
+                          key={member.id}
                           className="flex items-center gap-4"
                         >
                           <span className="text-sm text-muted-foreground w-40 truncate">
-                            {split.address === address ? "You" : split.address}
+                            {member.name}
                           </span>
                           <Input
+                            disabled={formData.splitType === "equal"}
                             type="number"
-                            value={split.amount}
+                            value={
+                              splits.find((s) => s.address === member.id)
+                                ?.amount
+                            }
                             onChange={(e) =>
                               updateCustomSplit(
-                                split.address,
+                                member.id,
                                 Number(e.target.value)
                               )
                             }
-                            className="w-32"
+                            className="w-32 text-white"
                             placeholder="Amount"
                           />
                           <span className="text-sm text-muted-foreground">
@@ -467,24 +476,23 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                     </div>
                   )}
 
-                  {formData.splitType === "percentage" && splits.length > 0 && (
+                  {formData.splitType === "percentage" && (
                     <div className="mt-6 space-y-4">
-                      <h3 className="text-lg font-medium">Percentage Split</h3>
-                      {splits.map((split) => (
+                      {members.map((member) => (
                         <div
-                          key={split.address}
+                          key={member.id}
                           className="flex items-center gap-4"
                         >
                           <span className="text-sm text-muted-foreground w-40 truncate">
-                            {split.address === address ? "You" : split.address}
+                            {member.name}
                           </span>
                           <Input
                             type="number"
-                            value={percentages[split.address] || ""}
+                            value={percentages[member.id] || ""}
                             onChange={(e) => {
                               const value = e.target.value;
                               if (/^\d*$/.test(value) && Number(value) <= 100) {
-                                updatePercentage(split.address, Number(value));
+                                updatePercentage(member.id, Number(value));
                               }
                             }}
                             className="w-32 bg-[#1F1F23] text-white/90"
@@ -520,9 +528,9 @@ export function AddExpenseModal({ isOpen, onClose }: AddExpenseModalProps) {
                     <Button
                       type="submit"
                       className="flex-1 bg-zinc-900 text-white hover:bg-zinc-800"
-                      disabled={mutatation.isPending}
+                      disabled={expenseMutation.isPending}
                     >
-                      {mutatation.isPending ? (
+                      {expenseMutation.isPending ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                           Adding...

@@ -195,7 +195,7 @@ export default function CreateGroupPage() {
     // addGroup(newGroup);
     setIsSubmitting(false);
     await mutatation.mutateAsync({
-      members: formData.members.split(",").map((m) => m.trim()),
+      // members: formData.members.split(",").map((m) => m.trim()),
       name: formData.name,
       currency: formData.currency,
       description: formData.description,
