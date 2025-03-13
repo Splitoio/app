@@ -20,6 +20,11 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Camera, Loader2 } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { createGroup } from "@/features/groups/api/client";
+import Cookies from "js-cookie";
+import { toast } from "sonner";
+import { ApiError } from "@/types/api-error";
 
 export default function CreateGroupPage() {
   const router = useRouter();
