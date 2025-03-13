@@ -4,14 +4,16 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
-
+import { toast } from "sonner";
+import { ApiError } from "@/types/api-error";
 
 export default function SignupPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     phoneNumber: "",
@@ -22,30 +24,59 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    console.log(formData);
-    // signup logic here
-    // router.push("/");
+    if (!formData.agreeToTerms) {
+      toast.error("Please agree to the Privacy & Policy terms");
+      return;
+    }
 
-    const { data, error } = await authClient.signUp.email({
-      email: formData.email, // user email address
-      password: formData.password, // user password -> min 8 characters by default
-      name: formData.email, // user display name
-      callbackURL: "/dashboard" // a url to redirect to after the user verifies their email (optional)
-    }, {
-      onRequest: (ctx) => {
-          //show loading
-      },
-      onSuccess: (ctx) => {
-          //redirect to the dashboard or sign in page
-      },
-      onError: (ctx) => {
-          // display the error message
-          alert(ctx.error.message);
-      },
-    });
+    setIsLoading(true);
+
+    try {
+      const { data, error } = await authClient.signUp.email({
+        email: formData.email,
+        password: formData.password,
+        name: formData.email,
+        callbackURL: "/dashboard",
+      });
+
+      if (error) {
+        toast.error(error.message || "Failed to sign up. Please try again.");
+      } else if (data) {
+        toast.success(
+          "Account created successfully! Please check your email to verify your account."
+        );
+        router.push("/login");
+      }
+    } catch (error) {
+      const apiError = error as ApiError;
+      const statusCode =
+        apiError.response?.status || apiError.status || apiError.code;
+
+      if (statusCode === 409) {
+        toast.error(
+          "Email already in use. Please use a different email or sign in."
+        );
+      } else {
+        toast.error("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  
+  const handleGoogleSignup = async () => {
+    setIsLoading(true);
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+        errorCallbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+      });
+    } catch (error) {
+      toast.error("Failed to sign up with Google. Please try again.");
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="min-h-screen w-full bg-[#101012] flex items-center justify-center relative">
@@ -92,6 +123,7 @@ export default function SignupPage() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     required
+                    disabled={isLoading}
                   />
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                 </div>
@@ -116,6 +148,7 @@ export default function SignupPage() {
                     }}
                     maxLength={10}
                     required
+                    disabled={isLoading}
                   />
                   <div className="absolute left-4 top-0 h-full flex items-center text-white/70">
                     +91
@@ -138,12 +171,14 @@ export default function SignupPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     required
+                    disabled={isLoading}
                   />
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                   <button
                     type="button"
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -174,6 +209,7 @@ export default function SignupPage() {
                     setFormData({ ...formData, agreeToTerms: e.target.checked })
                   }
                   required
+                  disabled={isLoading}
                 />
                 <label htmlFor="terms" className="text-sm text-white/70">
                   I agree with the{" "}
@@ -189,9 +225,32 @@ export default function SignupPage() {
                   className="w-2/4 h-[58px] flex items-center justify-center mt-6
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
-                  transition-all duration-200 hover:bg-white/5"
+                  transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading}
                 >
-                  Sign up
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign up"
+                  )}
+                </button>
+              </div>
+
+              <div className="flex justify-center mt-4">
+                <button
+                  type="button"
+                  onClick={handleGoogleSignup}
+                  className="w-full h-[58px] flex items-center justify-center mt-6
+                  bg-[#101012] border border-white/75 rounded-[19px]
+                  text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
+                  transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign up with Google"
+                  )}
                 </button>
               </div>
 

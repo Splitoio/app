@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
+import { queryClient } from "@/api/client";
+import { QueryClientProvider } from "@tanstack/react-query";
+import { AuthProvider } from "./AuthProvider";
 export function Providers({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -13,5 +15,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
     return null;
   }
 
-  return <>{children}</>;
+  return (
+    <QueryClientProvider client={queryClient}>
+      <AuthProvider>{children}</AuthProvider>
+    </QueryClientProvider>
+  );
 }

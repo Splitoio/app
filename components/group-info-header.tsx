@@ -4,42 +4,51 @@ import { useGroups } from "@/stores/groups";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
+import { DetailGroup } from "@/features/groups/api/client";
 
 export function GroupInfoHeader({
   groupId,
   onSettleClick,
+  group,
+  onAddExpenseClick,
 }: {
   groupId: string;
   onSettleClick: () => void;
+  group: DetailGroup;
+  onAddExpenseClick: () => void;
 }) {
   const { groups } = useGroups();
   const router = useRouter();
   const { address } = useWallet();
-  const group = groups.find((g) => g.id === groupId);
+  // const group = groups.find((g) => g.id === groupId);
 
   if (!group) return null;
 
-  const getMyDebtInfo = () => {
-    if (!address) return { amount: 0, type: "none" };
+  // const getMyDebtInfo = () => {
+  //   if (!address) return { amount: 0, type: "none" };
 
-    // If I'm the payer, find how much others owe me
-    if (group.paidBy === address) {
-      const othersOweMe = group.debts.reduce(
-        (sum, debt) => sum + debt.amount,
-        0
-      );
-      return { amount: othersOweMe, type: "owed" };
-    }
+  //   // If I'm the payer, find how much others owe me
+  //   if (group.paidBy === address) {
+  //     const othersOweMe = group.debts.reduce(
+  //       (sum, debt) => sum + debt.amount,
+  //       0
+  //     );
+  //     return { amount: othersOweMe, type: "owed" };
+  //   }
 
-    // If someone else paid, find how much I owe them
-    const myDebt = group.debts.find((debt) => debt.from === address);
-    return {
-      amount: myDebt?.amount || 0,
-      type: "owe",
-    };
+  //   // If someone else paid, find how much I owe them
+  //   const myDebt = group.debts.find((debt) => debt.from === address);
+  //   return {
+  //     amount: myDebt?.amount || 0,
+  //     type: "owe",
+  //   };
+  // };
+
+  // const debtInfo = getMyDebtInfo();
+  const debtInfo = {
+    amount: 100,
+    type: "owed",
   };
-
-  const debtInfo = getMyDebtInfo();
 
   return (
     <div className="mb-8">
@@ -76,7 +85,7 @@ export function GroupInfoHeader({
         </div>
         <div className="flex flex-col gap-3 -mt-2">
           <button
-            onClick={() => router.push(`/groups/${groupId}/edit`)}
+            onClick={onAddExpenseClick}
             className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
           >
             <Image

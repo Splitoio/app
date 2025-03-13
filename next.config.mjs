@@ -7,6 +7,10 @@ const nextConfig = {
         hostname: "api.dicebear.com",
         pathname: "/7.x/**",
       },
+      {
+        hostname: "**",
+        pathname: "**",
+      },
     ],
     dangerouslyAllowSVG: true,
     contentDispositionType: "attachment",

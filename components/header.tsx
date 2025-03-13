@@ -1,20 +1,25 @@
 "use client";
 
-import { Menu, Wallet } from "lucide-react";
+import { Menu, User, Wallet } from "lucide-react";
 import { useMobileMenu } from "@/contexts/mobile-menu";
-import { useWallet } from "@/hooks/useWallet";
+// import { useWallet } from "@/hooks/useWallet";
 import { AddressDisplay } from "@/components/address-display";
 import Image from "next/image";
 
+import { useAuthStore } from "@/stores/authStore";
+
 export function Header() {
   const { isOpen, toggle } = useMobileMenu();
-  const { isConnected, isConnecting, address, connectWallet } = useWallet();
+  // const { isConnected, isConnecting, address, connectWallet } = useWallet();
 
-  const handleWalletClick = () => {
-    if (!isConnected) {
-      connectWallet();
-    }
-  };
+  // const handleWalletClick = () => {
+  //   if (!isConnected) {
+  //     connectWallet();
+  //   }
+  // };
+
+  const { user, isAuthenticated, isLoading } = useAuthStore();
+
 
   return (
     <div className="fixed left-0 right-0 top-0 z-10 min-[1025px]:pl-[220px]">
@@ -29,30 +34,34 @@ export function Header() {
 
           <div className="flex flex-1 items-center justify-end gap-2 lg:gap-4">
             <button
-              onClick={handleWalletClick}
-              disabled={isConnecting}
+              onClick={() => {
+                if (!isAuthenticated) {
+                  window.location.href = '/login';
+                }
+              }}
+              disabled={isLoading}
               className="group relative flex h-9 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-6 text-xs font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
             >
-              <Wallet className="h-6 w-6 opacity-70" strokeWidth={1.2} />
+              <User className="h-6 w-6 opacity-70" strokeWidth={1.2} />
               <span className="hidden sm:inline">
-                {isConnecting ? (
-                  "Connecting..."
-                ) : isConnected && address ? (
+                {isLoading ? (
+                  "loading..."
+                ) : user ? (
                   <AddressDisplay
-                    address={address}
+                    address={user.email || ""}
                     className="text-white/80 text-base"
                   />
                 ) : (
-                  "Connect Wallet"
+                  "Sign in"
                 )}
               </span>
             </button>
 
-            {isConnected && address && (
+            {isAuthenticated && user && (
               <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
                 <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
                   <Image
-                    src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address}`}
+                    src={`https://api.dicebear.com/7.x/identicon/svg?seed=${user.email}`}
                     alt="Profile"
                     width={48}
                     height={48}
