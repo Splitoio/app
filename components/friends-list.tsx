@@ -4,9 +4,31 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
+import { toast } from "sonner";
+import { useEffect } from "react";
+import { ApiError } from "@/types/api-error";
 
 export function FriendsList() {
-  const { data: friends, isLoading } = useGetFriends();
+  const { data: friends, isLoading, error } = useGetFriends();
+  const router = useRouter();
+
+  useEffect(() => {
+    if (error) {
+      const apiError = error as ApiError;
+      const statusCode =
+        apiError.response?.status || apiError.status || apiError.code;
+
+      if (statusCode === 401) {
+        Cookies.remove("sessionToken");
+        router.push("/login");
+        toast.error("Session expired. Please log in again.");
+      } else if (error) {
+        toast.error("An unexpected error occurred.");
+      }
+    }
+  }, [error, router]);
 
   if (isLoading) {
     return (

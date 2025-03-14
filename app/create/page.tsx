@@ -10,18 +10,14 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Camera, Loader2 } from "lucide-react";
-import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
+import Cookies from "js-cookie";
+import { toast } from "sonner";
+import { ApiError } from "@/types/api-error";
 import { useAuthStore } from "@/stores/authStore";
+import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 
 export default function CreateGroupPage() {
   const router = useRouter();
@@ -29,7 +25,9 @@ export default function CreateGroupPage() {
   const { isConnected, address, connectWallet } = useWallet();
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isAuthenticated = useAuthStore(
+    (state: { isAuthenticated: boolean }) => state.isAuthenticated
+  );
   const mutatation = useCreateGroup();
 
   useEffect(() => {
@@ -193,15 +191,29 @@ export default function CreateGroupPage() {
     // };
 
     // addGroup(newGroup);
-    setIsSubmitting(false);
-    await mutatation.mutateAsync({
-      // members: formData.members.split(",").map((m) => m.trim()),
-      name: formData.name,
-      currency: formData.currency,
-      description: formData.description,
-      imageUrl: imageUrl,
-    });
-    router.push("/groups");
+    try {
+      await mutatation.mutateAsync({
+        name: formData.name,
+        currency: formData.currency,
+        description: formData.description,
+        imageUrl: imageUrl,
+      });
+      router.push("/groups");
+    } catch (error: any) {
+      const apiError = error as ApiError;
+      const statusCode =
+        apiError.response?.status || apiError.status || apiError.code;
+
+      if (statusCode === 401) {
+        Cookies.remove("sessionToken");
+        router.push("/login");
+        toast.error("Session expired. Please log in again.");
+      } else {
+        toast.error("An error occurred. Please try again.");
+      }
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   useEffect(() => {

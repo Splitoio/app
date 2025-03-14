@@ -4,13 +4,16 @@ import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Eye, EyeOff, Mail, Lock } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
+import { toast } from "sonner";
+import { ApiError } from "@/types/api-error";
 
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -18,23 +21,48 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // login logic here
+    setIsLoading(true);
 
-    const { data, error } = await authClient.signIn.email({
-      email: formData.email,
-      password: formData.password,
-      callbackURL: "/",
-    });
+    try {
+      const { data, error } = await authClient.signIn.email({
+        email: formData.email,
+        password: formData.password,
+        callbackURL: "/",
+      });
 
-    console.log(data, error);
+      if (error) {
+        toast.error(error.message || "Failed to sign in. Please try again.");
+      } else if (data) {
+        toast.success("Signed in successfully!");
+        router.push("/");
+      }
+    } catch (error) {
+      const apiError = error as ApiError;
+      const statusCode =
+        apiError.response?.status || apiError.status || apiError.code;
+
+      if (statusCode === 401) {
+        toast.error("Invalid email or password. Please try again.");
+      } else {
+        toast.error("An unexpected error occurred. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleGoogleLogin = async () => {
-    await authClient.signIn.social({
-      provider: "google",
-      callbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
-      errorCallbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
-    });
+    setIsLoading(true);
+    try {
+      await authClient.signIn.social({
+        provider: "google",
+        callbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+        errorCallbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+      });
+    } catch (error) {
+      toast.error("Failed to sign in with Google. Please try again.");
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -82,6 +110,7 @@ export default function LoginPage() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     required
+                    disabled={isLoading}
                   />
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                 </div>
@@ -102,12 +131,14 @@ export default function LoginPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     required
+                    disabled={isLoading}
                   />
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                   <button
                     type="button"
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -130,9 +161,14 @@ export default function LoginPage() {
                   className="w-2/4 h-[58px] flex items-center justify-center mt-6
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
-                  transition-all duration-200 hover:bg-white/5"
+                  transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading}
                 >
-                  Sign in
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign in"
+                  )}
                 </button>
               </div>
 
@@ -143,10 +179,14 @@ export default function LoginPage() {
                   className="w-full h-[58px] flex items-center justify-center mt-6
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
-                  transition-all duration-200 hover:bg-white/5"
+                  transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled={isLoading}
                 >
-                  {/* <Google className="h-5 w-5 mr-2" /> */}
-                  Sign in with Google
+                  {isLoading ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Sign in with Google"
+                  )}
                 </button>
               </div>
 

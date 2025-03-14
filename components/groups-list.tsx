@@ -12,6 +12,9 @@ import { getAllGroups } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import dayjs from "dayjs";
+import Cookies from "js-cookie";
+import { toast } from "sonner";
+import { ApiError } from "@/types/api-error";
 
 type APIGroup = {
   id: string;
@@ -20,8 +23,8 @@ type APIGroup = {
   description: string | null;
   image: string | null;
   defaultCurrency: string;
-  createdAt: Date; 
-  updatedAt: Date; 
+  createdAt: Date;
+  updatedAt: Date;
   createdBy: {
     id: string;
     name: string;
@@ -30,13 +33,33 @@ type APIGroup = {
 
 export function GroupsList() {
   const { groups, deleteGroup, connectedAddress } = useGroups();
-  const { data: groupsData, isLoading: isGroupsLoading } = useQuery({
+  const {
+    data: groupsData,
+    isLoading: isGroupsLoading,
+    error,
+  } = useQuery({
     queryKey: [QueryKeys.GROUPS],
     queryFn: getAllGroups,
   });
+  const router = useRouter();
+
+  useEffect(() => {
+    if (error) {
+      const apiError = error as ApiError;
+      const statusCode =
+        apiError.response?.status || apiError.status || apiError.code;
+
+      if (statusCode === 401) {
+        Cookies.remove("sessionToken");
+        router.push("/login");
+        toast.error("Session expired. Please log in again.");
+      } else if (error) {
+        toast.error("An unexpected error occurred.");
+      }
+    }
+  }, [error, router]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
-  const router = useRouter();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -52,24 +75,6 @@ export function GroupsList() {
       document.removeEventListener("click", handleClickOutside);
     };
   }, []);
-
-  const getMyDebtInfo = (group: Group) => {
-    if (!connectedAddress) return { amount: 0, type: "none" };
-
-    if (group.paidBy === connectedAddress) {
-      const othersOweMe = group.debts.reduce(
-        (sum, debt) => sum + debt.amount,
-        0
-      );
-      return { amount: othersOweMe, type: "owed" };
-    }
-
-    const myDebt = group.debts.find((debt) => debt.from === connectedAddress);
-    return {
-      amount: myDebt?.amount || 0,
-      type: "owe",
-    };
-  };
 
   if (isGroupsLoading || !groupsData) {
     return (

@@ -1,6 +1,11 @@
 import { Check, X } from "lucide-react";
 import Image from "next/image";
 import { useBalances } from "@/features/balances/hooks/use-balances";
+import Cookies from "js-cookie";
+import { toast } from "sonner";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { ApiError } from "@/types/api-error";
 
 type Debt = {
   amount: number;
@@ -13,8 +18,26 @@ type TransactionListProps = {
 };
 
 export function TransactionList({ currentUserAddress }: TransactionListProps) {
-  const { data: balanceData } = useBalances();
+  const { data: balanceData, error } = useBalances();
+  const router = useRouter();
   const debts = balanceData?.debts || [];
+
+  useEffect(() => {
+    if (error) {
+      // Cast error to ApiError type
+      const apiError = error as ApiError;
+      const statusCode =
+        apiError.response?.status || apiError.status || apiError.code;
+
+      if (statusCode === 401) {
+        Cookies.remove("sessionToken");
+        router.push("/login");
+        toast.error("Session expired. Please log in again.");
+      } else if (error) {
+        toast.error("An unexpected error occurred.");
+      }
+    }
+  }, [error, router]);
 
   if (!currentUserAddress || debts.length === 0) {
     return (
