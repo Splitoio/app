@@ -199,7 +199,7 @@ export default function CreateGroupPage() {
         imageUrl: imageUrl,
       });
       router.push("/groups");
-    } catch (error: any) {
+    } catch (error) {
       const apiError = error as ApiError;
       const statusCode =
         apiError.response?.status || apiError.status || apiError.code;
