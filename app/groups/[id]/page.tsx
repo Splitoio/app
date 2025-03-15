@@ -30,7 +30,6 @@ export default function GroupDetailsPage({
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
-  const { data: expense } = useGetExpenses(groupId); // const group = groups.find((g) => g.id === params.id);
 
   // console.log("groupData", groupData)
 
