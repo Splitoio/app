@@ -100,7 +100,7 @@ export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }
 
   const debtors = balances?.filter(item => item.amount > 0).map(item => ({
     address: item.userId,
-    name: members.find(member => member.id === item.userId)?.name!,
+    name: members.find(member => member.id === item.userId)?.name || "Unknown",
     amount: item.amount,
   }));
 
