@@ -11,6 +11,7 @@ import { AddMemberModal } from "@/components/add-member-modal";
 import { useGetGroupById } from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
 import { useGetExpenses } from "@/features/expenses/hooks/use-create-expense";
+import { useAuthStore } from "@/stores/authStore";
 
 export default function GroupDetailsPage({
     params,
@@ -21,15 +22,19 @@ export default function GroupDetailsPage({
     const { data: group, isLoading } = useGetGroupById(groupId);
     const { groups } = useGroups();
     const { address } = useWallet();
+    const { user } = useAuthStore();
     const router = useRouter();
     const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
     const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
     const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
-    const { data: expense} = useGetExpenses(groupId)    // const group = groups.find((g) => g.id === params.id);
+
+    // const { data: expense} = useGetExpenses(groupId)    // const group = groups.find((g) => g.id === params.id);
 
     // console.log("groupData", groupData)
 
     if (!group) return null;
+    
+    const expenses = group?.expenses;
 
     return (
         <div className="w-full space-y-8">
@@ -83,9 +88,11 @@ export default function GroupDetailsPage({
                         // const owed = memberDebts
                         //     .filter((debt) => debt.to === member)
                         //     .reduce((sum, debt) => sum + debt.amount, 0);
-
-                        const owed = 0;
-                        const owe = 0;
+                        const balances = group?.groupBalances.filter((balance) => balance.userId === member.user.id);
+                        const owedBalance = balances?.filter((balance) => balance.amount > 0);
+                        const oweBalance = balances?.filter((balance) => balance.amount < 0);
+                        const owed = Math.abs(owedBalance?.reduce((sum, balance) => sum + balance.amount, 0));
+                        const owe = Math.abs(oweBalance?.reduce((sum, balance) => sum + balance.amount, 0));
 
                         return (
                             <div
@@ -103,7 +110,7 @@ export default function GroupDetailsPage({
                                         />
                                     </div>
                                     <span className="text-body font-medium text-white">
-                                        {member.user.name}
+                                        {member.user.id === user?.id ? "You" : member.user.name}
                                     </span>
                                 </div>
                                 <div className="text-right text-[#FF4444]">
@@ -148,6 +155,74 @@ export default function GroupDetailsPage({
             <div>
                 <h2 className="text-h2 text-white mb-6">Group Activities</h2>
                 <div className="h-px bg-gradient-to-r from-transparent via-white/15 to-transparent mb-6" />
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {expenses?.map((debt, index: number) => {
+                        const paidBy = group?.groupUsers.find((user) => user.user.id === debt.paidBy)?.user!;
+                        return (
+                        <div key={index} className="animate-border-light">
+                            <div className="rounded-[24px] bg-[#262627] p-6 min-h-[160px]">
+                                <div className="flex items-start gap-4">
+                                    <Image
+                                        src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${paidBy.id}`}
+                                        alt={paidBy.name!}
+                                        width={48}
+                                        height={48}
+                                        className="h-12 w-12 rounded-full"
+                                    />
+                                    <div className="flex-1">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <h3 className="text-h3 text-white font-medium">
+                                                {paidBy?.name}
+                                            </h3>
+                                            <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-[#07091E]/50">
+                                                <div className="h-1.5 w-1.5 rounded-full bg-[#FFC107]" />
+                                                <span className="text-body-sm text-[#FFC107]">
+                                                    Pending
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <p className="text-h3">
+                                                {paidBy.id === user?.id ? (
+                                                    <>
+                                                        <span className="text-[#FF4444] font-semibold">
+                                                            you owe
+                                                        </span>{" "}
+                                                        <span className="text-[#FF4444] font-semibold">
+                                                            ${debt.amount}
+                                                        </span>
+                                                    </>
+                                                ) : paidBy.id === user?.id ? (
+                                                    <>
+                                                        <span className="text-[#53e45d] font-semibold">
+                                                            owes you
+                                                        </span>{" "}
+                                                        <span className="text-[#53e45d] font-semibold">
+                                                            ${debt.amount}
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <span className="text-white/70 font-semibold">
+                                                            owes
+                                                        </span>{" "}
+                                                        <span className="text-white/70 font-semibold">
+                                                            ${debt.amount}
+                                                        </span>
+                                                    </>
+                                                )}
+                                            </p>
+                                            <p className="text-body-sm text-white/50">
+                                                {debt.name}
+                                            </p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )})}
+                </div>
 
                 {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {expense?.map((debt: any, index: number) => (

@@ -142,47 +142,56 @@ export function AddExpenseModal({
       return;
     }
 
-    const memberIds = members.map(m => m.stellarAccount);
+    const memberIds = members.map(m => m.id);
     let shares: number[] = [];
+    let splitType = "EQUAL";
 
     switch (formData.splitType) {
       case "equal":
-        // For equal split, each member gets equal shares (10000 / number of members)
-        const equalShare = Math.floor(10000 / members.length);
+        // For equal split, each member gets equal amount
+        const equalAmount = Number(formData.amount) / members.length;
         shares = members.map((_, index) => 
           index === members.length - 1 
-            ? 10000 - (equalShare * (members.length - 1)) // Last member gets remaining to ensure total is 10000
-            : equalShare
+            ? Number(formData.amount) - (equalAmount * (members.length - 1)) // Last member gets remaining to ensure total matches
+            : equalAmount
         );
+        splitType = "EQUAL";
         break;
 
       case "percentage":
-        // Convert percentages to shares (multiply by 100 to get basis points)
-        shares = members.map(member => Math.round(percentages[member.id] * 100));
+        // Convert percentages to actual amounts
+        shares = members.map(member => {
+          const percentage = percentages[member.id] || 0;
+          return (percentage / 100) * Number(formData.amount);
+        });
+        splitType = "PERCENTAGE";
         break;
 
       case "custom":
-        // Convert amounts to shares based on proportion of total amount
-        const total = splits.reduce((sum, split) => sum + split.amount, 0);
-        shares = splits.map(split => Math.round((split.amount / total) * 10000));
+        // Use the exact amounts from splits
+        shares = splits.map(split => split.amount);
+        splitType = "EXACT";
         break;
     }
 
     expenseMutation.mutate({
-      // @ts-expect-error - TODO: fix this
-      members: memberIds,
-      shares,
+      category: "OTHER",
+      name: formData.description,
+      participants: memberIds.map((id, index) => ({
+        userId: id,
+        amount: shares[index],
+      })),
+      splitType: splitType,
       amount: Number(formData.amount),
       currency: formData.currency,
-      description: formData.description,
-    }, {
+    },{
       onSuccess: () => {
         onClose();
       },
       onError: (error) => {
         console.error("Error adding expense:", error);
       },
-    });
+    })
   };
 
   useEffect(() => {

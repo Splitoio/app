@@ -18,16 +18,23 @@ import { z } from "zod";
 export const createExpense = async (
   groupId: string,
   payload: {
-    // paidBy: string;
+    // paidBy: string;w
     // name: string;
     // category: string;
-    amount: number;
+    // amount: number;
     // splitType: string;
-    currency: string;
+    // currency: string;
     // participants: Array<{ userId: string; amount: number }>;
-    description: string;
-    members: Array<string>;
-    shares: Array<number>;
+    // description: string;
+    // members: Array<string>;
+    // shares: Array<number>;
+
+    name: string;
+    category: string;
+    amount: number;
+    splitType: string;
+    currency: string;
+    participants: Array<{ userId: string; amount: number }>;
   }
 ) => {
   const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
