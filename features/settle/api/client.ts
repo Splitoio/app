@@ -34,8 +34,11 @@ export const settleWithEveryone = async (
 
     console.log("Signed tx", signedTx);
 
+    console.log(payload);
+
     const submitTx = await apiClient.post("/groups/settleWithEveryone/submit", {
       signedTx: signedTx.signedTxXdr,
+      groupId: payload.groupId,
     });
 
     return submitTx.data;

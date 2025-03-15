@@ -30,7 +30,7 @@ export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }
 
   console.log(balances);
 
-  const totalOwe = balances.filter(item => item.amount > 0).reduce((acc, expense) => {
+  const totalOwe = balances?.filter(item => item.amount > 0).reduce((acc, expense) => {
     return acc + expense.amount;
   }, 0);
 
