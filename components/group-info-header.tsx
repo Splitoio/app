@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
+import { Loader2 } from "lucide-react";
+import { useState } from "react";
 
 export function GroupInfoHeader({
   groupId,
@@ -20,6 +22,9 @@ export function GroupInfoHeader({
   const { groups } = useGroups();
   const router = useRouter();
   const { address } = useWallet();
+  const [isAddingExpense, setIsAddingExpense] = useState(false);
+  const [isSettling, setIsSettling] = useState(false);
+
   // const group = groups.find((g) => g.id === groupId);
 
   if (!group) return null;
@@ -48,6 +53,20 @@ export function GroupInfoHeader({
   const debtInfo = {
     amount: 100,
     type: "owed",
+  };
+
+  const handleAddExpenseClick = () => {
+    setIsAddingExpense(true);
+    onAddExpenseClick();
+    // Reset state after a delay to handle animation
+    setTimeout(() => setIsAddingExpense(false), 500);
+  };
+
+  const handleSettleClick = () => {
+    setIsSettling(true);
+    onSettleClick();
+    // Reset state after a delay to handle animation
+    setTimeout(() => setIsSettling(false), 500);
   };
 
   return (
@@ -85,23 +104,48 @@ export function GroupInfoHeader({
         </div>
         <div className="flex flex-col gap-3 -mt-2">
           <button
-            onClick={onAddExpenseClick}
-            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+            onClick={handleAddExpenseClick}
+            disabled={isAddingExpense}
+            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <Image
-              src={"/addExpenseIcon.svg"}
-              alt="Add"
-              width={20}
-              height={20}
-            />
-            Add Expense
+            {isAddingExpense ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Image
+                  src={"/addExpenseIcon.svg"}
+                  alt="Add"
+                  width={20}
+                  height={20}
+                />
+                Add Expense
+              </>
+            )}
           </button>
           <button
-            onClick={onSettleClick}
-            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 !pl-1 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+            onClick={handleSettleClick}
+            disabled={isSettling}
+            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 !pl-1 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] disabled:opacity-70 disabled:cursor-not-allowed"
           >
-            <Image src={"/moneySend.svg"} alt="Settle" width={20} height={20} />
-            Settle Debts
+            {isSettling ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Settling...
+              </>
+            ) : (
+              <>
+                <Image
+                  src={"/moneySend.svg"}
+                  alt="Settle"
+                  width={20}
+                  height={20}
+                />
+                Settle Debts
+              </>
+            )}
           </button>
         </div>
       </div>

@@ -21,6 +21,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { X } from "lucide-react";
 import { User } from "@/api/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
+import { toast } from "sonner";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -138,11 +139,21 @@ export function AddExpenseModal({
     e.preventDefault();
 
     if (!isAuthenticated) {
-      alert("Please sign in first!");
+      toast.error("Please sign in first!");
       return;
     }
 
     const memberIds = members.map(m => m.id);
+    if (!formData.amount || Number(formData.amount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+
     let shares: number[] = [];
     let splitType = "EQUAL";
 
@@ -186,9 +197,14 @@ export function AddExpenseModal({
       currency: formData.currency,
     },{
       onSuccess: () => {
+        toast.success("Expense added successfully");
+
         onClose();
       },
       onError: (error) => {
+        toast.error(
+          error.message || "Failed to add expense. Please try again."
+        );
         console.error("Error adding expense:", error);
       },
     })
@@ -292,6 +308,7 @@ export function AddExpenseModal({
                               className="pl-8 bg-zinc-900 border-white/10 text-white"
                               placeholder="0.00"
                               required
+                              disabled={expenseMutation.isPending}
                             />
                           </div>
                         </div>
@@ -350,6 +367,7 @@ export function AddExpenseModal({
                             }
                             className="bg-zinc-900 border-white/10 text-white"
                             placeholder="Enter split description"
+                            disabled={expenseMutation.isPending}
                           />
                         </div>
                       </div>

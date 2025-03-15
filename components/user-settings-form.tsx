@@ -3,14 +3,15 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import Image from "next/image";
-import { Upload } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { User } from "@/api/modelSchema/UserSchema";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { UserDetails } from "@/features/user/api/client";
+import { toast } from "sonner";
 
 export function UserSettingsForm({ user }: { user: User }) {
-  const { mutateAsync: updateUser } = useUpdateUser();
+  const { mutateAsync: updateUser, isPending } = useUpdateUser();
 
   const [formData, setFormData] = useState<UserDetails>({
     name: user.name || "",
@@ -22,15 +23,19 @@ export function UserSettingsForm({ user }: { user: User }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    await updateUser({
-      name: formData.name || undefined,
-      image: formData.image || undefined,
-      stellarAccount: formData.stellarAccount || undefined,
-      currency: formData.currency || undefined,
-    });
+    try {
+      await updateUser({
+        name: formData.name || undefined,
+        image: formData.image || undefined,
+        stellarAccount: formData.stellarAccount || undefined,
+        currency: formData.currency || undefined,
+      });
 
-    // Show success message
-    alert("Profile updated successfully!");
+      // Show success message
+      toast.success("Profile updated successfully!");
+    } catch (error) {
+      toast.error("Failed to update profile. Please try again.");
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -82,6 +87,7 @@ export function UserSettingsForm({ user }: { user: User }) {
                   accept="image/*"
                   className="hidden"
                   onChange={handleImageChange}
+                  disabled={isPending}
                 />
               </label>
             </div>
@@ -101,6 +107,7 @@ export function UserSettingsForm({ user }: { user: User }) {
               className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4 
                      text-base font-semibold text-white/40 leading-6 border border-white/20"
               placeholder="Enter your name"
+              disabled={isPending}
             />
           </div>
 
@@ -121,6 +128,7 @@ export function UserSettingsForm({ user }: { user: User }) {
               className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
                      text-base font-semibold text-white/40 leading-6 border border-white/20"
               placeholder="Enter your Stellar account address"
+              disabled={isPending}
             />
             <p className="text-sm text-white/40">
               This is the address that will be used for transactions
@@ -133,9 +141,19 @@ export function UserSettingsForm({ user }: { user: User }) {
                 type="submit"
                 className="w-[234.68px] h-[55.64px] bg-[#101012] rounded-[18.24px] 
                        text-xl font-semibold text-white leading-8 
-                       tracking-[-0.03em] hover:bg-white/5 transition-colors"
+                       tracking-[-0.03em] hover:bg-white/5 transition-colors
+                       disabled:opacity-70 disabled:cursor-not-allowed
+                       flex items-center justify-center gap-2"
+                disabled={isPending}
               >
-                Save Changes
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  "Save Changes"
+                )}
               </button>
             </div>
           </div>

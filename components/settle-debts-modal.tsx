@@ -1,16 +1,17 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Loader2, ChevronDown } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { useGroups } from "@/stores/groups";
 import { calculateBalances } from "@/utils/calculations";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
-
+import { toast } from "sonner";
 import Image from "next/image";
 import { Expense, GroupBalance, User } from "@/api/modelSchema";
 import { useSettleWithEveryone, useSettleWithOne } from "@/features/settle/hooks/use-splits";
+import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 
 interface SettleDebtsModalProps {
   isOpen: boolean;
@@ -20,36 +21,67 @@ interface SettleDebtsModalProps {
   members: User[]
 }
 
-export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }: SettleDebtsModalProps) {
-  const { groups } = useGroups();
-  const { address, connectWallet, disconnectWallet, isConnected, isConnecting } = useWallet();
+// export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }: SettleDebtsModalProps) {
+//   const { groups } = useGroups();
+//   const { address, connectWallet, disconnectWallet, isConnected, isConnecting } = useWallet();
 
+//   const settleWithOneMutation = useSettleWithOne(groupId);
+//   const settleWithEveryoneMutation = useSettleWithEveryone(groupId);
+//   // const { totalOwe } = calculateBalances(groups, address);
+
+//   console.log(balances);
+
+//   const totalOwe = balances?.filter(item => item.amount > 0).reduce((acc, expense) => {
+//     return acc + expense.amount;
+//   }, 0);
+
+//   async function handleSettleOne() {
+//     if (!isConnected) {
+//       await connectWallet();
+//     }
+//     if (!address) return;
+//     // settleWithOneMutation.mutate({
+//     //   groupId,
+//     //   address,
+//     // });
+//     console.log("Settle one");
+//   }
+
+//   function handleSettleEveryone() {
+//     console.log("Settle everyone");
+
+   
+//     if (!address) return;
+
+//     settleWithEveryoneMutation.mutate({
+//       groupId,
+//       address,
+//     });
+//   }
+
+interface DebtorInfo {
+  address: string;
+  name: string;
+  amount: number;
+}
+
+interface Debt {
+  from: string;
+  to: string;
+  amount: number;
+}
+
+export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }: SettleDebtsModalProps) {
   const settleWithOneMutation = useSettleWithOne(groupId);
   const settleWithEveryoneMutation = useSettleWithEveryone(groupId);
-  // const { totalOwe } = calculateBalances(groups, address);
-
-  console.log(balances);
 
   const totalOwe = balances?.filter(item => item.amount > 0).reduce((acc, expense) => {
     return acc + expense.amount;
   }, 0);
 
-  async function handleSettleOne() {
-    if (!isConnected) {
-      await connectWallet();
-    }
-    if (!address) return;
-    // settleWithOneMutation.mutate({
-    //   groupId,
-    //   address,
-    // });
-    console.log("Settle one");
-  }
-
   function handleSettleEveryone() {
     console.log("Settle everyone");
 
-   
     if (!address) return;
 
     settleWithEveryoneMutation.mutate({
@@ -58,22 +90,59 @@ export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }
     });
   }
 
+  const { address, connectWallet, disconnectWallet, isConnected, isConnecting } = useWallet();
 
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
 
-    if (isOpen) {
-      document.addEventListener("keydown", handleEscape);
-      document.body.style.overflow = "hidden";
+  const [isSettlingOne, setIsSettlingOne] = useState(false);
+  const [isSettlingAll, setIsSettlingAll] = useState(false);
+  const [showDebtorsList, setShowDebtorsList] = useState(false);
+  const [selectedDebtor, setSelectedDebtor] = useState<DebtorInfo | null>(null);
+
+  const debtors = balances?.filter(item => item.amount > 0).map(item => ({
+    address: item.userId,
+    name: members.find(member => member.id === item.userId)?.name!,
+    amount: item.amount,
+  }));
+
+  useHandleEscapeToCloseModal(isOpen, onClose);
+
+  const handleSettleOne = async () => {
+    if (!selectedDebtor) {
+      setShowDebtorsList(!showDebtorsList);
+      return;
     }
 
-    return () => {
-      document.removeEventListener("keydown", handleEscape);
-      document.body.style.overflow = "unset";
-    };
-  }, [isOpen, onClose]);
+    setIsSettlingOne(true);
+    try {
+      // Implement settle one logic here
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulating API call
+      toast.success(`Successfully settled debt with ${selectedDebtor.name}`);
+      onClose();
+    } catch (error) {
+      toast.error("Failed to settle debt. Please try again.");
+    } finally {
+      setIsSettlingOne(false);
+    }
+  };
+
+  const handleSettleAll = async () => {
+    setIsSettlingAll(true);
+    try {
+      // Implement settle all logic here
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Simulating API call
+      toast.success("Successfully settled all debts");
+      onClose();
+    } catch (error) {
+      toast.error("Failed to settle debts. Please try again.");
+    } finally {
+      setIsSettlingAll(false);
+    }
+  };
+
+  const selectDebtor = (debtor: DebtorInfo) => {
+    setSelectedDebtor(debtor);
+    setShowDebtorsList(false);
+  };
 
   return (
     <AnimatePresence>
@@ -123,34 +192,86 @@ export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }
                     {isConnected && address ? "Disconnect Wallet" : "Connect Wallet"}
                   </motion.button>
 
-                  {isConnected && address && <div className="space-y-2">
+                  <div className="relative">
                     <motion.button
+                      whileHover={{ scale: isSettlingOne ? 1 : 1.02 }}
+                      whileTap={{ scale: isSettlingOne ? 1 : 0.98 }}
+                      className="w-full h-[42px] rounded-[15px] bg-[#1F1F23] text-sm font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
                       onClick={handleSettleOne}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full h-[42px] rounded-[15px] bg-[#1F1F23] text-sm font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2"
+                      disabled={isSettlingOne || isSettlingAll}
                     >
-                      <Image
-                        src={"/settleOne.svg"}
-                        alt="Settle One"
-                        width={20}
-                        height={20}
-                      />
-                      Settle with one
+                      {isSettlingOne ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Image
+                          src={"/settleOne.svg"}
+                          alt="Settle One"
+                          width={20}
+                          height={20}
+                        />
+                      )}
+                      {isSettlingOne
+                        ? "Processing..."
+                        : selectedDebtor
+                        ? `Settle with ${
+                            selectedDebtor.name
+                          } ($${selectedDebtor.amount.toFixed(2)})`
+                        : "Settle with one"}
+                      {!isSettlingOne && !selectedDebtor && (
+                        <ChevronDown
+                          className={`h-4 w-4 transition-transform ${
+                            showDebtorsList ? "rotate-180" : ""
+                          }`}
+                        />
+                      )}
                     </motion.button>
-                    <motion.button
-                    onClick={handleSettleEveryone}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      className="w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2"
-                    >
+
+                    {/* Dropdown for selecting a person to settle with */}
+                    {showDebtorsList && debtors.length > 0 && (
+                      <div className="absolute top-full left-0 w-full mt-1 bg-[#1F1F23] rounded-[15px] border border-white/10 overflow-hidden z-10">
+                        {debtors.map((debtor, index) => (
+                          <button
+                            key={debtor.address}
+                            className="w-full px-4 py-3 text-left text-white hover:bg-white/10 flex items-center justify-between border-b border-white/5 last:border-b-0"
+                            onClick={() => selectDebtor(debtor)}
+                          >
+                            <span>{debtor.name}</span>
+                            <span className="text-[#FF4444]">
+                              ${debtor.amount.toFixed(2)}
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {showDebtorsList && debtors.length === 0 && (
+                      <div className="absolute top-full left-0 w-full mt-1 bg-[#1F1F23] rounded-[15px] border border-white/10 overflow-hidden z-10">
+                        <div className="px-4 py-3 text-white/70 text-center">
+                          No debts to settle
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <motion.button
+                    whileHover={{ scale: isSettlingAll ? 1 : 1.02 }}
+                    whileTap={{ scale: isSettlingAll ? 1 : 0.98 }}
+                    className="w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
+                    onClick={handleSettleAll}
+                    disabled={isSettlingOne || isSettlingAll || totalOwe <= 0}
+                  >
+                    {isSettlingAll ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : (
                       <Image
                         src={"/settleEveryone.svg"}
                         alt="Settle Everyone"
                         width={20}
                         height={20}
                       />
-                      Settle with everyone{" "}
+                    )}
+                    {isSettlingAll ? "Processing..." : "Settle with everyone"}{" "}
+                    {!isSettlingAll && (
                       <span
                         className={
                           totalOwe > 0 ? "text-[#FF4444]" : "text-[#53e45d]"
@@ -158,13 +279,14 @@ export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }
                       >
                         (${totalOwe.toFixed(2)})
                       </span>
+                    )}
                     </motion.button>
-                  </div>}
                 </div>
               </div>
             </motion.div>
           </div>
         </motion.div>
+        
       )}
     </AnimatePresence>
   );
