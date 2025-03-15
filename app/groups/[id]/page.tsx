@@ -297,6 +297,8 @@ export default function GroupDetailsPage({
                 isOpen={isSettleModalOpen}
                 onClose={() => setIsSettleModalOpen(false)}
                 balances={group.groupBalances.filter((balance) => balance.userId === user.id)}
+                groupId={groupId}
+                members={group.groupUsers.map((user) => user.user)}
             />
 
             <AddMemberModal
@@ -311,6 +313,7 @@ export default function GroupDetailsPage({
                 members={group.groupUsers.map((user) => user.user)}
                 groupId={groupId}
             />
+
         </div>
     );
 }

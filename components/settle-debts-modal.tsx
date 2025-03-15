@@ -9,90 +9,23 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 
 import Image from "next/image";
-import { Expense, GroupBalance } from "@/api/modelSchema";
+import { Expense, GroupBalance, User } from "@/api/modelSchema";
+import { useSettleWithEveryone, useSettleWithOne } from "@/features/settle/hooks/use-splits";
 
 interface SettleDebtsModalProps {
   isOpen: boolean;
   onClose: () => void;
   balances: GroupBalance[];
+  groupId: string;
+  members: User[]
 }
 
-
-// const WalletConnect = () => {
-//   const [publicKey, setPublicKey] = useState<string | null>(null);
-//   const [usdAmount, setUsdAmount] = useState("");
-//   const [xlmAmount, setXlmAmount] = useState("");
-//   const [xlmPrice, setXlmPrice] = useState<number | null>(null);
-
-//   const { address, connectWallet, disconnectWallet, isConnected, isConnecting } = useWallet();
-
-
-//   // Fetch real-time XLM price
-//   useEffect(() => {
-//     fetch("https://api.coingecko.com/api/v3/simple/price?ids=stellar&vs_currencies=usd")
-//       .then(res => res.json())
-//       .then(data => setXlmPrice(data.stellar.usd));
-//   }, []);
-
-//   const convertUsdToXlm = () => {
-//     if (!xlmPrice) return;
-//     setXlmAmount((parseFloat(usdAmount) / xlmPrice).toFixed(2));
-//   };
-
-//   const sendPayment = async () => {
-//     if (!publicKey || !xlmAmount) return alert("Enter amount & connect wallet");
-
-//     const response = await fetch("/api/create-transaction", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({
-//         senderPublicKey: publicKey,
-//         payments: [{ recipient: "GXYZ123...", amount: xlmAmount, assetCode: "XLM" }],
-//       }),
-//     });
-
-//     const { xdr } = await response.json();
-//     if (!xdr) return alert("Error creating transaction");
-
-//     // User signs the transaction
-//     const signedTx = await wallet.signTransaction(xdr, "TESTNET");
-
-//     // Submit signed transaction
-//     await fetch("/api/submit-transaction", {
-//       method: "POST",
-//       headers: { "Content-Type": "application/json" },
-//       body: JSON.stringify({ signedTx }),
-//     });
-
-//     alert("Transaction submitted!");
-//   };
-
-//   return (
-//     <div>
-//       <button onClick={async () => setPublicKey(await wallet.connect())}>
-//         {publicKey ? "Connected" : "Connect Wallet"}
-//       </button>
-      
-//       <input
-//         type="number"
-//         placeholder="Enter USD amount"
-//         value={usdAmount}
-//         onChange={(e) => setUsdAmount(e.target.value)}
-//       />
-      
-//       <button onClick={convertUsdToXlm}>Convert</button>
-//       <p>XLM Amount: {xlmAmount}</p>
-
-//       <button onClick={sendPayment} disabled={!publicKey || !xlmAmount}>
-//         Send Payment
-//       </button>
-//     </div>
-//   );
-// };
-
-export function SettleDebtsModal({ isOpen, onClose, balances }: SettleDebtsModalProps) {
+export function SettleDebtsModal({ isOpen, onClose, balances, groupId, members }: SettleDebtsModalProps) {
   const { groups } = useGroups();
   const { address, connectWallet, disconnectWallet, isConnected, isConnecting } = useWallet();
+
+  const settleWithOneMutation = useSettleWithOne(groupId);
+  const settleWithEveryoneMutation = useSettleWithEveryone(groupId);
   // const { totalOwe } = calculateBalances(groups, address);
 
   console.log(balances);
@@ -106,11 +39,23 @@ export function SettleDebtsModal({ isOpen, onClose, balances }: SettleDebtsModal
       await connectWallet();
     }
     if (!address) return;
+    // settleWithOneMutation.mutate({
+    //   groupId,
+    //   address,
+    // });
     console.log("Settle one");
   }
 
   function handleSettleEveryone() {
     console.log("Settle everyone");
+
+   
+    if (!address) return;
+
+    settleWithEveryoneMutation.mutate({
+      groupId,
+      address,
+    });
   }
 
 

@@ -20,24 +20,28 @@ type WalletStore = {
     address: string | null;
   }) => void;
   disconnect: () => void;
+  wallet: StellarWalletsKit | null;
+  setWallet: (wallet: StellarWalletsKit) => void;
 };
 
-const useWalletStore = create<WalletStore>()(
-  persist(
-    (set) => ({
-      isConnected: false,
-      address: null,
-      setWalletState: (state) => set(state),
-      disconnect: () => set({ isConnected: false, address: null }),
-    }),
-    {
-      name: "wallet-storage",
-    }
-  )
-);
+const useWalletStore = create<WalletStore>()((set) => ({
+  isConnected: false,
+  address: null,
+  wallet: null,
+  setWalletState: (state) => set(state),
+  disconnect: () => set({ isConnected: false, address: null }),
+  setWallet: (wallet) => set({ wallet }),
+}));
 
 export function useWallet() {
-  const { isConnected, address, setWalletState, disconnect } = useWalletStore();
+  const {
+    isConnected,
+    address,
+    setWalletState,
+    disconnect,
+    wallet,
+    setWallet,
+  } = useWalletStore();
   const [isConnecting, setIsConnecting] = useState(false);
   const { setConnectedAddress } = useGroups();
 
@@ -59,6 +63,8 @@ export function useWallet() {
         onWalletSelected: async (option: ISupportedWallet) => {
           try {
             kit.setWallet(option.id);
+            setWallet(kit);
+
             const response = await kit.getAddress();
             const walletAddress =
               typeof response === "object" && response !== null
@@ -92,5 +98,7 @@ export function useWallet() {
     isConnecting,
     connectWallet,
     disconnectWallet,
+    wallet,
+    setWallet,
   };
 }
