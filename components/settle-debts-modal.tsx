@@ -41,7 +41,7 @@ export function SettleDebtsModal({
 
   const settleWithList = toPay
     .map((item) => {
-      const member = members.find((member) => member.id === item.userId);
+      const member = members.find((member) => member.id === item.firendId);
 
       if (!member) {
         return null;
