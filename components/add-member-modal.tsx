@@ -1,8 +1,9 @@
 "use client";
 
 import { useAddMembersToGroup } from "@/features/groups/hooks/use-create-group";
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -16,7 +17,7 @@ export function AddMemberModal({
   groupId,
 }: AddMemberModalProps) {
   const [email, setEmail] = useState("");
-  const { mutate: addMembersToGroup } = useAddMembersToGroup();
+  const { mutate: addMembersToGroup, isPending } = useAddMembersToGroup();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -33,6 +34,36 @@ export function AddMemberModal({
       document.body.style.overflow = "unset";
     };
   }, [isOpen, onClose]);
+
+  const handleAddMember = () => {
+    if (!email.trim()) {
+      toast.error("Please enter an email address");
+      return;
+    }
+
+    addMembersToGroup(
+      {
+        groupId: groupId,
+        memberIdentifier: email.trim(),
+      },
+      {
+        onSuccess: () => {
+          toast.success("Member added successfully");
+          setEmail("");
+          onClose();
+        },
+        onError: (error) => {
+          toast.error(error.message || "Failed to add member");
+        },
+      }
+    );
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && !isPending && email.trim()) {
+      handleAddMember();
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -63,6 +94,7 @@ export function AddMemberModal({
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  onKeyDown={handleKeyDown}
                   placeholder="Enter name or email address"
                   className="w-full h-12 lg:h-14 bg-[#1F1F23] rounded-2xl pl-4 pr-4 
                   text-base lg:text-lg font-normal text-white 
@@ -70,33 +102,31 @@ export function AddMemberModal({
                   transition-all duration-300
                   placeholder:text-white/30
                   focus:outline-none focus:border-white/20 focus:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                  disabled={isPending}
                 />
               </div>
 
               <div className="flex justify-end">
                 <button
-                  onClick={() =>
-                    addMembersToGroup(
-                      {
-                        groupId: groupId,
-                        memberIdentifier: email,
-                      },
-                      {
-                        onSuccess: () => onClose(),
-                        onError: (error, variables) => {
-                          alert(error.message);
-                        },
-                      }
-                    )
-                  }
+                  onClick={handleAddMember}
+                  disabled={isPending || !email.trim()}
                   className="h-11 lg:h-12 px-6 lg:px-8
                   rounded-2xl bg-white/10 
                   text-sm lg:text-base font-medium text-white 
                   border border-white/10
                   transition-all duration-300
-                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
+                  disabled:opacity-70 disabled:cursor-not-allowed
+                  flex items-center justify-center gap-2"
                 >
-                  Add Member
+                  {isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Member"
+                  )}
                 </button>
               </div>
             </div>

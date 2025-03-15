@@ -21,6 +21,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { X } from "lucide-react";
 import { User } from "@/api/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
+import { toast } from "sonner";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -138,51 +139,72 @@ export function AddExpenseModal({
     e.preventDefault();
 
     if (!isAuthenticated) {
-      alert("Please sign in first!");
+      toast.error("Please sign in first!");
       return;
     }
 
-    const memberIds = members.map(m => m.stellarAccount);
+    if (!formData.amount || Number(formData.amount) <= 0) {
+      toast.error("Please enter a valid amount");
+      return;
+    }
+
+    if (!formData.description.trim()) {
+      toast.error("Please enter a description");
+      return;
+    }
+
+    const memberIds = members.map((m) => m.stellarAccount);
     let shares: number[] = [];
 
     switch (formData.splitType) {
       case "equal":
         // For equal split, each member gets equal shares (10000 / number of members)
         const equalShare = Math.floor(10000 / members.length);
-        shares = members.map((_, index) => 
-          index === members.length - 1 
-            ? 10000 - (equalShare * (members.length - 1)) // Last member gets remaining to ensure total is 10000
+        shares = members.map((_, index) =>
+          index === members.length - 1
+            ? 10000 - equalShare * (members.length - 1) // Last member gets remaining to ensure total is 10000
             : equalShare
         );
         break;
 
       case "percentage":
         // Convert percentages to shares (multiply by 100 to get basis points)
-        shares = members.map(member => Math.round(percentages[member.id] * 100));
+        shares = members.map((member) =>
+          Math.round(percentages[member.id] * 100)
+        );
         break;
 
       case "custom":
         // Convert amounts to shares based on proportion of total amount
         const total = splits.reduce((sum, split) => sum + split.amount, 0);
-        shares = splits.map(split => Math.round((split.amount / total) * 10000));
+        shares = splits.map((split) =>
+          Math.round((split.amount / total) * 10000)
+        );
         break;
     }
 
-    expenseMutation.mutate({
-      // @ts-expect-error - TODO: fix this
-      members: memberIds,
-      shares,
-      amount: Number(formData.amount),
-      currency: formData.currency,
-      description: formData.description,
-    }, {
-      onSuccess: () => {
-        onClose();
+    expenseMutation.mutate(
+      {
+        // @ts-expect-error - TODO: fix this
+        members: memberIds,
+        shares,
+        amount: Number(formData.amount),
+        currency: formData.currency,
+        description: formData.description,
       },
-      onError: (error) => {
-        console.error("Error adding expense:", error);
-      },
-    });
+      {
+        onSuccess: () => {
+          toast.success("Expense added successfully");
+          onClose();
+        },
+        onError: (error) => {
+          toast.error(
+            error.message || "Failed to add expense. Please try again."
+          );
+          console.error("Error adding expense:", error);
+        },
+      }
+    );
   };
 
   useEffect(() => {
@@ -283,6 +305,7 @@ export function AddExpenseModal({
                               className="pl-8 bg-zinc-900 border-white/10 text-white"
                               placeholder="0.00"
                               required
+                              disabled={expenseMutation.isPending}
                             />
                           </div>
                         </div>
@@ -341,6 +364,7 @@ export function AddExpenseModal({
                             }
                             className="bg-zinc-900 border-white/10 text-white"
                             placeholder="Enter split description"
+                            disabled={expenseMutation.isPending}
                           />
                         </div>
                       </div>
