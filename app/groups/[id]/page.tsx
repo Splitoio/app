@@ -159,7 +159,9 @@ export default function GroupDetailsPage({
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {expenses?.map((debt, index: number) => {
-                        const paidBy = group?.groupUsers.find((user) => user.user.id === debt.paidBy)?.user!;
+                        const paidBy = group?.groupUsers.find((user) => user.user.id === debt.paidBy)?.user;
+
+                        if (!paidBy) return null;
                         return (
                         <div key={index} className="animate-border-light">
                             <div className="rounded-[24px] bg-[#262627] p-6 min-h-[160px]">

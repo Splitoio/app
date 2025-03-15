@@ -89,10 +89,10 @@ export default function Page() {
         </div>
       </div>
 
-      <SettleDebtsModal
+      {/* <SettleDebtsModal
         isOpen={isSettleModalOpen}
         onClose={() => setIsSettleModalOpen(false)}
-      />
+      /> */}
     </div>
   );
 }
