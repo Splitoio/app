@@ -10,7 +10,7 @@ import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
 import { useGetGroupById } from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
-import { useGetExpenses } from "@/features/expenses/hooks/use-create-expense";
+
 import { useAuthStore } from "@/stores/authStore";
 
 export default function GroupDetailsPage({
@@ -33,6 +33,7 @@ export default function GroupDetailsPage({
     // console.log("groupData", groupData)
 
     if (!group) return null;
+    if (!user) return null;
     
     const expenses = group?.expenses;
 
@@ -295,6 +296,7 @@ export default function GroupDetailsPage({
             <SettleDebtsModal
                 isOpen={isSettleModalOpen}
                 onClose={() => setIsSettleModalOpen(false)}
+                balances={group.groupBalances.filter((balance) => balance.userId === user.id)}
             />
 
             <AddMemberModal
