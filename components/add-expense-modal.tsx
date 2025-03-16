@@ -22,6 +22,8 @@ import { X } from "lucide-react";
 import { User } from "@/api/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { QueryKeys } from "@/lib/constants";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -37,6 +39,7 @@ export function AddExpenseModal({
   groupId,
 }: AddExpenseModalProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const queryClient = useQueryClient();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -143,7 +146,7 @@ export function AddExpenseModal({
       return;
     }
 
-    const memberIds = members.map(m => m.id);
+    const memberIds = members.map((m) => m.id);
     if (!formData.amount || Number(formData.amount) <= 0) {
       toast.error("Please enter a valid amount");
       return;
@@ -161,9 +164,9 @@ export function AddExpenseModal({
       case "equal":
         // For equal split, each member gets equal amount
         const equalAmount = Number(formData.amount) / members.length;
-        shares = members.map((_, index) => 
-          index === members.length - 1 
-            ? Number(formData.amount) - (equalAmount * (members.length - 1)) // Last member gets remaining to ensure total matches
+        shares = members.map((_, index) =>
+          index === members.length - 1
+            ? Number(formData.amount) - equalAmount * (members.length - 1) // Last member gets remaining to ensure total matches
             : equalAmount
         );
         splitType = "EQUAL";
@@ -171,7 +174,7 @@ export function AddExpenseModal({
 
       case "percentage":
         // Convert percentages to actual amounts
-        shares = members.map(member => {
+        shares = members.map((member) => {
           const percentage = percentages[member.id] || 0;
           return (percentage / 100) * Number(formData.amount);
         });
@@ -180,34 +183,47 @@ export function AddExpenseModal({
 
       case "custom":
         // Use the exact amounts from splits
-        shares = splits.map(split => split.amount);
+        shares = splits.map((split) => split.amount);
         splitType = "EXACT";
         break;
     }
 
-    expenseMutation.mutate({
-      category: "OTHER",
-      name: formData.description,
-      participants: memberIds.map((id, index) => ({
-        userId: id,
-        amount: shares[index],
-      })),
-      splitType: splitType,
-      amount: Number(formData.amount),
-      currency: formData.currency,
-    },{
-      onSuccess: () => {
-        toast.success("Expense added successfully");
+    expenseMutation.mutate(
+      {
+        category: "OTHER",
+        name: formData.description,
+        participants: memberIds.map((id, index) => ({
+          userId: id,
+          amount: shares[index],
+        })),
+        splitType: splitType,
+        amount: Number(formData.amount),
+        currency: formData.currency,
+      },
+      {
+        onSuccess: () => {
+          toast.success("Expense added successfully");
 
-        onClose();
-      },
-      onError: (error) => {
-        toast.error(
-          error.message || "Failed to add expense. Please try again."
-        );
-        console.error("Error adding expense:", error);
-      },
-    })
+          // refetch the specific group data
+          queryClient.invalidateQueries({
+            queryKey: [QueryKeys.GROUPS, groupId],
+          });
+
+          // refetch the general groups list and balances
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+
+          onClose();
+        },
+        onError: (error) => {
+          toast.error(
+            error.message || "Failed to add expense. Please try again."
+          );
+          console.error("Error adding expense:", error);
+        },
+      }
+    );
   };
 
   useEffect(() => {

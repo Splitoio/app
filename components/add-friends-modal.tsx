@@ -1,12 +1,14 @@
 "use client";
 
-import { X } from "lucide-react";
+import { X, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
 import { toast } from "sonner";
 import { ApiError } from "@/api/client";
 import { ZodError } from "zod";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
+import { useQueryClient } from "@tanstack/react-query";
+import { QueryKeys } from "@/lib/constants";
 
 interface AddFriendsModalProps {
   isOpen: boolean;
@@ -16,6 +18,7 @@ interface AddFriendsModalProps {
 export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
   const [identifier, setIdentifier] = useState("");
   const { mutate: addFriend, isPending } = useAddFriend();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -39,6 +42,10 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
     addFriend(identifier.trim(), {
       onSuccess: (data) => {
         setIdentifier("");
+
+        // refetch friends data
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.FRIENDS] });
+
         onClose();
         toast.success(data.message || "Friend added successfully");
       },
@@ -91,6 +98,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
                   transition-all duration-300
                   placeholder:text-white/30
                   focus:outline-none focus:border-white/20 focus:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                  disabled={isPending}
                 />
                 <span
                   className="absolute left-6 top-1/2 -translate-y-1/2 
@@ -110,9 +118,17 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
                   border border-white/10
                   transition-all duration-300
                   hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
-                  disabled:opacity-50 disabled:cursor-not-allowed"
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                  flex items-center justify-center gap-2"
                 >
-                  {isPending ? "Adding..." : "Add Friend"}
+                  {isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    "Add Friend"
+                  )}
                 </button>
               </div>
             </div>

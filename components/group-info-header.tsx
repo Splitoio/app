@@ -7,6 +7,8 @@ import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import { QueryKeys } from "@/lib/constants";
 
 export function GroupInfoHeader({
   groupId,
@@ -24,6 +26,7 @@ export function GroupInfoHeader({
   const { address } = useWallet();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
+  const queryClient = useQueryClient();
 
   // const group = groups.find((g) => g.id === groupId);
 
@@ -65,8 +68,18 @@ export function GroupInfoHeader({
   const handleSettleClick = () => {
     setIsSettling(true);
     onSettleClick();
-    // Reset state after a delay to handle animation
-    setTimeout(() => setIsSettling(false), 500);
+
+    // Refetch data after settling debts
+    setTimeout(() => {
+      // refetch the specific group data
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, groupId] });
+
+      // refetch the general groups list and balances
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+
+      setIsSettling(false);
+    }, 500);
   };
 
   return (
