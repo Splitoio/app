@@ -15,6 +15,8 @@ import {
 import { authClient } from "@/lib/auth";
 import Image from "next/image";
 import { Loader2 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { QueryKeys } from "@/lib/constants";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -22,6 +24,7 @@ export default function Page() {
   const { isConnected, address } = useWallet();
   const { groups } = useGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
+  const queryClient = useQueryClient();
 
   // Calculate net balance from API data
   const netBalance = balanceData?.total || 0;
@@ -40,8 +43,15 @@ export default function Page() {
   const handleSettleClick = () => {
     setIsSettling(true);
     setIsSettleModalOpen(true);
-    // Reset state after a delay to handle animation
-    setTimeout(() => setIsSettling(false), 500);
+
+    // Refetch data after settling debts
+    setTimeout(() => {
+      // Refetch balances and groups data
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+
+      setIsSettling(false);
+    }, 500);
   };
 
   return (

@@ -10,6 +10,8 @@ import Image from "next/image";
 import { GroupBalance, User } from "@/api/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
+import { useQueryClient } from "@tanstack/react-query";
+import { QueryKeys } from "@/lib/constants";
 
 interface SettleDebtsModalProps {
   isOpen: boolean;
@@ -29,6 +31,7 @@ export function SettleDebtsModal({
   const { address, connectWallet, disconnectWallet, isConnected } = useWallet();
   const [showDebtorsList, setShowDebtorsList] = useState(false);
   const settleDebtMutation = useSettleDebt(groupId);
+  const queryClient = useQueryClient();
   useHandleEscapeToCloseModal(isOpen, onClose);
 
   const totalOwe = balances
@@ -69,6 +72,16 @@ export function SettleDebtsModal({
       {
         onSuccess: () => {
           toast.success(`Successfully settled debt with ${settleWith.name}`);
+
+          // refetch the specific group data
+          queryClient.invalidateQueries({
+            queryKey: [QueryKeys.GROUPS, groupId],
+          });
+
+          // refetch the general groups list and balances
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+
           onClose();
         },
       }
@@ -88,6 +101,15 @@ export function SettleDebtsModal({
       },
       {
         onSuccess: () => {
+          // refetch the specific group data
+          queryClient.invalidateQueries({
+            queryKey: [QueryKeys.GROUPS, groupId],
+          });
+
+          // refetch the general groups list and balances
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+
           onClose();
           toast.success("Successfully settled all debts");
         },
