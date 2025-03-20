@@ -1,20 +1,14 @@
 import { apiClient } from "@/api/client";
 import { UserSchema } from "@/api/modelSchema";
 import { z } from "zod";
+import { UpdateUserResponseSchema } from "../schemas";
 
-export const UpdateUserSchema = z.object({
-  name: z.string().optional(),
-  currency: z.string().optional(),
-  stellarAccount: z.string().optional(),
-  image: z.string().optional(),
-});
-
-export type UserDetails = z.infer<typeof UpdateUserSchema>;
+export type UserDetails = z.infer<typeof UpdateUserResponseSchema>;
 
 export const updateUser = async (payload: UserDetails) => {
-  const parsedPayload = UpdateUserSchema.parse(payload);
+  const parsedPayload = UpdateUserResponseSchema.parse(payload);
   const response = await apiClient.patch("/users/profile", parsedPayload);
-  return UserSchema.parse(response);
+  return UpdateUserResponseSchema.parse(response);
 };
 
 export const getUser = async () => {
