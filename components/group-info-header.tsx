@@ -1,6 +1,5 @@
 "use client";
 
-import { useGroups } from "@/stores/groups";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
@@ -21,14 +20,11 @@ export function GroupInfoHeader({
   group: DetailGroup;
   onAddExpenseClick: () => void;
 }) {
-  const { groups } = useGroups();
   const router = useRouter();
   const { address } = useWallet();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
-
-  // const group = groups.find((g) => g.id === groupId);
 
   if (!group) return null;
 

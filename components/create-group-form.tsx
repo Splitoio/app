@@ -1,14 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useGroups } from "@/stores/groups";
 import { useWallet } from "@/hooks/useWallet";
 import { ChevronDown } from "lucide-react";
+import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
+import { useRouter } from "next/navigation";
 
 export function CreateGroupForm() {
-  const { addGroup } = useGroups();
   const { address } = useWallet();
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const createGroupMutation = useCreateGroup();
+  const router = useRouter();
 
   const [formData, setFormData] = useState({
     name: "",
@@ -24,29 +26,22 @@ export function CreateGroupForm() {
       return;
     }
 
-    const newGroup = {
-      id: Date.now().toString(),
-      name: formData.name,
-      image: "/group_icon_placeholder.png",
-      creator: "You",
-      creatorAddress: address,
-      date: new Date().toLocaleDateString(),
-      amount: 0,
-      paidBy: address,
-      members: formData.members.split(",").map((m) => m.trim()),
-      splits: [],
-      debts: [],
-      splitType: "equal" as const,
-      currency: "USD" as const,
-      description: formData.description,
-    };
-
-    addGroup(newGroup);
-    setFormData({
-      name: "",
-      members: "",
-      description: "",
-    });
+    createGroupMutation.mutate(
+      {
+        name: formData.name,
+        description: formData.description || undefined,
+      },
+      {
+        onSuccess: (data) => {
+          setFormData({
+            name: "",
+            members: "",
+            description: "",
+          });
+          router.push(`/groups/${data.id}`);
+        },
+      }
+    );
   };
 
   const toggleDropdown = () => {
@@ -139,8 +134,9 @@ export function CreateGroupForm() {
                 className="w-[234.68px] h-[55.64px] bg-[#101012] rounded-[18.24px] 
                        text-xl font-semibold text-white leading-8 
                        tracking-[-0.03em] hover:bg-white/5 transition-colors"
+                disabled={createGroupMutation.isPending}
               >
-                Create Group
+                {createGroupMutation.isPending ? "Creating..." : "Create Group"}
               </button>
             </div>
           </div>

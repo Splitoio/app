@@ -1,26 +1,37 @@
-import { type Group } from "@/stores/groups";
-
-export function calculateBalances(groups: Group[], userAddress: string | null) {
+export function calculateBalances(groups: any[], userAddress: string | null) {
   if (!userAddress) return { totalOwed: 0, totalOwe: 0, netBalance: 0 };
 
   let totalOwed = 0;
   let totalOwe = 0;
 
   groups.forEach((group) => {
-    if (group.paidBy === userAddress) {
-      // If I paid, sum up what others owe me from the debts
-      const othersOweMe = group.debts.reduce(
-        (sum, debt) => sum + debt.amount,
+    // Skip if the group doesn't have the required data
+    if (!group.groupBalances) return;
+
+    // Find the user's balance in this group
+    const myBalances = group.groupBalances.filter(
+      (balance: any) => balance.userId === userAddress
+    );
+
+    // Add up positive balances (money owed to the user)
+    const positiveBalances = myBalances.filter(
+      (balance: any) => balance.amount > 0
+    );
+    totalOwed += positiveBalances.reduce(
+      (sum: number, balance: any) => sum + balance.amount,
+      0
+    );
+
+    // Add up negative balances (money the user owes)
+    const negativeBalances = myBalances.filter(
+      (balance: any) => balance.amount < 0
+    );
+    totalOwe += Math.abs(
+      negativeBalances.reduce(
+        (sum: number, balance: any) => sum + balance.amount,
         0
-      );
-      totalOwed += othersOweMe;
-    } else {
-      // If someone else paid, find what I owe them from the debts
-      const myDebt = group.debts.find((debt) => debt.from === userAddress);
-      if (myDebt) {
-        totalOwe += myDebt.amount;
-      }
-    }
+      )
+    );
   });
 
   const netBalance = totalOwed - totalOwe;
@@ -28,7 +39,7 @@ export function calculateBalances(groups: Group[], userAddress: string | null) {
 }
 
 export function getTransactionsFromGroups(
-  groups: Group[],
+  groups: any[],
   userAddress: string | null
 ) {
   if (!userAddress) return [];
@@ -42,36 +53,51 @@ export function getTransactionsFromGroups(
   }[] = [];
 
   groups.forEach((group) => {
-    if (group.paidBy === userAddress) {
-      // Add transactions for people who owe me
-      group.debts.forEach((debt) => {
-        transactions.push({
-          id: `${group.id}-${debt.from}`,
-          user: {
-            name: debt.from.slice(0, 6) + "..." + debt.from.slice(-4),
-            image: "/placeholder-user.jpg",
-          },
-          amount: debt.amount,
-          type: "owed",
-          date: group.date,
+    // Skip if expenses don't exist in the group
+    if (!group.expenses) return;
+
+    group.expenses.forEach((expense: any) => {
+      // Skip if paidBy is not set
+      if (!expense.paidBy) return;
+
+      const paidByUser = group.groupUsers?.find(
+        (gu: any) => gu.user.id === expense.paidBy
+      )?.user;
+
+      if (!paidByUser) return;
+
+      if (expense.paidBy === userAddress) {
+        // Current user paid, others owe them
+        group.groupUsers?.forEach((gu: any) => {
+          if (gu.user.id !== userAddress) {
+            transactions.push({
+              id: `${group.id}-${expense.id}-${gu.user.id}`,
+              user: {
+                name: gu.user.name || gu.user.id,
+                image: `/api.dicebear.com/7.x/avataaars/svg?seed=${gu.user.id}`,
+              },
+              amount: expense.amount / group.groupUsers.length, // Simple equal split
+              type: "owed",
+              date: expense.createdAt || group.createdAt,
+            });
+          }
         });
-      });
-    } else {
-      // Add transaction for what I owe
-      const myDebt = group.debts.find((debt) => debt.from === userAddress);
-      if (myDebt) {
+      } else if (
+        group.groupUsers?.some((gu: any) => gu.user.id === userAddress)
+      ) {
+        // User is part of this expense but didn't pay
         transactions.push({
-          id: `${group.id}-${myDebt.to}`,
+          id: `${group.id}-${expense.id}-${userAddress}`,
           user: {
-            name: group.paidBy.slice(0, 6) + "..." + group.paidBy.slice(-4),
-            image: "/placeholder-user.jpg",
+            name: paidByUser.name || paidByUser.id,
+            image: `/api.dicebear.com/7.x/avataaars/svg?seed=${paidByUser.id}`,
           },
-          amount: myDebt.amount,
+          amount: expense.amount / group.groupUsers.length, // Simple equal split
           type: "owe",
-          date: group.date,
+          date: expense.createdAt || group.createdAt,
         });
       }
-    }
+    });
   });
 
   return transactions.sort(
