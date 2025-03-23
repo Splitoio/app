@@ -3,12 +3,21 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import Image from "next/image";
-import { Upload, Loader2, Link, ExternalLink, DollarSign } from "lucide-react";
+import {
+  Upload,
+  Loader2,
+  Link,
+  ExternalLink,
+  DollarSign,
+  LogOut,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { User } from "@/api/modelSchema/UserSchema";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { UserDetails } from "@/features/user/api/client";
 import { toast } from "sonner";
+import { signOut } from "@/lib/auth";
+import { useRouter } from "next/navigation";
 
 // Currency options
 const CURRENCIES = [
@@ -25,6 +34,8 @@ export function UserSettingsForm({ user }: { user: User }) {
     connectWallet,
     disconnectWallet,
   } = useWallet();
+  const router = useRouter();
+  const setUser = useAuthStore((state) => state.setUser);
 
   const [formData, setFormData] = useState<UserDetails>({
     name: user.name || "",
@@ -74,6 +85,17 @@ export function UserSettingsForm({ user }: { user: User }) {
       toast.success("Wallet connected successfully!");
     } catch (error) {
       toast.error("Failed to connect wallet. Please try again.");
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await signOut();
+      setUser(null);
+      toast.success("Logged out successfully");
+      router.push("/login");
+    } catch (error) {
+      toast.error("Failed to log out. Please try again.");
     }
   };
 
@@ -296,6 +318,20 @@ export function UserSettingsForm({ user }: { user: User }) {
             </div>
           </div>
         </form>
+
+        <div className="mt-8 pt-8 border-t border-white/10">
+          <button
+            onClick={handleLogout}
+            className="w-full h-[55.64px] bg-[#0D0D0F] rounded-[18.24px] 
+                   text-base font-semibold text-red-400/80 leading-8 
+                   hover:bg-red-400/5 transition-colors
+                   border border-red-400/20
+                   flex items-center justify-center gap-2"
+          >
+            <LogOut className="h-5 w-5" />
+            Logout
+          </button>
+        </div>
       </div>
     </div>
   );
