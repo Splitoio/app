@@ -356,10 +356,10 @@ export function AddExpenseModal({
                                 USD
                               </SelectItem>
                               <SelectItem
-                                value="ETH"
+                                value="XLM"
                                 className="text-white hover:bg-white/10"
                               >
-                                ETH
+                                XLM
                               </SelectItem>
                             </SelectContent>
                           </Select>

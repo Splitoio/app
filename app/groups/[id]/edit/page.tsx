@@ -28,7 +28,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     amount: "",
     members: "",
     splitType: "equal" as "equal" | "percentage" | "custom",
-    currency: "USD" as "USD" | "ETH",
+    currency: "USD" as "USD" | "XLM",
     paidBy: "",
     image: null as File | null,
   });
@@ -43,9 +43,9 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
         amount: "0", // Amount is not stored in the group anymore
         members: "", // Members are now in a different format
         splitType: "equal", // Not sure if this is stored in the API
-        currency: (group.defaultCurrency === "ETH" ? "ETH" : "USD") as
+        currency: (group.defaultCurrency === "XLM" ? "XLM" : "USD") as
           | "USD"
-          | "ETH",
+          | "XLM",
         paidBy: "", // Not sure if this is stored in the API
         image: null,
       });
@@ -298,13 +298,13 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          currency: e.target.value as "USD" | "ETH",
+                          currency: e.target.value as "USD" | "XLM",
                         }))
                       }
                       className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
                     >
                       <option value="USD">USD</option>
-                      <option value="ETH">ETH</option>
+                      <option value="XLM">XLM</option>
                     </select>
                   </div>
                 </div>
