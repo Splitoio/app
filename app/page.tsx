@@ -5,9 +5,9 @@ import { TransactionList } from "@/components/transaction-list";
 import { TransactionRequests } from "@/components/transaction-requests";
 import { GroupsList } from "@/components/groups-list";
 import { useWallet } from "@/hooks/useWallet";
-import { useGroups } from "@/stores/groups";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
+import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import {
   calculateBalances,
   getTransactionsFromGroups,
@@ -22,7 +22,7 @@ export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const { isConnected, address } = useWallet();
-  const { groups } = useGroups();
+  const { data: groups, isLoading: isGroupsLoading } = useGetAllGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
   const queryClient = useQueryClient();
 
@@ -38,7 +38,7 @@ export default function Page() {
     .filter((debt) => debt.to === address)
     .reduce((acc, curr) => acc + curr.amount, 0);
 
-  const transactions = getTransactionsFromGroups(groups, address);
+  const transactions = groups ? getTransactionsFromGroups(groups, address) : [];
 
   const handleSettleClick = () => {
     setIsSettling(true);

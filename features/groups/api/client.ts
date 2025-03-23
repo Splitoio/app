@@ -96,3 +96,21 @@ export const addOrEditExpense = async (
   const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
   return response;
 };
+
+export const deleteGroup = async (groupId: string) => {
+  const response = await apiClient.delete(`/groups/${groupId}`);
+  return GenericResponseSchema.parse(response);
+};
+
+export const updateGroup = async (
+  groupId: string,
+  payload: {
+    name?: string;
+    description?: string;
+    currency?: string;
+    imageUrl?: string;
+  }
+) => {
+  const response = await apiClient.put(`/groups/${groupId}`, payload);
+  return GroupSchema.parse(response);
+};

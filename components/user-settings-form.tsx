@@ -3,22 +3,42 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import Image from "next/image";
-import { Upload, Loader2 } from "lucide-react";
+import { Upload, Loader2, Link, ExternalLink, DollarSign } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { User } from "@/api/modelSchema/UserSchema";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { UserDetails } from "@/features/user/api/client";
 import { toast } from "sonner";
 
+// Currency options
+const CURRENCIES = [
+  { value: "USD", label: "USD - US Dollar", symbol: "$" },
+  { value: "XLM", label: "XLM - Stellar Lumens", symbol: "XLM" },
+];
+
 export function UserSettingsForm({ user }: { user: User }) {
   const { mutateAsync: updateUser, isPending } = useUpdateUser();
+  const {
+    isConnected,
+    address,
+    isConnecting,
+    connectWallet,
+    disconnectWallet,
+  } = useWallet();
 
   const [formData, setFormData] = useState<UserDetails>({
     name: user.name || "",
     image: user.image || "",
     stellarAccount: user.stellarAccount || "",
-    currency: user.currency || "",
+    currency: user.currency || "USD",
   });
+
+  // Update the form with wallet address when connected
+  useEffect(() => {
+    if (isConnected && address) {
+      setFormData((prev) => ({ ...prev, stellarAccount: address }));
+    }
+  }, [isConnected, address]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -46,6 +66,15 @@ export function UserSettingsForm({ user }: { user: User }) {
     //   const imageUrl = URL.createObjectURL(file);
     //   setFormData(prev => ({ ...prev, image: imageUrl }));
     // }
+  };
+
+  const handleConnectWallet = async () => {
+    try {
+      await connectWallet();
+      toast.success("Wallet connected successfully!");
+    } catch (error) {
+      toast.error("Failed to connect wallet. Please try again.");
+    }
   };
 
   return (
@@ -111,28 +140,137 @@ export function UserSettingsForm({ user }: { user: User }) {
             />
           </div>
 
+          {/* Preferred Currency */}
+          <div className="space-y-2">
+            <label className="block text-lg font-semibold text-white leading-7 tracking-[-0.03em]">
+              Preferred Currency
+            </label>
+            <div className="relative w-full">
+              <div className="absolute left-4 top-1/2 -translate-y-1/2 text-white/40">
+                <DollarSign className="h-4 w-4" />
+              </div>
+              <select
+                value={formData.currency}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    currency: e.target.value,
+                  }))
+                }
+                className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] pl-10 pr-4
+                       text-base font-semibold text-white/40 leading-6 border border-white/20
+                       appearance-none"
+                disabled={isPending}
+              >
+                {CURRENCIES.map((currency) => (
+                  <option key={currency.value} value={currency.value}>
+                    {currency.label}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <svg
+                  className="h-4 w-4 text-white/40"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            </div>
+            <p className="text-sm text-white/40">
+              This currency will be used as your default for transactions and
+              displays
+            </p>
+          </div>
+
           {/* Stellar Account */}
           <div className="space-y-2">
             <label className="block text-lg font-semibold text-white leading-7 tracking-[-0.03em]">
               Stellar Account Address
             </label>
-            <input
-              type="text"
-              value={formData.stellarAccount}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  stellarAccount: e.target.value,
-                }))
-              }
-              className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
-                     text-base font-semibold text-white/40 leading-6 border border-white/20"
-              placeholder="Enter your Stellar account address"
-              disabled={isPending}
-            />
-            <p className="text-sm text-white/40">
-              This is the address that will be used for transactions
-            </p>
+            <div className="flex flex-col gap-2">
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  value={formData.stellarAccount}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      stellarAccount: e.target.value,
+                    }))
+                  }
+                  className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
+                         text-base font-semibold text-white/40 leading-6 border border-white/20"
+                  placeholder="Enter your Stellar account address"
+                  disabled={isPending || isConnecting}
+                />
+                {formData.stellarAccount && (
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/account/${formData.stellarAccount}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/70"
+                    title="View on Stellar Explorer"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleConnectWallet}
+                disabled={isPending || isConnecting}
+                className="h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
+                       text-base font-semibold text-white/70 leading-6 border border-white/20
+                       hover:bg-white/5 transition-colors flex items-center justify-center gap-2"
+              >
+                {isConnecting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Connecting Wallet...
+                  </>
+                ) : isConnected ? (
+                  <>
+                    <Link className="h-4 w-4" />
+                    Wallet Connected
+                  </>
+                ) : (
+                  <>
+                    <Link className="h-4 w-4" />
+                    Connect Stellar Wallet
+                  </>
+                )}
+              </button>
+
+              {isConnected && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    disconnectWallet();
+                    toast.info("Wallet disconnected");
+                  }}
+                  disabled={isPending}
+                  className="h-[47.43px] bg-transparent rounded-[11.86px] px-4
+                         text-base font-semibold text-red-400/70 leading-6 border border-red-400/20
+                         hover:bg-red-400/5 transition-colors flex items-center justify-center gap-2"
+                >
+                  Disconnect Wallet
+                </button>
+              )}
+
+              <p className="text-sm text-white/40">
+                This is the address that will be used for transactions. Connect
+                your wallet to update automatically.
+              </p>
+            </div>
           </div>
 
           <div className="flex justify-center pt-4">

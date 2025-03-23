@@ -3,11 +3,13 @@ import {
   addMembersToGroup,
   addOrEditExpense,
   createGroup,
+  deleteGroup,
   ExpensePayload,
   getAllGroups,
   getAllGroupsWithBalances,
   getGroupById,
   joinGroup,
+  updateGroup,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -87,6 +89,42 @@ export const useAddMembersToGroup = () => {
     }) => addMembersToGroup(groupId, memberIdentifier),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+    },
+  });
+};
+
+export const useDeleteGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteGroup,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+    },
+  });
+};
+
+export const useUpdateGroup = () => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      groupId,
+      payload,
+    }: {
+      groupId: string;
+      payload: {
+        name?: string;
+        description?: string;
+        currency?: string;
+        imageUrl?: string;
+      };
+    }) => updateGroup(groupId, payload),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.GROUPS, variables.groupId],
+      });
     },
   });
 };
