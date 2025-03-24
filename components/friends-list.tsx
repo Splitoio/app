@@ -49,7 +49,7 @@ export function FriendsList() {
       animate="animate"
       className="space-y-3 lg:space-y-4"
     >
-      {friends.map(({ friend }) => (
+      {friends.map((friend) => (
         <motion.div
           key={friend.id}
           variants={slideUp}
