@@ -24,19 +24,11 @@ export default function Page() {
   const { isConnected, address } = useWallet();
   const { data: groups, isLoading: isGroupsLoading } = useGetAllGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
+  const youOwe = balanceData?.youOwe || [];
+  const youGet = balanceData?.youGet || [];
+
+  console.log("balanceData", balanceData);
   const queryClient = useQueryClient();
-
-  // Calculate net balance from API data
-  const netBalance = balanceData?.total || 0;
-  const debts = balanceData?.debts || [];
-
-  const totalOwe = debts
-    .filter((debt) => debt.from === address)
-    .reduce((acc, curr) => acc + Math.abs(curr.amount), 0);
-
-  const totalOwed = debts
-    .filter((debt) => debt.to === address)
-    .reduce((acc, curr) => acc + curr.amount, 0);
 
   const transactions = groups ? getTransactionsFromGroups(groups, address) : [];
 
@@ -65,26 +57,37 @@ export default function Page() {
             <div className="mb-4 min-[1025px]:mb-6 space-y-4">
               <h2 className="text-display text-white mt-2 flex flex-col min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between gap-4">
                 <div className="text-base min-[1025px]:text-xl">
-                  {isBalanceLoading ? (
+                  {isBalanceLoading && (
                     <div className="flex items-center gap-2">
                       <Loader2 className="h-4 w-4 animate-spin" />
                       Loading balance...
                     </div>
-                  ) : netBalance < 0 ? (
+                  )}
+
+                  {youOwe.length > 0 && (
                     <>
                       Overall, you owe{" "}
                       <span className="text-[#FF4444]">
-                        ${Math.abs(netBalance).toFixed(2)}
+                        {youOwe
+                          .map((debt) => `${debt.amount} ${debt.currency}`)
+                          .join(", ")}
                       </span>
                     </>
-                  ) : netBalance > 0 ? (
-                    <>
+                  )}
+
+                  {youGet.length > 0 && (
+                    <div>
                       Overall, you are owed{" "}
                       <span className="text-[#53e45d]">
-                        ${netBalance.toFixed(2)}
+                        $
+                        {youGet
+                          .map((debt) => `${debt.amount} ${debt.currency}`)
+                          .join(", ")}
                       </span>
-                    </>
-                  ) : (
+                    </div>
+                  )}
+
+                  {youOwe.length === 0 && youGet.length === 0 && (
                     <>You're all settled up!</>
                   )}
                 </div>
