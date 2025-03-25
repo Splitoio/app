@@ -2,7 +2,7 @@ import { apiClient } from "@/api/client";
 
 import { z } from "zod";
 
-const BalanceSchema = z.object({
+export const BalanceSchema = z.object({
   // ...GroupSchema.shape, // Include all fields from GroupSchema
   // balances: z.record(z.string(), z.number()),
   // expenses: z.array(ExpenseSchema),
@@ -21,6 +21,8 @@ const BalanceSchema = z.object({
     })
   ),
 });
+
+export type UserBalance = z.infer<typeof BalanceSchema>;
 
 export const getBalances = async () => {
   const response = await apiClient.get("/users/balances");

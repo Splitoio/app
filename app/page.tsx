@@ -115,7 +115,7 @@ export default function Page() {
                 </button>
               </h2>
             </div>
-            <TransactionList currentUserAddress={address} />
+            <TransactionList />
           </div>
           <div className="relative z-10">
             <GroupsList />

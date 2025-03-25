@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ApiError } from "@/types/api-error";
+import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 
 type Debt = {
   amount: number;
@@ -17,10 +18,11 @@ type TransactionListProps = {
   currentUserAddress: string | null;
 };
 
-export function TransactionList({ currentUserAddress }: TransactionListProps) {
-  const { data: balanceData, error } = useBalances();
+export function TransactionList() {
   const router = useRouter();
-  const debts = balanceData?.debts || [];
+  const { data: balanceData, error } = useGetFriends();
+
+  const debts = balanceData || [];
 
   useEffect(() => {
     if (error) {
@@ -39,7 +41,7 @@ export function TransactionList({ currentUserAddress }: TransactionListProps) {
     }
   }, [error, router]);
 
-  if (!currentUserAddress || debts.length === 0) {
+  if (debts.length === 0) {
     return (
       <div className="text-body text-white/70 py-8 text-center">
         No transactions yet
@@ -50,15 +52,14 @@ export function TransactionList({ currentUserAddress }: TransactionListProps) {
   return (
     <div className="space-y-6">
       {debts.map((debt, index) => {
-        const isOwing = debt.from === currentUserAddress;
-        const otherUserAddress = isOwing ? debt.to : debt.from;
+        const otherUserAddress = debt.name;
 
         return (
           <div key={index} className="flex items-center justify-between">
             <div className="flex items-center gap-4 py-4">
               <Image
-                src="/default-avatar.png"
-                alt={otherUserAddress}
+                src={debt.image || "/default-avatar.png"}
+                alt={debt.name}
                 className="h-full w-full object-cover rounded-full"
                 width={48}
                 height={48}
@@ -67,18 +68,26 @@ export function TransactionList({ currentUserAddress }: TransactionListProps) {
                 <p className="text-body font-medium text-white">
                   {otherUserAddress}
                 </p>
-                <p className="text-body-sm text-white/70">
+                {/* <p className="text-body-sm text-white/70">
                   {isOwing ? "you owe" : "owes you"}
-                </p>
+                </p> */}
               </div>
             </div>
-            <p
-              className={`text-body ${
-                isOwing ? "text-[#FF4444]" : "text-[#53e45d]"
-              }`}
-            >
-              ${Math.abs(debt.amount).toFixed(2)}
-            </p>
+
+            {debt.balances.map((balance) => {
+              const isOwing = balance.amount > 0;
+
+              return (
+                <p
+                  key={balance.currency}
+                  className={`text-body ${
+                    isOwing ? "text-[#FF4444]" : "text-[#53e45d]"
+                  }`}
+                >
+                  {Math.abs(balance.amount).toFixed(2)} {balance.currency}
+                </p>
+              );
+            })}
           </div>
         );
       })}
