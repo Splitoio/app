@@ -70,13 +70,23 @@ export function Header() {
             {isAuthenticated && user && (
               <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
                 <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                  <Image
-                    src={`https://api.dicebear.com/7.x/identicon/svg?seed=${user.email}`}
-                    alt="Profile"
-                    width={48}
-                    height={48}
-                    className="h-full w-full"
-                  />
+                  {user.image ? (
+                    <Image
+                      src={user.image}
+                      alt="Profile"
+                      width={48}
+                      height={48}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={`https://api.dicebear.com/7.x/identicon/svg?seed=${user.email}`}
+                      alt="Profile"
+                      width={48}
+                      height={48}
+                      className="h-full w-full"
+                    />
+                  )}
                 </div>
               </div>
             )}

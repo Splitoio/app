@@ -8,6 +8,11 @@ const nextConfig = {
         pathname: "/7.x/**",
       },
       {
+        protocol: "https",
+        hostname: "storage.googleapis.com",
+        pathname: "/splito-prod-public/**",
+      },
+      {
         hostname: "**",
         pathname: "**",
       },

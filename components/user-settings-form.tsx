@@ -10,6 +10,7 @@ import {
   ExternalLink,
   DollarSign,
   LogOut,
+  AlertCircle,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { User } from "@/api/modelSchema/UserSchema";
@@ -18,12 +19,16 @@ import { UserDetails } from "@/features/user/api/client";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
 import { useRouter } from "next/navigation";
+import { useUploadFile } from "@/features/files/hooks/use-balances";
 
 // Currency options
 const CURRENCIES = [
   { value: "USD", label: "USD - US Dollar", symbol: "$" },
   { value: "XLM", label: "XLM - Stellar Lumens", symbol: "XLM" },
 ];
+
+// Stellar account addresses start with G and are 56 characters long
+const stellarAddressPattern = /^G[A-Z0-9]{55}$/;
 
 export function UserSettingsForm({ user }: { user: User }) {
   const { mutate: updateUser, isPending } = useUpdateUser();
@@ -36,6 +41,8 @@ export function UserSettingsForm({ user }: { user: User }) {
   } = useWallet();
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
+  const uploadFileMutation = useUploadFile();
+  const [stellarError, setStellarError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<UserDetails>({
     name: user.name || "",
@@ -48,28 +55,103 @@ export function UserSettingsForm({ user }: { user: User }) {
   useEffect(() => {
     if (isConnected && address) {
       setFormData((prev) => ({ ...prev, stellarAccount: address }));
+      setStellarError(null);
     }
   }, [isConnected, address]);
+
+  // Validate Stellar account format
+  const validateStellarAccount = (
+    address: string | null | undefined
+  ): boolean => {
+    if (!address || address.trim() === "") {
+      setStellarError(null);
+      return true; // Empty is valid
+    }
+
+    const isValid = stellarAddressPattern.test(address);
+    if (!isValid) {
+      setStellarError(
+        "Stellar account must start with 'G' and be 56 characters long"
+      );
+      return false;
+    }
+
+    setStellarError(null);
+    return true;
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    updateUser({
-      name: formData.name || undefined,
-      image: formData.image || undefined,
-      stellarAccount: formData.stellarAccount || undefined,
-      currency: formData.currency || undefined,
-    });
+    // Validate Stellar account before submission
+    if (
+      formData.stellarAccount &&
+      !validateStellarAccount(formData.stellarAccount)
+    ) {
+      toast.error("Invalid Stellar account format", {
+        description: stellarError,
+      });
+      return;
+    }
+
+    // Filter out undefined values and ensure proper types
+    const updateData: UserDetails = {};
+
+    if (
+      formData.name !== undefined &&
+      formData.name !== null &&
+      formData.name.trim() !== ""
+    ) {
+      updateData.name = formData.name;
+    }
+
+    if (
+      formData.image !== undefined &&
+      formData.image !== null &&
+      formData.image.trim() !== ""
+    ) {
+      updateData.image = formData.image;
+    }
+
+    if (
+      formData.stellarAccount !== undefined &&
+      formData.stellarAccount !== null &&
+      formData.stellarAccount.trim() !== ""
+    ) {
+      updateData.stellarAccount = formData.stellarAccount;
+    }
+
+    if (formData.currency) {
+      updateData.currency = formData.currency;
+    }
+
+    console.log("Submitting profile update with data:", updateData);
+
+    updateUser(updateData);
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // const file = e.target.files?.[0];
-    // if (file) {
-    //   // In a real app, you would upload this to a server
-    //   // For now, we'll just use a URL for the selected file
-    //   const imageUrl = URL.createObjectURL(file);
-    //   setFormData(prev => ({ ...prev, image: imageUrl }));
-    // }
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      // Show loading state
+      toast.loading("Uploading image...");
+
+      // Upload the file to Google Cloud Storage
+      const response = await uploadFileMutation.mutateAsync(file);
+
+      if (response.success) {
+        // Update form data with the image URL
+        setFormData((prev) => ({ ...prev, image: response.data.downloadUrl }));
+        toast.dismiss();
+        toast.success("Image uploaded successfully");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.dismiss();
+      toast.error("Failed to upload image. Please try again.");
+    }
   };
 
   const handleConnectWallet = async () => {
@@ -90,6 +172,14 @@ export function UserSettingsForm({ user }: { user: User }) {
     } catch (error) {
       toast.error("Failed to log out. Please try again.");
     }
+  };
+
+  const handleStellarAccountChange = (
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const value = e.target.value;
+    setFormData((prev) => ({ ...prev, stellarAccount: value }));
+    validateStellarAccount(value);
   };
 
   return (
@@ -144,7 +234,7 @@ export function UserSettingsForm({ user }: { user: User }) {
             </label>
             <input
               type="text"
-              value={formData.name}
+              value={formData.name || ""}
               onChange={(e) =>
                 setFormData((prev) => ({ ...prev, name: e.target.value }))
               }
@@ -215,19 +305,16 @@ export function UserSettingsForm({ user }: { user: User }) {
               <div className="relative w-full">
                 <input
                   type="text"
-                  value={formData.stellarAccount}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      stellarAccount: e.target.value,
-                    }))
-                  }
-                  className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
-                         text-base font-semibold text-white/40 leading-6 border border-white/20"
+                  value={formData.stellarAccount || ""}
+                  onChange={handleStellarAccountChange}
+                  className={`w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
+                         text-base font-semibold text-white/40 leading-6 border ${
+                           stellarError ? "border-red-500" : "border-white/20"
+                         }`}
                   placeholder="Enter your Stellar account address"
                   disabled={isPending || isConnecting}
                 />
-                {formData.stellarAccount && (
+                {formData.stellarAccount && !stellarError && (
                   <a
                     href={`https://stellar.expert/explorer/testnet/account/${formData.stellarAccount}`}
                     target="_blank"
@@ -238,7 +325,15 @@ export function UserSettingsForm({ user }: { user: User }) {
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 )}
+                {stellarError && (
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-red-500">
+                    <AlertCircle className="h-4 w-4" />
+                  </div>
+                )}
               </div>
+              {stellarError && (
+                <p className="text-sm text-red-500">{stellarError}</p>
+              )}
               <button
                 type="button"
                 onClick={handleConnectWallet}
@@ -297,7 +392,7 @@ export function UserSettingsForm({ user }: { user: User }) {
                        tracking-[-0.03em] hover:bg-white/5 transition-colors
                        disabled:opacity-70 disabled:cursor-not-allowed
                        flex items-center justify-center gap-2"
-                disabled={isPending}
+                disabled={isPending || !!stellarError}
               >
                 {isPending ? (
                   <>
