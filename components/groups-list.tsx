@@ -127,18 +127,27 @@ export function GroupsList() {
           setDeleteSuccess(false);
         }, 1500);
       },
-      onError: (error: any) => {
+      onError: (error: unknown) => {
         setIsDeleting(false);
 
+        // Cast to a modified error type to handle the API error format
+        type ExtendedApiError = ApiError & {
+          data?: {
+            error?: string;
+          };
+        };
+
+        const apiError = error as ExtendedApiError;
+
         if (
-          error?.message?.includes("non-zero balance") ||
-          error?.data?.error?.includes("non-zero balance")
+          apiError?.message?.includes("non-zero balance") ||
+          apiError?.data?.error?.includes("non-zero balance")
         ) {
           setDeleteError(
             "You have unsettled balances in this group. Please clear all dues before deleting."
           );
         } else {
-          setDeleteError(error.message || "Failed to delete group");
+          setDeleteError(apiError?.message || "Failed to delete group");
         }
       },
     });
@@ -196,7 +205,7 @@ export function GroupsList() {
                             `Error loading image for group ${group.name}:`,
                             group.image
                           );
-                          // @ts-ignore - fallback to placeholder on error
+                          // @ts-expect-error - fallback to placeholder on error
                           e.target.src = "/group_icon_placeholder.png";
                         }}
                       />
@@ -341,12 +350,13 @@ export function GroupsList() {
                       Cancel
                     </button>
 
-                    {deleteError.includes("balance") && (
+                    {deleteError && deleteError.includes("balance") && (
                       <button
                         onClick={() => {
                           setShowDeleteModal(false);
-                          groupToDelete &&
+                          if (groupToDelete) {
                             router.push(`/groups/${groupToDelete.id}`);
+                          }
                         }}
                         className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
                       >
