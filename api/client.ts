@@ -27,7 +27,7 @@ apiClient.interceptors.response.use(
   (error) => {
     const normalizedError: ApiError = {
       code: error.response?.status || 500,
-      message: error.response?.data?.message || "Unknown error",
+      message: error.response?.data?.error || "Unknown error",
       data: error.response?.data,
       name: error.response?.data?.name || "ApiError",
     };

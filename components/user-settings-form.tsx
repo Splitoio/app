@@ -26,7 +26,7 @@ const CURRENCIES = [
 ];
 
 export function UserSettingsForm({ user }: { user: User }) {
-  const { mutateAsync: updateUser, isPending } = useUpdateUser();
+  const { mutate: updateUser, isPending } = useUpdateUser();
   const {
     isConnected,
     address,
@@ -54,19 +54,12 @@ export function UserSettingsForm({ user }: { user: User }) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    try {
-      await updateUser({
-        name: formData.name || undefined,
-        image: formData.image || undefined,
-        stellarAccount: formData.stellarAccount || undefined,
-        currency: formData.currency || undefined,
-      });
-
-      // Show success message
-      toast.success("Profile updated successfully!");
-    } catch (error) {
-      toast.error("Failed to update profile. Please try again.");
-    }
+    updateUser({
+      name: formData.name || undefined,
+      image: formData.image || undefined,
+      stellarAccount: formData.stellarAccount || undefined,
+      currency: formData.currency || undefined,
+    });
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
