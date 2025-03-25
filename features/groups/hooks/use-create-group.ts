@@ -101,6 +101,27 @@ export const useDeleteGroup = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
     },
+    onError: (error: any) => {
+      // Check for uncleared dues error - this assumes the API returns a specific message
+      // when a group can't be deleted due to uncleared dues
+      if (
+        error?.message?.toLowerCase().includes("dues") ||
+        error?.message?.toLowerCase().includes("balance") ||
+        error?.data?.message?.toLowerCase().includes("dues") ||
+        error?.data?.message?.toLowerCase().includes("balance")
+      ) {
+        return {
+          type: "uncleared_dues",
+          message: error.message || "Cannot delete group with uncleared dues",
+        };
+      }
+
+      // Return a generic error otherwise
+      return {
+        type: "generic_error",
+        message: error.message || "Failed to delete group",
+      };
+    },
   });
 };
 
