@@ -163,6 +163,33 @@ export function UserSettingsForm({ user }: { user: User }) {
     }
   };
 
+  const handleDisconnectWallet = async () => {
+    try {
+      // First disconnect the wallet from the frontend
+      disconnectWallet();
+
+      // Then remove the wallet address from the user's profile
+      // Clear the form field first
+      setFormData((prev) => ({ ...prev, stellarAccount: "" }));
+
+      // Update with empty string instead of null
+      updateUser(
+        { stellarAccount: "" },
+        {
+          onSuccess: () => {
+            toast.success("Wallet disconnected and removed from your profile");
+          },
+          onError: (error) => {
+            toast.error("Failed to remove wallet from profile");
+            console.error("Error removing wallet:", error);
+          },
+        }
+      );
+    } catch (error) {
+      toast.error("Failed to disconnect wallet. Please try again.");
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut();
@@ -360,19 +387,17 @@ export function UserSettingsForm({ user }: { user: User }) {
                 )}
               </button>
 
-              {isConnected && (
+              {/* Show the disconnect wallet button if user has a wallet address stored in profile */}
+              {(isConnected || formData.stellarAccount) && (
                 <button
                   type="button"
-                  onClick={() => {
-                    disconnectWallet();
-                    toast.info("Wallet disconnected");
-                  }}
+                  onClick={handleDisconnectWallet}
                   disabled={isPending}
                   className="h-[47.43px] bg-transparent rounded-[11.86px] px-4
                          text-base font-semibold text-red-400/70 leading-6 border border-red-400/20
                          hover:bg-red-400/5 transition-colors flex items-center justify-center gap-2"
                 >
-                  Disconnect Wallet
+                  Disconnect & Remove Wallet
                 </button>
               )}
 

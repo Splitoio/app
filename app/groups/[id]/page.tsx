@@ -121,11 +121,23 @@ export default function GroupDetailsPage({
                 <div className="flex items-center gap-2">
                   <div className="h-8 w-8 sm:h-10 shrink-0 sm:w-10 overflow-hidden rounded-full">
                     <Image
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user.id}`}
-                      alt={member.user.id}
+                      src={
+                        member.user.image ||
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user.id}`
+                      }
+                      alt={member.user.name || member.user.id}
                       width={40}
                       height={40}
-                      className="h-full w-full"
+                      className="h-full w-full object-cover"
+                      onError={(e) => {
+                        console.error(
+                          `Error loading image for user ${
+                            member.user.name || member.user.id
+                          }`
+                        );
+                        // @ts-expect-error - fallback to dicebear on error
+                        e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user.id}`;
+                      }}
                     />
                   </div>
                   <span className="text-body font-medium text-white">
@@ -181,11 +193,23 @@ export default function GroupDetailsPage({
                 <div className="rounded-[24px] bg-[#262627] p-6 min-h-[160px]">
                   <div className="flex items-start gap-4">
                     <Image
-                      src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${paidBy.id}`}
+                      src={
+                        paidBy.image ||
+                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${paidBy.id}`
+                      }
                       alt={paidBy.name!}
                       width={48}
                       height={48}
-                      className="h-12 w-12 rounded-full"
+                      className="h-12 w-12 rounded-full object-cover"
+                      onError={(e) => {
+                        console.error(
+                          `Error loading image for user ${
+                            paidBy.name || paidBy.id
+                          }`
+                        );
+                        // @ts-expect-error - fallback to dicebear on error
+                        e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${paidBy.id}`;
+                      }}
                     />
                     <div className="flex-1">
                       <div className="flex items-center justify-between mb-3">

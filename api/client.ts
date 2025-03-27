@@ -8,7 +8,13 @@ const API_TIMEOUT = 30000;
 let isRedirecting = false;
 
 // Routes that don't require auth checking
-const PUBLIC_ROUTES = ["/api/auth/login", "/api/auth/register"];
+const PUBLIC_ROUTES = [
+  "/api/auth/login",
+  "/api/auth/register",
+  "/api/auth/verify",
+  "/api/auth/reset-password",
+  "/api/auth/forgot-password",
+];
 
 // Helper function to handle redirects to login page
 const redirectToLogin = () => {
@@ -48,7 +54,6 @@ export const apiClient = axios.create({
 // Request interceptor - only check if the route requires auth
 apiClient.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
-    // Check if we're in a browser environment
     if (typeof window !== "undefined") {
       const sessionToken = Cookies.get("sessionToken");
       const url = config.url || "";
