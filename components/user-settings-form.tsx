@@ -11,6 +11,7 @@ import {
   DollarSign,
   LogOut,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { User } from "@/api/modelSchema/UserSchema";
@@ -29,6 +30,12 @@ const CURRENCIES = [
 
 // Stellar account addresses start with G and are 56 characters long
 const stellarAddressPattern = /^G[A-Z0-9]{55}$/;
+
+// Helper to check if an image URL is from DiceBear
+const isDiceBearImage = (url: string | null | undefined): boolean => {
+  if (!url) return false;
+  return url.includes("api.dicebear.com");
+};
 
 export function UserSettingsForm({ user }: { user: User }) {
   const { mutate: updateUser, isPending } = useUpdateUser();
@@ -94,6 +101,8 @@ export function UserSettingsForm({ user }: { user: User }) {
       return;
     }
 
+    const loadingToast = toast.loading("Saving profile changes...");
+
     // Filter out undefined values and ensure proper types
     const updateData: UserDetails = {};
 
@@ -105,11 +114,13 @@ export function UserSettingsForm({ user }: { user: User }) {
       updateData.name = formData.name;
     }
 
-    if (
-      formData.image !== undefined &&
-      formData.image !== null &&
-      formData.image.trim() !== ""
-    ) {
+    // If no custom image is set, use DiceBear
+    if (!formData.image || formData.image.trim() === "") {
+      updateData.image = `https://api.dicebear.com/9.x/identicon/svg?seed=${
+        user.id || formData.stellarAccount || "user"
+      }`;
+    } else if (!isDiceBearImage(formData.image)) {
+      // Only include the image if it's a custom image (not DiceBear)
       updateData.image = formData.image;
     }
 
@@ -127,7 +138,17 @@ export function UserSettingsForm({ user }: { user: User }) {
 
     console.log("Submitting profile update with data:", updateData);
 
-    updateUser(updateData);
+    updateUser(updateData, {
+      onSuccess: () => {
+        toast.dismiss(loadingToast);
+        toast.success("Profile updated successfully");
+      },
+      onError: (error) => {
+        toast.dismiss(loadingToast);
+        toast.error("Failed to update profile");
+        console.error("Error updating profile:", error);
+      },
+    });
   };
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -135,17 +156,37 @@ export function UserSettingsForm({ user }: { user: User }) {
     if (!file) return;
 
     try {
-      // Show loading state
-      toast.loading("Uploading image...");
+      // Show loading state with a specific ID
+      const loadingToast = toast.loading("Uploading image...");
 
       // Upload the file to Google Cloud Storage
       const response = await uploadFileMutation.mutateAsync(file);
 
       if (response.success) {
         // Update form data with the image URL
-        setFormData((prev) => ({ ...prev, image: response.data.downloadUrl }));
-        toast.dismiss();
-        toast.success("Image uploaded successfully");
+        setFormData((prev) => ({
+          ...prev,
+          image: response.data.downloadUrl,
+        }));
+
+        // Update the profile in database immediately with the new image URL
+        updateUser(
+          { image: response.data.downloadUrl },
+          {
+            onSuccess: () => {
+              toast.dismiss(loadingToast);
+              toast.success("Profile picture updated successfully");
+            },
+            onError: (error) => {
+              toast.dismiss(loadingToast);
+              toast.error("Failed to update profile with new image");
+              console.error("Error updating profile with new image:", error);
+            },
+          }
+        );
+      } else {
+        toast.dismiss(loadingToast);
+        toast.error("Failed to upload image. Please try again.");
       }
     } catch (error) {
       console.error("Error uploading image:", error);
@@ -209,6 +250,43 @@ export function UserSettingsForm({ user }: { user: User }) {
     validateStellarAccount(value);
   };
 
+  const handleRemoveProfilePicture = () => {
+    // Show loading toast
+    const loadingToast = toast.loading("Removing profile picture...");
+
+    // Generate the DiceBear Identicon URL to use as default
+    const identicon = `https://api.dicebear.com/9.x/identicon/svg?seed=${
+      user.id || user.email || "user"
+    }`;
+
+    // Update form state first for immediate UI feedback
+    setFormData((prev) => ({ ...prev, image: "" }));
+
+    // Update profile in the backend with the Identicon URL
+    updateUser(
+      { image: identicon },
+      {
+        onSuccess: () => {
+          // Dismiss the specific loading toast
+          toast.dismiss(loadingToast);
+          toast.success("Profile picture removed successfully");
+
+          // Update local form state with the Identicon URL for consistent UI
+          setFormData((prev) => ({ ...prev, image: "" }));
+        },
+        onError: (error) => {
+          // Dismiss the specific loading toast
+          toast.dismiss(loadingToast);
+          toast.error("Failed to remove profile picture");
+          console.error("Error removing profile picture:", error);
+
+          // Restore previous image on error
+          setFormData((prev) => ({ ...prev, image: user.image || "" }));
+        },
+      }
+    );
+  };
+
   return (
     <div className="w-full bg-[#101012] border border-white/20 rounded-[18.24px] overflow-hidden">
       <div className="p-6">
@@ -219,30 +297,34 @@ export function UserSettingsForm({ user }: { user: User }) {
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Profile Image */}
           <div className="flex flex-col items-center mb-6">
-            <div className="relative h-24 w-24 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 mb-4">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012] flex items-center justify-center">
-                {formData.image ? (
-                  <Image
-                    src={formData.image}
-                    alt="Profile"
-                    width={96}
-                    height={96}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={`https://api.dicebear.com/7.x/identicon/svg?seed=${
-                      formData.stellarAccount || "user"
-                    }`}
-                    alt="Profile"
-                    width={96}
-                    height={96}
-                    className="h-full w-full"
-                  />
-                )}
+            <div className="relative h-24 w-24 mb-2">
+              {/* Profile image container */}
+              <div className="h-full w-full rounded-full overflow-hidden bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012] flex items-center justify-center">
+                  {formData.image && !isDiceBearImage(formData.image) ? (
+                    <Image
+                      src={formData.image}
+                      alt="Profile"
+                      width={96}
+                      height={96}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                        user.id || formData.stellarAccount || "user"
+                      }`}
+                      alt="Profile"
+                      width={96}
+                      height={96}
+                      className="h-full w-full"
+                    />
+                  )}
+                </div>
               </div>
-              <label className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-[#1E1E20] flex items-center justify-center cursor-pointer border border-white/10 hover:bg-white/10 transition-colors ">
-                <Upload className="h-4 w-4 text-white/70" />
+
+              {/* Upload button overlay */}
+              <label className="absolute inset-0 cursor-pointer z-10">
                 <input
                   type="file"
                   accept="image/*"
@@ -251,7 +333,25 @@ export function UserSettingsForm({ user }: { user: User }) {
                   disabled={isPending}
                 />
               </label>
+              <div className="absolute -right-2 -top-2 h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center border-2 border-white shadow-lg z-20">
+                <Upload className="h-5 w-5 text-white" />
+              </div>
             </div>
+            <p className="text-xs text-white/50 mb-2">
+              Tap to change profile picture
+            </p>
+
+            {formData.image && !isDiceBearImage(formData.image) && (
+              <button
+                type="button"
+                onClick={handleRemoveProfilePicture}
+                disabled={isPending}
+                className="flex items-center gap-1.5 text-sm text-red-400/80 hover:text-red-400 transition-colors mt-1"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                Remove profile picture
+              </button>
+            )}
           </div>
 
           {/* Name */}

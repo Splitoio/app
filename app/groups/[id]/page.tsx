@@ -123,7 +123,7 @@ export default function GroupDetailsPage({
                     <Image
                       src={
                         member.user.image ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user.id}`
+                        `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`
                       }
                       alt={member.user.name || member.user.id}
                       width={40}
@@ -135,8 +135,8 @@ export default function GroupDetailsPage({
                             member.user.name || member.user.id
                           }`
                         );
-                        // @ts-expect-error - fallback to dicebear on error
-                        e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${member.user.id}`;
+                        // @ts-expect-error - fallback to identicon on error
+                        e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`;
                       }}
                     />
                   </div>
@@ -195,7 +195,7 @@ export default function GroupDetailsPage({
                     <Image
                       src={
                         paidBy.image ||
-                        `https://api.dicebear.com/7.x/avataaars/svg?seed=${paidBy.id}`
+                        `https://api.dicebear.com/9.x/identicon/svg?seed=${paidBy.id}`
                       }
                       alt={paidBy.name!}
                       width={48}
@@ -207,8 +207,8 @@ export default function GroupDetailsPage({
                             paidBy.name || paidBy.id
                           }`
                         );
-                        // @ts-expect-error - fallback to dicebear on error
-                        e.target.src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${paidBy.id}`;
+                        // @ts-expect-error - fallback to identicon on error
+                        e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${paidBy.id}`;
                       }}
                     />
                     <div className="flex-1">

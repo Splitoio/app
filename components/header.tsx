@@ -80,11 +80,18 @@ export function Header() {
                     />
                   ) : (
                     <Image
-                      src={`https://api.dicebear.com/7.x/identicon/svg?seed=${user.email}`}
+                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                        user.id || user.email
+                      }`}
                       alt="Profile"
                       width={48}
                       height={48}
                       className="h-full w-full"
+                      onError={(e) => {
+                        console.error(`Error loading identicon for user`);
+                        // @ts-expect-error - fallback to a simpler seed
+                        e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                      }}
                     />
                   )}
                 </div>
