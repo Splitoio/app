@@ -1,9 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { TransactionList } from "@/components/transaction-list";
-import { TransactionRequests } from "@/components/transaction-requests";
-import { GroupsList } from "@/components/groups-list";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
@@ -12,27 +9,80 @@ import {
   calculateBalances,
   getTransactionsFromGroups,
 } from "@/utils/calculations";
-import { authClient } from "@/lib/auth";
 import Image from "next/image";
-import { Loader2 } from "lucide-react";
+import {
+  Loader2,
+  Users2,
+  Bell,
+  Send,
+  User,
+  CreditCard,
+  DollarSign,
+  Settings,
+} from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
+import { Header } from "@/components/header";
+import { useAuthStore } from "@/stores/authStore";
+import Link from "next/link";
+import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [isSettling, setIsSettling] = useState(false);
   const { isConnected, address } = useWallet();
   const { data: groups, isLoading: isGroupsLoading } = useGetAllGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
+  const { data: friends, isLoading: isFriendsLoading } = useGetFriends();
+  const { user } = useAuthStore();
   const youOwe = balanceData?.youOwe || [];
   const youGet = balanceData?.youGet || [];
-
-  console.log("balanceData", balanceData);
   const queryClient = useQueryClient();
 
-  const transactions = groups ? getTransactionsFromGroups(groups, address) : [];
+  // Mock data for the monthly stats
+  const monthlyStats = {
+    owed: "$500.00 USD",
+    lent: "$650.50 USD",
+    settled: "$100.29 USD",
+  };
 
-  const handleSettleClick = () => {
+  // Get debts from friends (mock data for now)
+  const friendsWithDebts = [
+    { id: "1", name: "Mike Morris", owesYou: true, amount: "$60" },
+    {
+      id: "2",
+      name: "Kamala D'souza",
+      owesYou: false,
+      youOwe: true,
+      amount: "$60",
+      group: "Blockchain Expense App",
+    },
+    { id: "3", name: "Kamala", owesYou: false, youOwe: true, amount: "$60" },
+    {
+      id: "4",
+      name: "Mike Morris",
+      owesYou: false,
+      youOwe: false,
+      amount: "$0",
+    },
+  ];
+
+  // Groups with debts (use actual groups or mock data)
+  const groupsWithDebts = groups?.slice(0, 4).map((group) => ({
+    id: group.id,
+    name: group.name,
+    image: group.image,
+    amount: "$60",
+  })) || [
+    { id: "1", name: "Blockchain Expense App", amount: "$60", image: null },
+    { id: "2", name: "Your Latest Trip", amount: "$40", image: null },
+    { id: "3", name: "Blockchain Expense App", amount: "$50", image: null },
+    { id: "4", name: "Your Latest Trip", amount: "$40", image: null },
+  ];
+
+  const handleSettleAllClick = () => {
+    setSettleFriendId(null); // Clear any selected friend
     setIsSettling(true);
     setIsSettleModalOpen(true);
 
@@ -46,90 +96,313 @@ export default function Page() {
     }, 500);
   };
 
+  const handleSettleFriendClick = (friendId: string) => {
+    setSettleFriendId(friendId);
+    setIsSettleModalOpen(true);
+  };
+
   return (
-    <div>
-      <h1 className="text-display text-white capitalize inline-block mb-4 min-[1025px]:mb-8">
-        Overview
-      </h1>
-      <div className="grid grid-cols-1 gap-4 min-[1025px]:gap-8 min-[1025px]:grid-cols-3 relative z-0">
-        <div className="min-[1025px]:col-span-2 space-y-4 min-[1025px]:space-y-8">
-          <div>
-            <div className="mb-4 min-[1025px]:mb-6 space-y-4">
-              <h2 className="text-display text-white mt-2 flex flex-col min-[1025px]:flex-row min-[1025px]:items-center min-[1025px]:justify-between gap-4">
-                <div className="text-base min-[1025px]:text-xl">
-                  {isBalanceLoading && (
-                    <div className="flex items-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Loading balance...
-                    </div>
-                  )}
-
-                  {youOwe.length > 0 && (
-                    <>
-                      Overall, you owe{" "}
-                      <span className="text-[#FF4444]">
-                        {youOwe
-                          .map((debt) => `${debt.amount} ${debt.currency}`)
-                          .join(", ")}
-                      </span>
-                    </>
-                  )}
-
-                  {youGet.length > 0 && (
-                    <div>
-                      Overall, you are owed{" "}
-                      <span className="text-[#53e45d]">
-                        $
-                        {youGet
-                          .map((debt) => `${debt.amount} ${debt.currency}`)
-                          .join(", ")}
-                      </span>
-                    </div>
-                  )}
-
-                  {youOwe.length === 0 && youGet.length === 0 && (
-                    <>You're all settled up!</>
-                  )}
-                </div>
-                <button
-                  onClick={handleSettleClick}
-                  disabled={isSettling || isBalanceLoading}
-                  className="group relative flex h-10 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-2 sm:px-4 text-sm sm:text-base font-normal text-white/90 transition-all duration-300 hover:border-white/30 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] justify-center -mt-3 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-                  {isSettling ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Settling...
-                    </>
-                  ) : (
-                    <>
-                      <Image
-                        src={"/moneySend.svg"}
-                        alt="Settle"
-                        width={20}
-                        height={20}
-                      />
-                      Settle Debts
-                    </>
-                  )}
-                </button>
-              </h2>
+    <div className="w-full">
+      {/* Header integrated into the dashboard */}
+      <div className="py-6 mb-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl text-white">
+            {isBalanceLoading ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Loading balance...
+              </div>
+            ) : youOwe.length > 0 ? (
+              <div>
+                Overall, you owe{" "}
+                <span className="text-[#FF4444]">
+                  {youOwe.map((debt) => `$${debt.amount}`).join(", ")}
+                </span>
+              </div>
+            ) : (
+              <div>You're all settled up!</div>
+            )}
+          </h2>
+          <div className="flex items-center gap-4">
+            <button
+              onClick={handleSettleAllClick}
+              disabled={isSettling || isBalanceLoading}
+              className="group relative flex h-12 items-center justify-center gap-2 rounded-full border border-white/10 bg-white px-6 text-base font-medium text-black transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isSettling ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  Settling...
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/coins-dollar.svg"
+                    alt="Settle"
+                    width={22}
+                    height={22}
+                    className="invert"
+                  />
+                  <span>Settle all debts</span>
+                </>
+              )}
+            </button>
+            <div className="h-14 w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                {user?.image ? (
+                  <Image
+                    src={user.image}
+                    alt="Profile"
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                      user?.id || user?.email || "user"
+                    }`}
+                    alt="Profile"
+                    width={56}
+                    height={56}
+                    className="h-full w-full"
+                    onError={(e) => {
+                      console.error(`Error loading identicon for user`);
+                      // @ts-expect-error - fallback to a simpler seed
+                      e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                    }}
+                  />
+                )}
+              </div>
             </div>
-            <TransactionList />
           </div>
-          <div className="relative z-10">
-            <GroupsList />
-          </div>
-        </div>
-        <div className="relative z-0">
-          <TransactionRequests />
         </div>
       </div>
 
-      {/* <SettleDebtsModal
+      {/* Monthly Stats - Three blocks side by side */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+        <div className="rounded-3xl bg-[#101012] p-8">
+          <div className="flex items-center mb-4">
+            <span className="text-white/60 text-xl">You owed this month</span>
+          </div>
+          <p className="text-4xl font-semibold text-white">
+            {monthlyStats.owed}
+          </p>
+        </div>
+
+        <div className="rounded-3xl bg-[#101012] p-8">
+          <div className="flex items-center mb-4">
+            <span className="text-white/60 text-xl">You lent this month</span>
+          </div>
+          <p className="text-4xl font-semibold text-white">
+            {monthlyStats.lent}
+          </p>
+        </div>
+
+        <div className="rounded-3xl bg-[#101012] p-8">
+          <div className="flex items-center mb-4">
+            <span className="text-white/60 text-xl">
+              You settled this month
+            </span>
+          </div>
+          <p className="text-4xl font-semibold text-white">
+            {monthlyStats.settled}
+          </p>
+        </div>
+      </div>
+
+      {/* Friends and Groups - Two blocks side by side */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Friends block (wider) */}
+        <div className="lg:col-span-2 rounded-3xl bg-[#101012] p-6">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-semibold text-white">Your Friends</h2>
+            <button className="flex items-center gap-2 text-white/60 hover:text-white transition-colors">
+              <Image
+                src="/plus-sign-circle.svg"
+                alt="Add"
+                width={20}
+                height={20}
+                className="opacity-90"
+              />
+              <span className="font-medium">Add Friends</span>
+            </button>
+          </div>
+
+          <div className="space-y-8">
+            {isFriendsLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-white/50" />
+                <span className="ml-2 text-white/70">Loading friends...</span>
+              </div>
+            ) : friends && friends.length > 0 ? (
+              friends.map((friend) => {
+                // Find if there's a balance with this friend
+                const hasPositiveBalance = friend.balances.some(
+                  (balance) => balance.amount > 0
+                );
+                const hasNegativeBalance = friend.balances.some(
+                  (balance) => balance.amount < 0
+                );
+                const friendBalance = friend.balances[0]; // Just use the first balance for now
+
+                return (
+                  <div
+                    key={friend.id}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 overflow-hidden rounded-full">
+                        <Image
+                          src={
+                            friend.image ||
+                            `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
+                          }
+                          alt={friend.name}
+                          width={56}
+                          height={56}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            console.error(
+                              `Error loading image for friend ${friend.id}`
+                            );
+                            // @ts-expect-error - fallback to a simpler seed
+                            e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
+                          }}
+                        />
+                      </div>
+                      <div>
+                        <p className="text-xl text-white font-medium">
+                          {friend.name}
+                        </p>
+                        {friendBalance ? (
+                          <p className="text-base text-white/60">
+                            {friendBalance.amount > 0 ? (
+                              <>
+                                Owes you{" "}
+                                <span className="text-[#53e45d]">
+                                  ${Math.abs(friendBalance.amount).toFixed(2)}
+                                </span>
+                              </>
+                            ) : friendBalance.amount < 0 ? (
+                              <>
+                                You owe{" "}
+                                <span className="text-[#FF4444]">
+                                  ${Math.abs(friendBalance.amount).toFixed(2)}
+                                </span>
+                              </>
+                            ) : (
+                              "All settled up"
+                            )}
+                          </p>
+                        ) : (
+                          <p className="text-base text-white/60">
+                            No transactions yet
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Show appropriate button based on debt direction */}
+                    {hasPositiveBalance && (
+                      <button className="w-56 group relative flex h-12 items-center justify-center gap-2 rounded-full border-2 border-white/80 bg-transparent px-5 text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                        <Image
+                          src="/clock-03.svg"
+                          alt="Reminder"
+                          width={20}
+                          height={20}
+                          className="opacity-90"
+                        />
+                        <span>Send a Reminder</span>
+                      </button>
+                    )}
+
+                    {hasNegativeBalance && (
+                      <button
+                        className="w-56 group relative flex h-12 items-center justify-center gap-2 rounded-full border-2 border-white/80 bg-transparent px-5 text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                        onClick={() => handleSettleFriendClick(friend.id)}
+                      >
+                        <Image
+                          src="/coins-dollar.svg"
+                          alt="Settle"
+                          width={20}
+                          height={20}
+                          className="opacity-90"
+                        />
+                        <span>Settle Debts</span>
+                      </button>
+                    )}
+                  </div>
+                );
+              })
+            ) : (
+              <div className="text-white/70 text-center py-8">
+                No friends added yet. Add some friends to get started!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Groups block */}
+        <div className="rounded-3xl bg-[#101012] p-6">
+          <div className="flex items-center justify-between mb-8">
+            <h2 className="text-2xl font-semibold text-white">Your Groups</h2>
+            <Link
+              href="/groups"
+              className="text-white font-medium flex items-center gap-2 rounded-full border border-white/80 px-4 py-2 hover:bg-white/[0.03] transition-colors"
+            >
+              <Users2 className="h-5 w-5" />
+              <span>View All</span>
+            </Link>
+          </div>
+
+          <div className="space-y-6">
+            {groupsWithDebts.map((group) => (
+              <Link href={`/groups/${group.id}`} key={group.id}>
+                <div className="flex items-center justify-between hover:bg-white/[0.02] p-3 rounded-lg transition-colors">
+                  <div className="flex items-center gap-4">
+                    <div className="h-14 w-14 overflow-hidden rounded-xl bg-white/[0.03]">
+                      {group.image ? (
+                        <Image
+                          src={group.image}
+                          alt={group.name}
+                          width={56}
+                          height={56}
+                          className="h-full w-full object-cover"
+                        />
+                      ) : (
+                        <Image
+                          src={`https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`}
+                          alt={group.name}
+                          width={56}
+                          height={56}
+                          className="h-full w-full"
+                        />
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-xl text-white font-medium">
+                        {group.name}
+                      </p>
+                      <p className="text-base text-white/60">
+                        Owes you{" "}
+                        <span className="text-[#53e45d]">{group.amount}</span>
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <SettleDebtsModal
         isOpen={isSettleModalOpen}
         onClose={() => setIsSettleModalOpen(false)}
-      /> */}
+        showIndividualView={settleFriendId !== null}
+        selectedFriendId={settleFriendId}
+      />
     </div>
   );
 }
