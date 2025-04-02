@@ -16,6 +16,16 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 
+// Define a type for friend data coming from the API
+interface FriendWithBalances {
+  id: string;
+  name: string;
+  email: string;
+  image: string | null;
+  balances: Array<{ currency: string; amount: number }>;
+  stellarAccount?: string | null;
+}
+
 interface SettleDebtsModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -77,21 +87,18 @@ export function SettleDebtsModal({
   // Calculate total debts across all groups on mount and when data changes
   useEffect(() => {
     if (friends) {
-      const totalOwed = calculateTotalDebts(friends);
+      const totalOwed = calculateTotalDebts(friends as FriendWithBalances[]);
       setTotalAmount(totalOwed.toFixed(2));
     }
   }, [friends, balanceData]);
 
   // Function to calculate total debts owed to all friends
-  const calculateTotalDebts = (friendsList: any[]) => {
+  const calculateTotalDebts = (friendsList: FriendWithBalances[]) => {
     return friendsList.reduce((total, friend) => {
-      const negativeBalances = friend.balances.filter((b: any) => b.amount < 0);
-      const friendTotal = negativeBalances.reduce(
-        (sum: number, balance: any) => {
-          return sum + Math.abs(balance.amount);
-        },
-        0
-      );
+      const negativeBalances = friend.balances.filter((b) => b.amount < 0);
+      const friendTotal = negativeBalances.reduce((sum: number, balance) => {
+        return sum + Math.abs(balance.amount);
+      }, 0);
       return total + friendTotal;
     }, 0);
   };
@@ -103,7 +110,7 @@ export function SettleDebtsModal({
     const includedFriends = friends.filter(
       (friend) => !excludedFriendIds.includes(friend.id)
     );
-    return calculateTotalDebts(includedFriends);
+    return calculateTotalDebts(includedFriends as FriendWithBalances[]);
   };
 
   // Toggle excluding a friend from settlement
@@ -175,7 +182,7 @@ export function SettleDebtsModal({
     const usersWithoutStellarAccount = friendsToSettle
       .filter((friend) => {
         // Use type assertion to check for stellarAccount property
-        const user = friend as any;
+        const user = friend as FriendWithBalances;
         return !user.stellarAccount;
       })
       .map((friend) => friend.name);
@@ -215,8 +222,9 @@ export function SettleDebtsModal({
 
   // Get the selected user's balance for individual settlement
   const selectedUserBalance = selectedUser
-    ? (selectedUser as any).balances?.find((balance: any) => balance.amount < 0)
-        ?.amount || 0
+    ? (selectedUser as unknown as FriendWithBalances).balances.find(
+        (balance) => balance.amount < 0
+      )?.amount || 0
     : 0;
 
   // Calculate the remaining total after exclusions
@@ -309,8 +317,9 @@ export function SettleDebtsModal({
                                   height={48}
                                   className="h-full w-full object-cover"
                                   onError={(e) => {
-                                    // @ts-expect-error - fallback to dicebear
-                                    e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
+                                    // Fallback to dicebear
+                                    const target = e.target as HTMLImageElement;
+                                    target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
                                   }}
                                 />
                               </div>
@@ -447,8 +456,9 @@ export function SettleDebtsModal({
                           height={56}
                           className="h-full w-full object-cover"
                           onError={(e) => {
-                            // @ts-expect-error - fallback to dicebear
-                            e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${selectedUser.id}`;
+                            // Fallback to dicebear
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${selectedUser.id}`;
                           }}
                         />
                       </div>
