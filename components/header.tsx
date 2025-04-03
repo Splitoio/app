@@ -22,12 +22,13 @@ export function Header() {
   const { user, isAuthenticated, isLoading } = useAuthStore();
 
   return (
-    <div className="fixed left-0 right-0 top-0 z-10 min-[1025px]:pl-[220px]">
-      <div className="h-[90px]  bg-[#101012] px-4 min-[1025px]:px-6">
+    <div className="fixed left-0 right-0 top-0 z-20 min-[1025px]:pl-[240px]">
+      <div className="h-[90px] bg-[#101012] px-4 min-[1025px]:px-6 border-b border-white/[0.02]">
         <div className="flex h-full items-center">
           <button
             onClick={toggle}
             className="flex h-12 w-12 items-center justify-center rounded-full bg-[#1F1F23] transition-colors hover:bg-[#2a2a2e] min-[1025px]:hidden"
+            aria-label="Toggle menu"
           >
             <Menu className="h-5 w-5 text-white" strokeWidth={1.5} />
           </button>

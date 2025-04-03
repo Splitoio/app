@@ -22,7 +22,6 @@ import {
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
-import { Header } from "@/components/header";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
