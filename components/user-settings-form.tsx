@@ -14,7 +14,7 @@ import {
   Trash2,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
-import { User } from "@/api/modelSchema/UserSchema";
+import { User } from "@/api-helpers/modelSchema/UserSchema";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { UserDetails } from "@/features/user/api/client";
 import { toast } from "sonner";

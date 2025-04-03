@@ -7,7 +7,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { toast } from "sonner";
 import Image from "next/image";
-import { GroupBalance, User } from "@/api/modelSchema";
+import { GroupBalance, User } from "@/api-helpers/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 import { useQueryClient } from "@tanstack/react-query";

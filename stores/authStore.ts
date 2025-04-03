@@ -1,4 +1,4 @@
-import { User } from "@/api/modelSchema/UserSchema";
+import { User } from "@/api-helpers/modelSchema/UserSchema";
 import { create } from "zustand";
 
 interface AuthState {
