@@ -4,7 +4,7 @@ import { X, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useInviteFriend } from "@/features/friends/hooks/use-invite-friend";
 import { toast } from "sonner";
-import { ApiError } from "@/api/client";
+import { ApiError } from "@/api-helpers/client";
 import { ZodError } from "zod";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useQueryClient } from "@tanstack/react-query";

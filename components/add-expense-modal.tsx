@@ -19,7 +19,7 @@ import { Loader2 } from "lucide-react";
 import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 import { useAuthStore } from "@/stores/authStore";
 import { X } from "lucide-react";
-import { User } from "@/api/modelSchema";
+import { User } from "@/api-helpers/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";

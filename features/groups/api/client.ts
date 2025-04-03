@@ -1,11 +1,11 @@
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/api-helpers/client";
 import {
   ExpenseSchema,
   GroupBalanceSchema,
   GroupSchema,
   GroupUserSchema,
   UserSchema,
-} from "@/api/modelSchema";
+} from "@/api-helpers/modelSchema";
 import { z } from "zod";
 
 export const GenericResponseSchema = z.object({
