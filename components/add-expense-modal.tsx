@@ -42,6 +42,17 @@ interface ExpenseFormData {
   paidBy: string;
 }
 
+// Define an interface for the expense payload
+interface ExpensePayload {
+  category: string;
+  name: string;
+  participants: { userId: string; amount: number }[];
+  splitType: string;
+  amount: number;
+  currency: string;
+  paidBy: string;
+}
+
 export function AddExpenseModal({
   isOpen,
   onClose,
@@ -231,7 +242,7 @@ export function AddExpenseModal({
         amount: Number(formData.amount),
         currency: formData.currency,
         paidBy: formData.paidBy || user?.id || "",
-      } as any, // Type assertion to avoid TypeScript errors with the API
+      } as ExpensePayload,
       {
         onSuccess: () => {
           toast.success("Expense added successfully");
