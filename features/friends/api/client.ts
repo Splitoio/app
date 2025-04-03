@@ -1,4 +1,4 @@
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/api-helpers/client";
 import { z } from "zod";
 
 const GenericResponseSchema = z.object({

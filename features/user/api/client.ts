@@ -1,5 +1,5 @@
-import { apiClient } from "@/api/client";
-import { UserSchema } from "@/api/modelSchema";
+import { apiClient } from "@/api-helpers/client";
+import { UserSchema } from "@/api-helpers/modelSchema";
 import { z } from "zod";
 import { UpdateUserResponseSchema } from "../schemas";
 import axios, { AxiosError } from "axios";
