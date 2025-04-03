@@ -4,55 +4,54 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, CreditCard, Wallet, Settings } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
+import { useAuthStore } from "@/stores/authStore";
 
 export function GroupInfoHeader({
   groupId,
   onSettleClick,
   group,
   onAddExpenseClick,
+  onSettingsClick,
 }: {
   groupId: string;
   onSettleClick: () => void;
   group: DetailGroup;
   onAddExpenseClick: () => void;
+  onSettingsClick: () => void;
 }) {
   const router = useRouter();
   const { address } = useWallet();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
 
   if (!group) return null;
 
-  // const getMyDebtInfo = () => {
-  //   if (!address) return { amount: 0, type: "none" };
+  // Calculate total balance
+  const calculateTotalBalance = () => {
+    // Get balances for the current user
+    const userBalances = group.groupBalances.filter(
+      (balance) => balance.userId === user?.id
+    );
 
-  //   // If I'm the payer, find how much others owe me
-  //   if (group.paidBy === address) {
-  //     const othersOweMe = group.debts.reduce(
-  //       (sum, debt) => sum + debt.amount,
-  //       0
-  //     );
-  //     return { amount: othersOweMe, type: "owed" };
-  //   }
+    // Sum up all balances
+    const totalBalance = userBalances.reduce(
+      (sum, balance) => sum + balance.amount,
+      0
+    );
 
-  //   // If someone else paid, find how much I owe them
-  //   const myDebt = group.debts.find((debt) => debt.from === address);
-  //   return {
-  //     amount: myDebt?.amount || 0,
-  //     type: "owe",
-  //   };
-  // };
-
-  // const debtInfo = getMyDebtInfo();
-  const debtInfo = {
-    amount: 100,
-    type: "owed",
+    return {
+      amount: Math.abs(totalBalance),
+      type: totalBalance >= 0 ? "owed" : "owe",
+    };
   };
+
+  const debtInfo = calculateTotalBalance();
 
   const handleAddExpenseClick = () => {
     setIsAddingExpense(true);
@@ -79,83 +78,115 @@ export function GroupInfoHeader({
   };
 
   return (
-    <div className="mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-start gap-6">
-          <div className="h-32 w-32 overflow-hidden rounded-full">
-            <Image
-              src={group.image || "/group_icon_placeholder.svg"}
-              alt={group.name}
-              width={1000}
-              height={1000}
-              quality={100}
-              priority={true}
-              className="h-full w-auto object-cover"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-h1 text-white">{group.name}</h1>
-            <div className="inline-flex items-center rounded-xl bg-[#1F1F23]/50 px-3 py-1">
-              <span className="text-body text-white/70">
-                {debtInfo.type === "owed" ? "You are owed" : "You owe"}{" "}
-                <span
-                  className={
-                    debtInfo.type === "owed"
-                      ? "text-[#53e45d]"
-                      : "text-[#FF4444]"
-                  }
-                >
+    <div className="mb-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold text-white mb-1">
+            {group.name}
+          </h1>
+          <p className="text-lg text-white/70">
+            {debtInfo.type === "owed" ? (
+              <>
+                Overall, you are owed{" "}
+                <span className="text-[#53e45d]">
                   ${debtInfo.amount.toFixed(2)}
                 </span>
-              </span>
-            </div>
-          </div>
+              </>
+            ) : (
+              <>
+                Overall, you owe{" "}
+                <span className="text-[#FF4444]">
+                  ${debtInfo.amount.toFixed(2)}
+                </span>
+              </>
+            )}
+          </p>
         </div>
-        <div className="flex flex-col gap-3 -mt-2">
+
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onSettingsClick}
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
+            aria-label="Group Settings"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
+
           <button
             onClick={handleAddExpenseClick}
             disabled={isAddingExpense}
-            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] disabled:opacity-70 disabled:cursor-not-allowed"
+            className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-black px-5 font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isAddingExpense ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Adding...
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Adding...</span>
               </>
             ) : (
               <>
                 <Image
-                  src={"/addExpenseIcon.svg"}
-                  alt="Add"
+                  src="/plus-sign-circle.svg"
+                  alt="Add Expense"
                   width={20}
                   height={20}
+                  className="invert"
                 />
-                Add Expense
+                <span>Add Expense</span>
               </>
             )}
           </button>
+
           <button
             onClick={handleSettleClick}
             disabled={isSettling}
-            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 !pl-1 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] disabled:opacity-70 disabled:cursor-not-allowed"
+            className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isSettling ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Settling...
+                <Loader2 className="h-5 w-5 animate-spin" />
+                <span>Settling...</span>
               </>
             ) : (
               <>
                 <Image
-                  src={"/moneySend.svg"}
-                  alt="Settle"
+                  src="/coins-dollar.svg"
+                  alt="Settle Debts"
                   width={20}
                   height={20}
                 />
-                Settle Debts
+                <span>Settle all debts</span>
               </>
             )}
           </button>
+
+          <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+            <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+              {user?.image ? (
+                <Image
+                  src={user.image}
+                  alt="Profile"
+                  width={48}
+                  height={48}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                    user?.id || user?.email || "user"
+                  }`}
+                  alt="Profile"
+                  width={48}
+                  height={48}
+                  className="h-full w-full"
+                  onError={(e) => {
+                    console.error(`Error loading identicon for user`);
+                    const target = e.target as HTMLImageElement;
+                    target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                  }}
+                />
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </div>

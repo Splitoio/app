@@ -47,40 +47,6 @@ export default function Page() {
     settled: "$100.29 USD",
   };
 
-  // Get debts from friends (mock data for now)
-  const friendsWithDebts = [
-    { id: "1", name: "Mike Morris", owesYou: true, amount: "$60" },
-    {
-      id: "2",
-      name: "Kamala D'souza",
-      owesYou: false,
-      youOwe: true,
-      amount: "$60",
-      group: "Blockchain Expense App",
-    },
-    { id: "3", name: "Kamala", owesYou: false, youOwe: true, amount: "$60" },
-    {
-      id: "4",
-      name: "Mike Morris",
-      owesYou: false,
-      youOwe: false,
-      amount: "$0",
-    },
-  ];
-
-  // Groups with debts (use actual groups or mock data)
-  const groupsWithDebts = groups?.slice(0, 4).map((group) => ({
-    id: group.id,
-    name: group.name,
-    image: group.image,
-    amount: "$60",
-  })) || [
-    { id: "1", name: "Blockchain Expense App", amount: "$60", image: null },
-    { id: "2", name: "Your Latest Trip", amount: "$40", image: null },
-    { id: "3", name: "Blockchain Expense App", amount: "$50", image: null },
-    { id: "4", name: "Your Latest Trip", amount: "$40", image: null },
-  ];
-
   const handleSettleAllClick = () => {
     setSettleFriendId(null); // Clear any selected friend
     setIsSettling(true);
@@ -168,8 +134,8 @@ export default function Page() {
                     className="h-full w-full"
                     onError={(e) => {
                       console.error(`Error loading identicon for user`);
-                      // @ts-expect-error - fallback to a simpler seed
-                      e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
                     }}
                   />
                 )}
@@ -266,8 +232,8 @@ export default function Page() {
                             console.error(
                               `Error loading image for friend ${friend.id}`
                             );
-                            // @ts-expect-error - fallback to a simpler seed
-                            e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
                           }}
                         />
                       </div>
@@ -357,42 +323,54 @@ export default function Page() {
           </div>
 
           <div className="space-y-6">
-            {groupsWithDebts.map((group) => (
-              <Link href={`/groups/${group.id}`} key={group.id}>
-                <div className="flex items-center justify-between hover:bg-white/[0.02] p-3 rounded-lg transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="h-14 w-14 overflow-hidden rounded-xl bg-white/[0.03]">
-                      {group.image ? (
-                        <Image
-                          src={group.image}
-                          alt={group.name}
-                          width={56}
-                          height={56}
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <Image
-                          src={`https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`}
-                          alt={group.name}
-                          width={56}
-                          height={56}
-                          className="h-full w-full"
-                        />
-                      )}
-                    </div>
-                    <div>
-                      <p className="text-xl text-white font-medium">
-                        {group.name}
-                      </p>
-                      <p className="text-base text-white/60">
-                        Owes you{" "}
-                        <span className="text-[#53e45d]">{group.amount}</span>
-                      </p>
+            {isGroupsLoading ? (
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="h-6 w-6 animate-spin text-white/50" />
+                <span className="ml-2 text-white/70">Loading groups...</span>
+              </div>
+            ) : groups && groups.length > 0 ? (
+              groups.slice(0, 4).map((group) => (
+                <Link href={`/groups/${group.id}`} key={group.id}>
+                  <div className="flex items-center justify-between hover:bg-white/[0.02] p-3 rounded-lg transition-colors">
+                    <div className="flex items-center gap-4">
+                      <div className="h-14 w-14 overflow-hidden rounded-xl bg-white/[0.03]">
+                        {group.image ? (
+                          <Image
+                            src={group.image}
+                            alt={group.name}
+                            width={56}
+                            height={56}
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <Image
+                            src={`https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`}
+                            alt={group.name}
+                            width={56}
+                            height={56}
+                            className="h-full w-full"
+                          />
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-xl text-white font-medium">
+                          {group.name}
+                        </p>
+                        <p className="text-base text-white/60">
+                          {/* We'll need to calculate the actual balances here */}
+                          {/* For now just display default text */}
+                          View group details
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              ))
+            ) : (
+              <div className="text-white/70 text-center py-8">
+                No groups created yet. Create a group to get started!
+              </div>
+            )}
           </div>
         </div>
       </div>

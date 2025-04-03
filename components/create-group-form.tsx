@@ -2,229 +2,231 @@
 
 import { useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, Plus, Check } from "lucide-react";
 import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 import { useRouter } from "next/navigation";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
-import Image from "next/image";
 import { toast } from "sonner";
+import { motion, AnimatePresence } from "framer-motion";
+import { fadeIn } from "@/utils/animations";
 
-export function CreateGroupForm() {
+interface CreateGroupFormProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const { address } = useWallet();
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [selectedToken, setSelectedToken] = useState("USDT");
+  const [lockPrice, setLockPrice] = useState(false);
+  const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const createGroupMutation = useCreateGroup();
   const uploadFileMutation = useUploadFile();
   const router = useRouter();
-  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const [formData, setFormData] = useState({
     name: "",
     members: "",
-    description: "",
-    imageUrl: "",
   });
+
+  const tokens = ["USDT", "USDC", "XLM"];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!address) {
-      alert("Please connect your wallet first!");
+      toast.error("Please connect your wallet first!");
+      return;
+    }
+
+    if (!formData.name.trim()) {
+      toast.error("Please enter a group name");
       return;
     }
 
     createGroupMutation.mutate(
       {
         name: formData.name,
-        description: formData.description || undefined,
-        imageUrl: formData.imageUrl || undefined,
+        currency: selectedToken,
       },
       {
         onSuccess: (data) => {
           setFormData({
             name: "",
             members: "",
-            description: "",
-            imageUrl: "",
           });
-          setImagePreview(null);
+
+          toast.success("Group created successfully!");
+          onClose();
           router.push(`/groups/${data.id}`);
+        },
+        onError: (error) => {
+          toast.error("Failed to create group");
+          console.error(error);
         },
       }
     );
   };
 
-  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const handleAddMember = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.members.trim()) return;
 
-    try {
-      // Show loading state
-      toast.loading("Uploading image...");
+    // Here you would typically add the member to a list
+    // For now, just clear the input as a placeholder
+    setFormData((prev) => ({
+      ...prev,
+      members: "",
+    }));
 
-      // Upload the file to Google Cloud Storage
-      const response = await uploadFileMutation.mutateAsync(file);
-
-      if (response.success) {
-        // Update form data with the image URL
-        setFormData((prev) => ({
-          ...prev,
-          imageUrl: response.data.downloadUrl,
-        }));
-        setImagePreview(response.data.downloadUrl);
-        toast.dismiss();
-        toast.success("Image uploaded successfully");
-      }
-    } catch (error) {
-      console.error("Error uploading image:", error);
-      toast.dismiss();
-      toast.error("Failed to upload image. Please try again.");
-    }
+    toast.success("Invitation sent!");
   };
 
-  const toggleDropdown = () => {
-    setIsDropdownOpen(!isDropdownOpen);
-  };
+  if (!isOpen) return null;
 
   return (
-    <div className="w-full bg-[#101012] border border-white/20 rounded-[18.24px] overflow-hidden">
-      <div className="p-6">
-        <h2 className="text-2xl font-semibold text-white leading-10 tracking-[-0.03em] mb-8 text-center">
-          Create New Group
-        </h2>
+    <AnimatePresence>
+      <motion.div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        {...fadeIn}
+      >
+        <div
+          className="bg-black rounded-3xl w-full max-w-md overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-8">
+            <h2 className="text-xl font-semibold text-white mb-6">
+              Create Group
+            </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Group Image */}
-          <div className="flex flex-col items-center mb-6">
-            <div className="relative h-24 w-24 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 mb-4">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012] flex items-center justify-center">
-                {imagePreview ? (
-                  <Image
-                    src={imagePreview}
-                    alt="Group"
-                    width={96}
-                    height={96}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-white/50">
-                    <span className="text-xs text-center">Group Image</span>
-                  </div>
-                )}
-              </div>
-              <label className="absolute bottom-0 right-0 h-8 w-8 rounded-full bg-[#1E1E20] flex items-center justify-center cursor-pointer border border-white/10 hover:bg-white/10 transition-colors">
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  className="h-4 w-4 text-white/70"
-                >
-                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                  <polyline points="17 8 12 3 7 8"></polyline>
-                  <line x1="12" y1="3" x2="12" y2="15"></line>
-                </svg>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Group Name */}
+              <div className="space-y-2">
+                <label className="block text-base text-white">Group Name</label>
                 <input
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={handleImageChange}
-                  disabled={createGroupMutation.isPending}
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
+                  className="w-full h-12 bg-transparent rounded-lg px-4 
+                    text-base text-white border border-white/10"
+                  placeholder="New Split Group"
                 />
-              </label>
-            </div>
-          </div>
+              </div>
 
-          <div className="space-y-2">
-            <label className="block text-lg font-semibold text-white leading-7 tracking-[-0.03em]">
-              Group Name
-            </label>
-            <input
-              type="text"
-              value={formData.name}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, name: e.target.value }))
-              }
-              className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4 
-                     text-base font-semibold text-white/40 leading-6 border border-white/20"
-              placeholder="Enter group name"
-              required
-            />
-          </div>
+              {/* Token Selection */}
+              <div className="space-y-2">
+                <label className="block text-base text-white">
+                  Choose Payment Token
+                </label>
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setShowTokenDropdown(!showTokenDropdown)}
+                    className="w-full h-12 bg-transparent rounded-lg px-4 
+                      text-base text-white border border-white/10 flex items-center justify-between"
+                  >
+                    <span>{selectedToken}</span>
+                    <ChevronDown className="h-5 w-5 text-white/70" />
+                  </button>
 
-          <div className="space-y-2">
-            <label className="block text-lg font-semibold text-white leading-7 tracking-[-0.03em]">
-              Members
-            </label>
-            <div className="relative">
-              <input
-                type="text"
-                value={formData.members}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, members: e.target.value }))
-                }
-                className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4 pr-10
-                       text-base font-semibold text-white/40 leading-6 border border-white/20"
-                placeholder="Choose friends"
-                required
-                onClick={toggleDropdown}
-              />
-              <button
-                type="button"
-                onClick={toggleDropdown}
-                className="absolute right-4 top-1/2 -translate-y-1/2 p-1 hover:bg-white/5 rounded-full transition-colors"
-              >
-                <ChevronDown className="w-4 h-4 text-white/40" />
-              </button>
-
-              {isDropdownOpen && (
-                <div className="absolute z-10 w-full mt-2 bg-[#0D0D0F] border border-white/5 rounded-[11.86px] py-2">
-                  <div className="px-4 py-2 text-[15.51px] font-semibold text-white/40">
-                    No friends yet
-                  </div>
+                  {showTokenDropdown && (
+                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] border border-white/10 rounded-lg py-2 z-10">
+                      {tokens.map((token) => (
+                        <button
+                          key={token}
+                          type="button"
+                          className="w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center"
+                          onClick={() => {
+                            setSelectedToken(token);
+                            setShowTokenDropdown(false);
+                          }}
+                        >
+                          {token === selectedToken && (
+                            <Check className="h-4 w-4 mr-2 text-white" />
+                          )}
+                          <span
+                            className={
+                              token === selectedToken ? "ml-0" : "ml-6"
+                            }
+                          >
+                            {token}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          <div className="space-y-2">
-            <label className="block text-lg font-semibold text-white leading-7 tracking-[-0.03em]">
-              Description (Optional)
-            </label>
-            <input
-              type="text"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              className="w-full h-[47.43px] bg-[#0D0D0F] rounded-[11.86px] px-4
-                     text-base font-semibold text-white/40 leading-6 border border-white/20"
-              placeholder="Add a description"
-            />
-          </div>
+              {/* Lock Price Toggle */}
+              <div className="flex items-center justify-between">
+                <span className="text-white text-sm">
+                  Lock price at $1 = 1 USDT
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setLockPrice(!lockPrice)}
+                  className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                    lockPrice ? "bg-blue-500" : "bg-white/10"
+                  }`}
+                >
+                  <div
+                    className={`h-4 w-4 rounded-full bg-white transform transition-transform ${
+                      lockPrice ? "translate-x-6" : "translate-x-0"
+                    }`}
+                  />
+                </button>
+              </div>
 
-          <div className="flex justify-center pt-4">
-            <div className="animate-border-light">
+              {/* Divider */}
+              <div className="h-px bg-white/10 my-4"></div>
+
+              {/* Invite Members */}
+              <div className="space-y-2">
+                <label className="block text-base text-white">
+                  Invite members
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={formData.members}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        members: e.target.value,
+                      }))
+                    }
+                    className="flex-1 h-12 bg-transparent rounded-lg px-4 
+                      text-base text-white border border-white/10"
+                    placeholder="me@email.com"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleAddMember}
+                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center"
+                  >
+                    <Plus className="h-5 w-5 text-black" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Submit Button */}
               <button
                 type="submit"
-                className="w-[234.68px] h-[55.64px] bg-[#101012] rounded-[18.24px] 
-                       text-xl font-semibold text-white leading-8 
-                       tracking-[-0.03em] hover:bg-white/5 transition-colors"
+                className="w-full h-12 bg-white text-black rounded-full font-medium hover:bg-white/90 transition-colors mt-8"
                 disabled={createGroupMutation.isPending}
               >
                 {createGroupMutation.isPending ? "Creating..." : "Create Group"}
               </button>
-            </div>
+            </form>
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+
+        {/* Close button - click anywhere outside to close */}
+        <div className="absolute inset-0 -z-10" onClick={onClose}></div>
+      </motion.div>
+    </AnimatePresence>
   );
 }

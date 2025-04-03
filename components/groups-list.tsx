@@ -9,6 +9,7 @@ import {
   AlertTriangle,
   X,
   CheckCircle,
+  Plus,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -161,240 +162,156 @@ export function GroupsList() {
     );
   }
 
+  if (groupsData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-3xl bg-[#101012] p-12 min-h-[calc(100vh-180px)]">
+        <div className="text-xl text-white/70 mb-4">No groups created yet</div>
+        <p className="text-white/50 text-center max-w-md mb-8">
+          Create a group to start tracking expenses and settle debts with your
+          friends
+        </p>
+        <Link
+          href="/create"
+          className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-12 px-6 font-medium hover:bg-white/90 transition-all"
+        >
+          <Plus className="h-5 w-5" strokeWidth={1.5} />
+          <span>Create New Group</span>
+        </Link>
+      </div>
+    );
+  }
+
   return (
-    <>
+    <div className="bg-[#101012] rounded-3xl min-h-[calc(100vh-180px)] p-8">
       <motion.div
-        className="py-12"
         variants={staggerContainer}
         initial="initial"
         animate="animate"
+        className="space-y-6"
       >
-        <div className="space-y-4">
-          {groupsData?.map((group) => {
-            console.log(`Group ${group.name} image URL:`, group.image);
-            return (
-              <motion.div
-                key={group.id}
-                variants={slideUp}
-                className="relative"
+        {groupsData.map((group) => (
+          <motion.div
+            key={group.id}
+            variants={slideUp}
+            className="relative rounded-xl p-6"
+          >
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="h-14 w-14 overflow-hidden rounded-xl bg-white/[0.03]">
+                  <Image
+                    src={group.image || "/group_icon_placeholder.png"}
+                    alt={group.name}
+                    className="h-full w-full object-cover"
+                    width={56}
+                    height={56}
+                    onError={(e) => {
+                      console.error(
+                        `Error loading image for group ${group.name}:`,
+                        group.image
+                      );
+                      const target = e.target as HTMLImageElement;
+                      target.src = "/group_icon_placeholder.png";
+                    }}
+                  />
+                </div>
+                <div>
+                  <p className="text-xl font-medium text-white">{group.name}</p>
+                  <p className="text-base text-white/60">
+                    {/* Show balance status - this would need to be calculated from actual balance data */}
+                    {Math.random() > 0.5 ? (
+                      <span>
+                        Owes you <span className="text-[#53e45d]">$60</span>
+                      </span>
+                    ) : (
+                      <span>
+                        You owe <span className="text-[#FF4444]">$60</span>
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+
+              <Link
+                href={`/groups/${group.id}`}
+                className="text-white font-medium flex items-center gap-2 rounded-full border border-white/80 px-4 py-2 hover:bg-white/[0.03] transition-colors"
               >
-                <Link
-                  href={`/groups/${group.id}`}
-                  className="flex items-center justify-between rounded-xl bg-zinc-950/50 p-3 transition-all duration-300 hover:bg-[#1a1a1c] relative group"
-                  onMouseMove={(e) => {
-                    const rect = e.currentTarget.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const y = e.clientY - rect.top;
-                    e.currentTarget.style.background = `radial-gradient(1000px circle at ${x}px ${y}px, rgba(255,255,255,0.05), transparent 40%)`;
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.background = "#09090b";
-                    e.currentTarget.style.transition = "background 0.3s ease";
-                  }}
-                >
-                  <div className="flex items-center gap-2">
-                    <div className="h-10 w-10 overflow-hidden rounded-full">
-                      <Image
-                        src={group.image || "/group_icon_placeholder.png"}
-                        alt={group.name}
-                        className="h-full w-full object-cover"
-                        width={80}
-                        height={80}
-                        onError={(e) => {
-                          console.error(
-                            `Error loading image for group ${group.name}:`,
-                            group.image
-                          );
-                          // @ts-expect-error - fallback to placeholder on error
-                          e.target.src = "/group_icon_placeholder.png";
-                        }}
-                      />
-                    </div>
-                    <div>
-                      <p className="text-lg font-normal text-white/90">
-                        {group.name}
-                      </p>
-                      <p className="text-[13px] text-white/50">
-                        Created by {group.createdBy.name} •{" "}
-                        {dayjs(group.createdAt).format("DD/MM/YYYY")}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <div className="relative" data-group-id={group.id}>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setEditingId(
-                            editingId === group.id ? null : group.id
-                          );
-                        }}
-                        className="group-menu p-2 hover:bg-white/5 rounded-full"
-                      >
-                        <MoreVertical className="h-5 w-5 text-white/70" />
-                      </button>
-
-                      {editingId === group.id && (
-                        <div
-                          className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-[#1F1F23] p-1 shadow-lg"
-                          style={{ zIndex: 9999 }}
-                        >
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              router.push(`/groups/${group.id}/edit`);
-                            }}
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/5"
-                          >
-                            <Pencil className="h-4 w-4" />
-                            Edit Group
-                          </button>
-                          <button
-                            onClick={(e) =>
-                              handleDeleteGroup(e, group.id, group.name)
-                            }
-                            className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#FF4444] hover:bg-white/5"
-                            disabled={
-                              deleteGroupMutation.isPending &&
-                              deleteGroupMutation.variables === group.id
-                            }
-                          >
-                            {deleteGroupMutation.isPending &&
-                            deleteGroupMutation.variables === group.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                            Delete Group
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </Link>
-              </motion.div>
-            );
-          })}
-        </div>
+                <span>View Group</span>
+              </Link>
+            </div>
+          </motion.div>
+        ))}
       </motion.div>
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <div className="bg-[#1F1F23] rounded-xl max-w-md w-full border border-white/10 overflow-hidden">
-            <div className="p-4 border-b border-white/10 flex justify-between items-center">
-              <h3 className="text-lg font-medium text-white">
-                {isDeleting
-                  ? "Deleting Group..."
-                  : deleteSuccess
-                  ? "Success"
-                  : deleteError
-                  ? "Cannot Delete Group"
-                  : "Delete Group"}
-              </h3>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div className="w-full max-w-[400px] rounded-xl bg-[#101012] p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-xl font-medium text-white">Delete Group</h3>
               <button
                 onClick={() => {
-                  if (!isDeleting) {
-                    setShowDeleteModal(false);
-                    setGroupToDelete(null);
-                    setDeleteError(null);
-                    setDeleteSuccess(false);
-                  }
+                  setShowDeleteModal(false);
+                  setGroupToDelete(null);
                 }}
-                disabled={isDeleting}
-                className="p-1 rounded-full hover:bg-white/5 disabled:opacity-50"
+                className="rounded-full p-1 hover:bg-white/10"
               >
-                <X className="h-4 w-4 text-white/70" />
+                <X className="h-5 w-5 text-white/70" />
               </button>
             </div>
 
-            <div className="p-5">
-              {isDeleting ? (
-                <div className="flex flex-col items-center justify-center py-6">
-                  <Loader2 className="h-10 w-10 text-blue-500 animate-spin mb-4" />
-                  <p className="text-white/80">
-                    Deleting {groupToDelete?.name}...
-                  </p>
-                </div>
-              ) : deleteSuccess ? (
-                <div className="flex flex-col items-center justify-center py-6">
-                  <CheckCircle className="h-10 w-10 text-green-500 mb-4" />
-                  <p className="text-white/80">
-                    Group "{groupToDelete?.name}" deleted successfully!
-                  </p>
-                </div>
-              ) : deleteError ? (
-                <div className="space-y-4">
-                  <div className="flex items-start gap-3">
-                    <AlertTriangle className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="text-white font-medium mb-1">
-                        Cannot delete this group
-                      </p>
-                      <p className="text-white/70 text-sm">{deleteError}</p>
+            {deleteSuccess ? (
+              <div className="flex flex-col items-center justify-center py-4">
+                <CheckCircle className="mb-4 h-10 w-10 text-green-500" />
+                <p className="text-center text-white">
+                  Group "{groupToDelete?.name}" has been deleted.
+                </p>
+              </div>
+            ) : (
+              <>
+                {deleteError ? (
+                  <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-red-400">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
+                      <p className="text-sm">{deleteError}</p>
                     </div>
                   </div>
-
-                  <div className="flex justify-between mt-6">
-                    <button
-                      onClick={() => {
-                        setShowDeleteModal(false);
-                        setGroupToDelete(null);
-                        setDeleteError(null);
-                      }}
-                      className="px-4 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors"
-                    >
-                      Cancel
-                    </button>
-
-                    {deleteError && deleteError.includes("balance") && (
-                      <button
-                        onClick={() => {
-                          setShowDeleteModal(false);
-                          if (groupToDelete) {
-                            router.push(`/groups/${groupToDelete.id}`);
-                          }
-                        }}
-                        className="px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors"
-                      >
-                        View Balances
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <p className="text-white/80 mb-6">
+                ) : (
+                  <p className="mb-4 text-white/70">
                     Are you sure you want to delete "{groupToDelete?.name}"?
                     This action cannot be undone.
                   </p>
+                )}
 
-                  <div className="flex justify-between">
-                    <button
-                      onClick={() => {
-                        setShowDeleteModal(false);
-                        setGroupToDelete(null);
-                      }}
-                      className="px-4 py-2 rounded-lg bg-white/5 text-white hover:bg-white/10 transition-colors"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      onClick={confirmDelete}
-                      className="px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
-                    >
-                      Delete
-                    </button>
-                  </div>
-                </>
-              )}
-            </div>
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setGroupToDelete(null);
+                    }}
+                    className="rounded-lg px-4 py-2 text-white/70 hover:bg-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Deleting...
+                      </>
+                    ) : (
+                      <>Delete</>
+                    )}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
