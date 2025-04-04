@@ -118,11 +118,13 @@ export function Sidebar() {
                 <div className="h-10 w-10 rounded-full bg-white/[0.05] flex items-center justify-center">
                   <Users2 className="h-5 w-5 text-white/50" strokeWidth={1.5} />
                 </div>
-                <div className="flex-1">
-                  <div className="text-sm text-white/50">
-                    Get started with Splito
+                <a href="https://splito-j33y.vercel.app/signup">
+                  <div className="flex-1">
+                    <div className="text-sm text-white/50">
+                      Get started with Splito
+                    </div>
                   </div>
-                </div>
+                </a >
               </div>
             </div>
             <a

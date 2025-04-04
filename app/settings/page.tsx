@@ -2,12 +2,13 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Loader2, Trash2 } from "lucide-react";
+import { Loader2, Trash2, LogOut } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
 import { toast } from "sonner";
+import { signOut } from "@/lib/auth";
 import {
   Select,
   SelectContent,
@@ -28,8 +29,9 @@ interface Wallet {
 const CHAINS = ["ETH", "BNB", "SOL", "XLM", "MATIC"];
 
 export default function SettingsPage() {
-  const { isAuthenticated, isLoading, user } = useAuthStore();
+  const { isAuthenticated, isLoading, user, setUser } = useAuthStore();
   const router = useRouter();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // State for user settings
   const [displayName, setDisplayName] = useState<string>("Andrew Joe");
@@ -76,6 +78,23 @@ export default function SettingsPage() {
       router.push("/login");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Logout handler
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await signOut();
+      // Clear the user from the store
+      setUser(null);
+      toast.success("Logged out successfully");
+      router.push("/login");
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast.error("Failed to log out. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   // Set a wallet as primary
   const setAsPrimary = (walletId: string) => {
@@ -147,9 +166,33 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="flex w-full min-h-screen bg-black">
+    <motion.div
+      variants={fadeIn}
+      initial="initial"
+      animate="animate"
+      className="flex w-full min-h-screen bg-black"
+    >
       <div className="w-[750px] pl-10 pt-10 pr-4 pb-24">
-        <h1 className="text-2xl font-semibold text-white mb-8">Settings</h1>
+        <div className="flex items-center justify-between mb-8">
+          <h1 className="text-2xl font-semibold text-white">Settings</h1>
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="flex items-center gap-2 bg-transparent border border-white/20 text-white rounded-full px-5 py-2.5 hover:bg-white/5 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isLoggingOut ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-4 w-4" />
+                Logout
+              </>
+            )}
+          </button>
+        </div>
 
         {/* Profile Photo Upload */}
         <div className="mb-8">
@@ -332,7 +375,28 @@ export default function SettingsPage() {
             ))}
           </div>
         </div>
+
+        {/* Logout Section */}
+        <div className="pt-8 border-t border-white/10">
+          <button
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="w-full flex items-center justify-center gap-2 h-12 bg-transparent border border-red-500/30 text-red-400 rounded-full hover:bg-red-500/10 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+          >
+            {isLoggingOut ? (
+              <>
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Logging out...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-4 w-4" />
+                Logout from Splito
+              </>
+            )}
+          </button>
+        </div>
       </div>
-    </div>
+    </motion.div>
   );
 }
