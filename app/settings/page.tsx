@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Loader2, Trash2, LogOut } from "lucide-react";
+import { Loader2, Trash2, LogOut, Minus } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -16,6 +16,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { AddWalletModal } from "@/components/add-wallet-modal";
+import {
+  getUserWallets,
+  addWallet as apiAddWallet,
+  updateWallet as apiUpdateWallet,
+  removeWallet as apiRemoveWallet,
+} from "@/services/walletService";
 
 // Define wallet interface
 interface Wallet {
@@ -34,7 +41,7 @@ export default function SettingsPage() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
   // State for user settings
-  const [displayName, setDisplayName] = useState<string>("Andrew Joe");
+  const [displayName, setDisplayName] = useState<string>("");
   const [preferredCurrency, setPreferredCurrency] = useState<string>("USDT");
   const [selectedChainFilter, setSelectedChainFilter] =
     useState<string>("All Chains");
@@ -42,36 +49,35 @@ export default function SettingsPage() {
   // State for wallets
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [isAddingWallet, setIsAddingWallet] = useState(false);
+  const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  const [isLoadingWallets, setIsLoadingWallets] = useState(false);
 
-  // Initialize with sample data
+  // Load user data and wallets
   useEffect(() => {
     if (user) {
-      setDisplayName(user.name || "Andrew Joe");
+      setDisplayName(user.name || "");
       setPreferredCurrency(user.currency || "USDT");
 
-      // Sample wallets for demonstration
-      setWallets([
-        {
-          id: "1",
-          address: "0xe2d3A739EFFCd3A99387d015...",
-          chain: "BNB",
-          isPrimary: true,
-        },
-        {
-          id: "2",
-          address: "0xe2d3A739EFFCd3A99387d015...",
-          chain: "ETH",
-          isPrimary: true,
-        },
-        {
-          id: "3",
-          address: "0xe2d3A739EFFCd3A99387d015...",
-          chain: "SOL",
-          isPrimary: false,
-        },
-      ]);
+      // Fetch wallets from API
+      fetchUserWallets();
     }
   }, [user]);
+
+  // Fetch user's wallets from API
+  const fetchUserWallets = async () => {
+    if (!user?.id) return;
+
+    setIsLoadingWallets(true);
+    try {
+      const walletsData = await getUserWallets(user.id);
+      setWallets(walletsData);
+    } catch (error) {
+      console.error("Error fetching wallets:", error);
+      // Toast notification is handled in the service
+    } finally {
+      setIsLoadingWallets(false);
+    }
+  };
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -97,39 +103,69 @@ export default function SettingsPage() {
   };
 
   // Set a wallet as primary
-  const setAsPrimary = (walletId: string) => {
-    setWallets(
-      wallets.map((wallet) => ({
-        ...wallet,
-        isPrimary: wallet.id === walletId,
-      }))
-    );
-    toast.success("Primary wallet updated");
+  const setAsPrimary = async (walletId: string) => {
+    if (!user?.id) return;
+
+    try {
+      await apiUpdateWallet(user.id, walletId, true);
+
+      // Update local state
+      setWallets(
+        wallets.map((wallet) => ({
+          ...wallet,
+          isPrimary: wallet.id === walletId,
+        }))
+      );
+
+      toast.success("Primary wallet updated");
+    } catch (error) {
+      console.error("Error setting primary wallet:", error);
+      // Toast notification is handled in the service
+    }
   };
 
   // Remove a wallet
-  const removeWallet = (walletId: string) => {
-    setWallets(wallets.filter((wallet) => wallet.id !== walletId));
-    toast.success("Wallet removed");
+  const removeWallet = async (walletId: string) => {
+    if (!user?.id) return;
+
+    try {
+      const success = await apiRemoveWallet(user.id, walletId);
+
+      if (success) {
+        // Update local state
+        setWallets(wallets.filter((wallet) => wallet.id !== walletId));
+        toast.success("Wallet removed successfully");
+      }
+    } catch (error) {
+      console.error("Error removing wallet:", error);
+      // Toast notification is handled in the service
+    }
   };
 
-  // Add a new wallet (mock function)
-  const handleAddWallet = () => {
+  // Add a new wallet
+  const handleAddWallet = async (walletData: Omit<Wallet, "id">) => {
+    if (!user?.id) {
+      toast.error("User ID is required");
+      return;
+    }
+
     setIsAddingWallet(true);
 
-    // Simulate async operation
-    setTimeout(() => {
-      const newWallet = {
-        id: String(Date.now()),
-        address: "0xe2d3A739EFFCd3A99387d015...",
-        chain: CHAINS[Math.floor(Math.random() * CHAINS.length)],
-        isPrimary: false,
-      };
+    try {
+      // Call API to add wallet
+      const newWallet = await apiAddWallet(user.id, walletData);
 
+      // Update local state
       setWallets([...wallets, newWallet]);
-      setIsAddingWallet(false);
       toast.success("Wallet added successfully");
-    }, 1500);
+      return newWallet;
+    } catch (error) {
+      console.error("Error adding wallet:", error);
+      // Toast notification is handled in the service
+      throw error;
+    } finally {
+      setIsAddingWallet(false);
+    }
   };
 
   // Handle file upload for profile picture
@@ -289,7 +325,7 @@ export default function SettingsPage() {
         {/* Wallet Management */}
         <div className="mb-8">
           <button
-            onClick={handleAddWallet}
+            onClick={() => setIsWalletModalOpen(true)}
             disabled={isAddingWallet}
             className="w-full flex items-center justify-center h-12 bg-white text-black rounded-full mb-6 hover:bg-white/90 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
           >
@@ -333,46 +369,56 @@ export default function SettingsPage() {
 
           {/* Wallet List */}
           <div className="space-y-6">
-            {filteredWallets.map((wallet) => (
-              <div key={wallet.id} className="pb-6 mb-2">
-                <div className="flex items-center justify-between">
-                  <p className="text-white font-mono">{wallet.address}</p>
-                  {!wallet.isPrimary ? (
-                    <div className="flex items-center">
-                      <button
-                        onClick={() => setAsPrimary(wallet.id)}
-                        className="border border-white/80 text-white text-sm rounded-full px-4 py-1.5 hover:bg-white/5 transition"
-                      >
-                        Set as primary
-                      </button>
-                      <button
-                        onClick={() => removeWallet(wallet.id)}
-                        className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <div className="text-white/60 text-sm">
-                        Primary Wallet
-                      </div>
-                      <button
-                        onClick={() => removeWallet(wallet.id)}
-                        className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
-                      >
-                        <Trash2 className="h-5 w-5" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="mt-2">
-                  <p className="text-white/60 text-sm">
-                    {wallet.chain} {wallet.chain === "ETH" && "(Base)"}
-                  </p>
-                </div>
+            {isLoadingWallets ? (
+              <div className="flex justify-center py-8">
+                <Loader2 className="h-8 w-8 animate-spin text-white/50" />
               </div>
-            ))}
+            ) : filteredWallets.length > 0 ? (
+              filteredWallets.map((wallet) => (
+                <div key={wallet.id} className="pb-6 mb-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-white font-mono">{wallet.address}</p>
+                    {!wallet.isPrimary ? (
+                      <div className="flex items-center">
+                        <button
+                          onClick={() => setAsPrimary(wallet.id)}
+                          className="border border-white/80 text-white text-sm rounded-full px-4 py-1.5 hover:bg-white/5 transition"
+                        >
+                          Set as primary
+                        </button>
+                        <button
+                          onClick={() => removeWallet(wallet.id)}
+                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
+                        >
+                          <Minus className="h-5 w-5" />
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <div className="text-white/60 text-sm">
+                          Primary Wallet
+                        </div>
+                        <button
+                          onClick={() => removeWallet(wallet.id)}
+                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
+                        >
+                          <Minus className="h-5 w-5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-2">
+                    <p className="text-white/60 text-sm">
+                      {wallet.chain} {wallet.chain === "ETH" && "(Base)"}
+                    </p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div className="py-8 text-center text-white/50">
+                You don't have any wallets yet. Add one to get started.
+              </div>
+            )}
           </div>
         </div>
 
@@ -397,6 +443,13 @@ export default function SettingsPage() {
           </button>
         </div>
       </div>
+
+      {/* Add Wallet Modal */}
+      <AddWalletModal
+        isOpen={isWalletModalOpen}
+        onClose={() => setIsWalletModalOpen(false)}
+        onAddWallet={handleAddWallet}
+      />
     </motion.div>
   );
 }
