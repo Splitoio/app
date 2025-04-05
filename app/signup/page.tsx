@@ -269,159 +269,147 @@ export default function SignupPage() {
         </div>
 
         {/* Mobile view - borderless design */}
-        <div className="sm:hidden w-full space-y-5">
-          <div className="flex items-center mb-4">
-            <Link href="/" className="p-2 rounded-full bg-white/10">
-              <svg
-                width="24"
-                height="24"
-                viewBox="0 0 24 24"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  d="M19 12H5"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-                <path
-                  d="M12 19L5 12L12 5"
-                  stroke="white"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </Link>
-          </div>
-
-          <h1 className="text-2xl font-semibold text-white">Create account</h1>
-
-          <form onSubmit={handleSubmit} className="space-y-5 pt-2">
-            <div className="form-group">
-              <label
-                htmlFor="email-mobile"
-                className="text-sm font-medium text-white/80 mb-2 block"
-              >
-                Email
-              </label>
-              <div className="relative">
-                <input
-                  type="email"
-                  id="email-mobile"
-                  className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
-                  placeholder="name@gmail.com"
-                  value={formData.email}
-                  onChange={(e) =>
-                    setFormData({ ...formData, email: e.target.value })
-                  }
-                  required
-                  disabled={isLoading !== null}
-                />
-              </div>
+        <div className="sm:hidden w-full flex flex-col min-h-[calc(100vh-48px)] justify-between">
+          <div className="flex flex-col space-y-8 pt-10">
+            <div className="flex justify-center">
+              <Image
+                src="/logo.svg"
+                alt="Splito"
+                width={120}
+                height={48}
+                className="w-[100px]"
+                priority
+              />
             </div>
 
-            <div className="form-group">
-              <label
-                htmlFor="phoneNumber-mobile"
-                className="text-sm font-medium text-white/80 mb-2 block"
-              >
-                Phone Number
-              </label>
-              <div className="relative">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  id="phoneNumber-mobile"
-                  className="w-full bg-transparent border-0 border-b border-white/20 pl-8 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
-                  placeholder="00000 00000"
-                  value={formData.phoneNumber}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/\D/g, "");
-                    setFormData({ ...formData, phoneNumber: value });
-                  }}
-                  maxLength={10}
-                  required
-                  disabled={isLoading !== null}
-                />
-                <div className="absolute left-0 top-0 h-full flex items-center text-white/70">
-                  +91
+            <h1 className="text-2xl font-semibold text-white text-center">
+              Create account
+            </h1>
+
+            <form onSubmit={handleSubmit} className="space-y-6 pt-2">
+              <div className="form-group">
+                <label
+                  htmlFor="email-mobile"
+                  className="text-sm font-medium text-white/80 mb-2 block"
+                >
+                  Email
+                </label>
+                <div className="relative">
+                  <input
+                    type="email"
+                    id="email-mobile"
+                    className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
+                    placeholder="name@gmail.com"
+                    value={formData.email}
+                    onChange={(e) =>
+                      setFormData({ ...formData, email: e.target.value })
+                    }
+                    required
+                    disabled={isLoading !== null}
+                  />
                 </div>
               </div>
-            </div>
 
-            <div className="form-group">
-              <label
-                htmlFor="password-mobile"
-                className="text-sm font-medium text-white/80 mb-2 block"
-              >
-                Password
-              </label>
-              <div className="relative">
-                <input
-                  type={showPassword ? "text" : "password"}
-                  id="password-mobile"
-                  className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
-                  placeholder="Your password"
-                  value={formData.password}
-                  onChange={(e) =>
-                    setFormData({ ...formData, password: e.target.value })
-                  }
-                  required
-                  disabled={isLoading !== null}
-                />
-                <button
-                  type="button"
-                  className="absolute right-0 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
-                  onClick={() => setShowPassword(!showPassword)}
-                  disabled={isLoading !== null}
+              <div className="form-group">
+                <label
+                  htmlFor="phoneNumber-mobile"
+                  className="text-sm font-medium text-white/80 mb-2 block"
                 >
-                  {showPassword ? (
-                    <EyeOff className="h-5 w-5" />
-                  ) : (
-                    <Eye className="h-5 w-5" />
-                  )}
-                </button>
+                  Phone Number
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    id="phoneNumber-mobile"
+                    className="w-full bg-transparent border-0 border-b border-white/20 pl-8 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
+                    placeholder="00000 00000"
+                    value={formData.phoneNumber}
+                    onChange={(e) => {
+                      const value = e.target.value.replace(/\D/g, "");
+                      setFormData({ ...formData, phoneNumber: value });
+                    }}
+                    maxLength={10}
+                    required
+                    disabled={isLoading !== null}
+                  />
+                  <div className="absolute left-0 top-0 h-full flex items-center text-white/70">
+                    +91
+                  </div>
+                </div>
               </div>
-              <Link
-                href="/forgot-password"
-                className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block"
+
+              <div className="form-group">
+                <label
+                  htmlFor="password-mobile"
+                  className="text-sm font-medium text-white/80 mb-2 block"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    id="password-mobile"
+                    className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
+                    placeholder="Your password"
+                    value={formData.password}
+                    onChange={(e) =>
+                      setFormData({ ...formData, password: e.target.value })
+                    }
+                    required
+                    disabled={isLoading !== null}
+                  />
+                  <button
+                    type="button"
+                    className="absolute right-0 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
+                    onClick={() => setShowPassword(!showPassword)}
+                    disabled={isLoading !== null}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                </div>
+                <Link
+                  href="/forgot-password"
+                  className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+
+              <input
+                type="checkbox"
+                id="terms-mobile"
+                className="sr-only"
+                checked={formData.agreeToTerms}
+                onChange={(e) =>
+                  setFormData({ ...formData, agreeToTerms: e.target.checked })
+                }
+                required
+                disabled={isLoading !== null}
+              />
+
+              <button
+                type="submit"
+                className="w-full h-[50px] flex items-center justify-center mt-4
+                bg-white rounded-full
+                text-lg font-semibold text-black
+                transition-all duration-200 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading !== null}
               >
-                Forgot Password?
-              </Link>
-            </div>
+                {isLoading === "email" ? (
+                  <Loader2 className="h-5 w-5 animate-spin text-black" />
+                ) : (
+                  "Sign up"
+                )}
+              </button>
+            </form>
 
-            <input
-              type="checkbox"
-              id="terms-mobile"
-              className="sr-only"
-              checked={formData.agreeToTerms}
-              onChange={(e) =>
-                setFormData({ ...formData, agreeToTerms: e.target.checked })
-              }
-              required
-              disabled={isLoading !== null}
-            />
-
-            <button
-              type="submit"
-              className="w-full h-[50px] flex items-center justify-center mt-6
-              bg-white rounded-full
-              text-lg font-semibold text-black
-              transition-all duration-200 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading !== null}
-            >
-              {isLoading === "email" ? (
-                <Loader2 className="h-5 w-5 animate-spin text-black" />
-              ) : (
-                "Sign up"
-              )}
-            </button>
-
-            <div className="relative flex items-center justify-center my-4">
+            <div className="relative flex items-center justify-center">
               <div className="flex-grow border-t border-white/20"></div>
               <span className="mx-4 text-white/50 text-sm">OR</span>
               <div className="flex-grow border-t border-white/20"></div>
@@ -470,14 +458,16 @@ export default function SignupPage() {
                 )}
               </div>
             </button>
+          </div>
 
-            <p className="text-center text-sm text-white/70 mt-6">
+          <div className="mt-auto pb-10 space-y-6">
+            <p className="text-center text-sm text-white/70">
               Already have an account?{" "}
               <Link href="/login" className="text-white hover:underline">
                 Sign in
               </Link>
             </p>
-          </form>
+          </div>
         </div>
       </motion.div>
     </div>
