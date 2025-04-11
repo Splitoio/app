@@ -57,13 +57,13 @@ export function ConnectWalletModal({
           {...fadeIn}
         >
           <motion.div
-            className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"
+            className="fixed inset-0 bg-black/70 brightness-50"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[400px]">
-            <motion.div className="animate-border-light" {...scaleIn}>
+            <motion.div className="relative z-10">
               <div className="relative rounded-[14.77px] bg-black p-3 lg:p-6">
                 <div className="flex items-center justify-between mb-4 lg:mb-6">
                   <h2 className="text-xl lg:text-2xl font-semibold text-white tracking-[-0.03em]">

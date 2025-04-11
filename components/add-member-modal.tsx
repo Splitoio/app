@@ -86,11 +86,11 @@ export function AddMemberModal({
   return (
     <div className="fixed inset-0 z-50 h-screen w-screen">
       <div
-        className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/70 brightness-50"
         onClick={onClose}
       />
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px]">
-        <div className="animate-border-light">
+        <div className="animate-border-light relative z-10">
           <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
             <div className="flex items-center justify-between mb-6 lg:mb-8">
               <h2 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em] font-instrument-sans">

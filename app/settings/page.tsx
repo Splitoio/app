@@ -351,7 +351,7 @@ export default function SettingsPage() {
             )}
           </button>
 
-          <div className="mb-6">
+          <div className="mt-2 mb-6">
             <Select
               value={selectedChainFilter}
               onValueChange={setSelectedChainFilter}

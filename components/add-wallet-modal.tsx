@@ -85,14 +85,17 @@ export function AddWalletModal({
           {...fadeIn}
         >
           <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-[2px]"
+            className="fixed inset-0 bg-black/70 brightness-50"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
           <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[500px]">
-            <motion.div className="rounded-3xl overflow-hidden" {...scaleIn}>
-              <div className="flex flex-col bg-black rounded-3xl p-6">
+            <motion.div
+              className="relative z-10 rounded-3xl overflow-hidden"
+              {...scaleIn}
+            >
+              <div className="flex flex-col bg-black rounded-3xl p-6 border border-white/80">
                 {/* Modal Header */}
                 <div className="w-full mb-4">
                   <div className="flex items-center justify-between">

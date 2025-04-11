@@ -11,7 +11,7 @@ export function MobileMenuToggle() {
     <button
       onClick={toggle}
       className={cn(
-        "fixed top-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-[#1F1F23]/80 backdrop-blur-sm transition-all hover:bg-[#2a2a2e] shadow-md min-[1025px]:hidden",
+        "fixed top-4 left-4 z-50 flex h-10 w-10 items-center justify-center rounded-full bg-[#1F1F23]/80 brightness-95 transition-all hover:bg-[#2a2a2e] shadow-md min-[1025px]:hidden",
         isOpen ? "opacity-0 pointer-events-none translate-x-2" : "opacity-100"
       )}
       aria-label="Toggle menu"

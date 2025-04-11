@@ -87,11 +87,18 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+        className="fixed inset-0 z-50 flex items-center justify-center p-4"
         {...fadeIn}
       >
+        {/* Backdrop with brightness reduction */}
         <div
-          className="bg-black rounded-3xl w-full max-w-md overflow-hidden"
+          className="fixed inset-0 bg-black/70 brightness-50"
+          onClick={onClose}
+        />
+
+        {/* Modal content with normal brightness */}
+        <div
+          className="relative z-10 bg-black rounded-3xl w-full max-w-md overflow-hidden border border-white/70"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="p-8">
@@ -223,9 +230,6 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
             </form>
           </div>
         </div>
-
-        {/* Close button - click anywhere outside to close */}
-        <div className="absolute inset-0 -z-10" onClick={onClose}></div>
       </motion.div>
     </AnimatePresence>
   );

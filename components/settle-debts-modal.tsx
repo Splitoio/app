@@ -238,7 +238,7 @@ export function SettleDebtsModal({
           {...fadeIn}
         >
           <motion.div
-            className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"
+            className="fixed inset-0 bg-black/70 brightness-50"
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
@@ -247,7 +247,7 @@ export function SettleDebtsModal({
             {/* Settle All Debts Section - Only shown when header button is clicked */}
             {!showIndividualView && (
               <motion.div
-                className="rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                className="relative z-10 rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
                 {...scaleIn}
               >
                 <div className="flex items-center justify-between mb-4">
@@ -415,7 +415,7 @@ export function SettleDebtsModal({
             {/* Settle Individual Debt Section - Only shown when a friend's button is clicked */}
             {showIndividualView && (
               <motion.div
-                className="rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                className="relative z-10 rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
                 {...scaleIn}
               >
                 <div className="flex items-center justify-between mb-4">

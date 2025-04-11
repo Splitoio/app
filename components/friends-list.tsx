@@ -89,9 +89,9 @@ export function FriendsList() {
               </div>
             </div>
 
-            <button className="text-white text-mobile-sm sm:text-sm rounded-full border border-white/20 px-3 sm:px-4 py-1.5 hover:bg-white/5 transition-colors">
+            {/* <button className="text-white text-mobile-sm sm:text-sm rounded-full border border-white/20 px-3 sm:px-4 py-1.5 hover:bg-white/5 transition-colors">
               View
-            </button>
+            </button> */}
           </div>
         </motion.div>
       ))}

@@ -13,7 +13,8 @@ import { ApiError } from "@/types/api-error";
 export default function SignupPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState<"email" | "google" | null>(null);
+  const [isLoadingEmail, setIsLoadingEmail] = useState(false);
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     phoneNumber: "",
@@ -23,13 +24,13 @@ export default function SignupPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoadingEmail(true);
 
     if (!formData.agreeToTerms) {
       toast.error("Please agree to the Privacy & Policy terms");
+      setIsLoadingEmail(false);
       return;
     }
-
-    setIsLoading("email");
 
     try {
       const { data, error } = await authClient.signUp.email({
@@ -60,12 +61,12 @@ export default function SignupPage() {
         toast.error("An unexpected error occurred. Please try again.");
       }
     } finally {
-      setIsLoading(null);
+      setIsLoadingEmail(false);
     }
   };
 
   const handleGoogleSignup = async () => {
-    setIsLoading("google");
+    setIsLoadingGoogle(true);
     try {
       await authClient.signIn.social({
         provider: "google",
@@ -74,7 +75,7 @@ export default function SignupPage() {
       });
     } catch (error) {
       toast.error("Failed to sign up with Google. Please try again.");
-      setIsLoading(null);
+      setIsLoadingGoogle(false);
     }
   };
 
@@ -124,7 +125,7 @@ export default function SignupPage() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                 </div>
@@ -149,7 +150,7 @@ export default function SignupPage() {
                     }}
                     maxLength={10}
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <div className="absolute left-4 top-0 h-full flex items-center text-white/70">
                     +91
@@ -172,14 +173,14 @@ export default function SignupPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                   <button
                     type="button"
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -210,7 +211,7 @@ export default function SignupPage() {
                     setFormData({ ...formData, agreeToTerms: e.target.checked })
                   }
                   required
-                  disabled={isLoading !== null}
+                  disabled={isLoadingEmail || isLoadingGoogle}
                 />
                 <label
                   htmlFor="terms-desktop"
@@ -230,9 +231,9 @@ export default function SignupPage() {
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
                   transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading !== null}
+                  disabled={isLoadingEmail || isLoadingGoogle}
                 >
-                  {isLoading === "email" ? (
+                  {isLoadingEmail ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     "Sign up"
@@ -248,9 +249,9 @@ export default function SignupPage() {
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
                   transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading !== null}
+                  disabled={isLoadingEmail || isLoadingGoogle}
                 >
-                  {isLoading === "google" ? (
+                  {isLoadingGoogle ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     "Sign up with Google"
@@ -305,7 +306,7 @@ export default function SignupPage() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                 </div>
               </div>
@@ -332,7 +333,7 @@ export default function SignupPage() {
                     }}
                     maxLength={10}
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <div className="absolute left-0 top-0 h-full flex items-center text-white/70 text-mobile-sm">
                     +91
@@ -358,13 +359,13 @@ export default function SignupPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <button
                     type="button"
                     className="absolute right-0 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -390,7 +391,7 @@ export default function SignupPage() {
                   setFormData({ ...formData, agreeToTerms: e.target.checked })
                 }
                 required
-                disabled={isLoading !== null}
+                disabled={isLoadingEmail || isLoadingGoogle}
               />
 
               <button
@@ -399,9 +400,9 @@ export default function SignupPage() {
                 bg-white rounded-full
                 text-mobile-lg font-semibold text-black
                 transition-all duration-200 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading !== null}
+                disabled={isLoadingEmail || isLoadingGoogle}
               >
-                {isLoading === "email" ? (
+                {isLoadingEmail ? (
                   <Loader2 className="h-5 w-5 animate-spin text-black" />
                 ) : (
                   "Sign up"
@@ -422,10 +423,10 @@ export default function SignupPage() {
               bg-transparent border border-white/20 rounded-full
               text-mobile-lg font-medium text-white
               transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading !== null}
+              disabled={isLoadingEmail || isLoadingGoogle}
             >
               <div className="flex items-center gap-2">
-                {isLoading === "google" ? (
+                {isLoadingGoogle ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>

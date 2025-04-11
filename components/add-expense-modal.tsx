@@ -308,11 +308,11 @@ export function AddExpenseModal({
   return (
     <div className="fixed inset-0 z-50 h-screen w-screen">
       <div
-        className="fixed inset-0 bg-black/80 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/80 brightness-50"
         onClick={onClose}
       />
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] max-h-[90vh] overflow-auto">
-        <div className="rounded-[20px] bg-black p-6 border border-white/20">
+        <div className="relative z-10 rounded-[20px] bg-black p-6 border border-white/20">
           <h2 className="text-2xl font-medium text-white mb-6">Add Expense</h2>
 
           <form onSubmit={handleSubmit} className="space-y-6">

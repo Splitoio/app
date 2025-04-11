@@ -232,7 +232,7 @@ export function GroupsList() {
 
               <Link
                 href={`/groups/${group.id}`}
-                className="text-white text-mobile-sm sm:text-sm rounded-full border border-white/20 px-3 sm:px-4 py-1.5 hover:bg-white/5 transition-colors"
+                className="text-white text-mobile-sm sm:text-base rounded-full border border-white px-3 sm:px-5 py-1.5 sm:py-2.5 hover:bg-white/5 transition-colors font-medium"
               >
                 View Group
               </Link>
@@ -243,8 +243,8 @@ export function GroupsList() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-[360px] sm:max-w-[400px] rounded-xl bg-[#101012] p-4 sm:p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 brightness-50 p-4">
+          <div className="relative z-10 w-full max-w-[360px] sm:max-w-[400px] rounded-xl bg-[#101012] p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg sm:text-xl font-medium text-white">
                 Delete Group

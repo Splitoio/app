@@ -22,7 +22,7 @@ export function Sidebar() {
     <>
       {isOpen && (
         <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm min-[1025px]:hidden z-50"
+          className="fixed inset-0 bg-black/70 brightness-50 min-[1025px]:hidden z-50"
           onClick={close}
         />
       )}

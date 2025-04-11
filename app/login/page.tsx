@@ -13,7 +13,8 @@ import { ApiError } from "@/types/api-error";
 export default function LoginPage() {
   const router = useRouter();
   const [showPassword, setShowPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState<"email" | "google" | null>(null);
+  const [isLoadingEmail, setIsLoadingEmail] = useState(false);
+  const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -21,7 +22,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading("email");
+    setIsLoadingEmail(true);
 
     try {
       const { data, error } = await authClient.signIn.email({
@@ -34,7 +35,11 @@ export default function LoginPage() {
         toast.error(error.message || "Failed to sign in. Please try again.");
       } else if (data) {
         toast.success("Signed in successfully!");
-        router.push("/");
+
+        // Use window.location instead of router.push to force a full page reload
+        // This ensures cookies are properly set before navigating to protected pages
+        window.location.href = "/";
+        return; // Don't reset loading state as we're navigating away
       }
     } catch (error) {
       const apiError = error as ApiError;
@@ -46,22 +51,23 @@ export default function LoginPage() {
       } else {
         toast.error("An unexpected error occurred. Please try again.");
       }
-    } finally {
-      setIsLoading(null);
     }
+
+    setIsLoadingEmail(false);
   };
 
   const handleGoogleLogin = async () => {
-    setIsLoading("google");
+    setIsLoadingGoogle(true);
     try {
       await authClient.signIn.social({
         provider: "google",
-        callbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
-        errorCallbackURL: process.env.NEXT_PUBLIC_FRONTEND_URL,
+        callbackURL: window.location.origin,
+        errorCallbackURL: window.location.origin + "/login",
       });
+      // Note: We don't need to reset loading state here as the page will redirect
     } catch (error) {
       toast.error("Failed to sign in with Google. Please try again.");
-      setIsLoading(null);
+      setIsLoadingGoogle(false);
     }
   };
 
@@ -111,7 +117,7 @@ export default function LoginPage() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <Mail className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                 </div>
@@ -132,14 +138,14 @@ export default function LoginPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <Lock className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-white/50" />
                   <button
                     type="button"
                     className="absolute right-4 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -163,9 +169,9 @@ export default function LoginPage() {
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
                   transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading !== null}
+                  disabled={isLoadingEmail || isLoadingGoogle}
                 >
-                  {isLoading === "email" ? (
+                  {isLoadingEmail ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     "Sign in"
@@ -181,9 +187,9 @@ export default function LoginPage() {
                   bg-[#101012] border border-white/75 rounded-[19px]
                   text-[21.5px] font-semibold text-white leading-[34px] tracking-[-0.03em]
                   transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-                  disabled={isLoading !== null}
+                  disabled={isLoadingEmail || isLoadingGoogle}
                 >
-                  {isLoading === "google" ? (
+                  {isLoadingGoogle ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     "Sign in with Google"
@@ -238,7 +244,7 @@ export default function LoginPage() {
                       setFormData({ ...formData, email: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                 </div>
               </div>
@@ -261,13 +267,13 @@ export default function LoginPage() {
                       setFormData({ ...formData, password: e.target.value })
                     }
                     required
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   />
                   <button
                     type="button"
                     className="absolute right-0 top-1/2 -translate-y-1/2 text-white/50 hover:text-white/70 transition-colors"
                     onClick={() => setShowPassword(!showPassword)}
-                    disabled={isLoading !== null}
+                    disabled={isLoadingEmail || isLoadingGoogle}
                   >
                     {showPassword ? (
                       <EyeOff className="h-5 w-5" />
@@ -290,9 +296,9 @@ export default function LoginPage() {
                 bg-white rounded-full
                 text-mobile-lg font-semibold text-black
                 transition-all duration-200 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                disabled={isLoading !== null}
+                disabled={isLoadingEmail || isLoadingGoogle}
               >
-                {isLoading === "email" ? (
+                {isLoadingEmail ? (
                   <Loader2 className="h-5 w-5 animate-spin text-black" />
                 ) : (
                   "Login"
@@ -313,10 +319,10 @@ export default function LoginPage() {
               bg-transparent border border-white/20 rounded-full
               text-mobile-lg font-medium text-white
               transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading !== null}
+              disabled={isLoadingEmail || isLoadingGoogle}
             >
               <div className="flex items-center gap-2">
-                {isLoading === "google" ? (
+                {isLoadingGoogle ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
                   <>
