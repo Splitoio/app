@@ -5,7 +5,7 @@ import { z } from "zod";
 /////////////////////////////////////////
 
 export const GroupSchema = z.object({
-  id: z.string().cuid(),
+  id: z.string(),
   name: z.string(),
   userId: z.string(),
   description: z.string().nullable(),

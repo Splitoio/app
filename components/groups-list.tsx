@@ -1,6 +1,6 @@
 "use client";
 
-import { useGroups, type Group } from "@/stores/groups";
+import { type Group } from "@/stores/groups";
 import { MoreVertical, Pencil, Trash2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
+import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
 
 type APIGroup = {
   id: string;
@@ -32,7 +33,6 @@ type APIGroup = {
 };
 
 export function GroupsList() {
-  const { groups, deleteGroup, connectedAddress } = useGroups();
   const {
     data: groupsData,
     isLoading: isGroupsLoading,
@@ -41,6 +41,7 @@ export function GroupsList() {
     queryKey: [QueryKeys.GROUPS],
     queryFn: getAllGroups,
   });
+  const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
 
   useEffect(() => {
@@ -162,7 +163,7 @@ export function GroupsList() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          deleteGroup(group.id);
+                          deleteGroupMutation.mutate(group.id);
                         }}
                         className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#FF4444] hover:bg-white/5"
                       >

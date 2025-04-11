@@ -1,7 +1,6 @@
 "use client";
 
 import { GroupInfoHeader } from "@/components/group-info-header";
-import { useGroups } from "@/stores/groups";
 import { useWallet } from "@/hooks/useWallet";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -23,7 +22,6 @@ export default function GroupDetailsPage({
   const { user } = useAuthStore();
   const groupId = params.id;
   const { data: group, isLoading } = useGetGroupById(groupId);
-  const { groups } = useGroups();
   const { address } = useWallet();
   const router = useRouter();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);

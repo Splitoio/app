@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useEffect } from "react";
-import { useGroups } from "@/stores/groups";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import {
@@ -43,12 +42,10 @@ export function useWallet() {
     setWallet,
   } = useWalletStore();
   const [isConnecting, setIsConnecting] = useState(false);
-  const { setConnectedAddress } = useGroups();
 
   const disconnectWallet = useCallback(() => {
     disconnect();
-    setConnectedAddress(null);
-  }, [disconnect, setConnectedAddress]);
+  }, [disconnect]);
 
   const connectWallet = useCallback(async () => {
     try {
@@ -76,7 +73,6 @@ export function useWallet() {
                 isConnected: true,
                 address: walletAddress,
               });
-              setConnectedAddress(walletAddress);
             }
           } catch (error) {
             console.error("Error in wallet selection:", error);
@@ -90,7 +86,7 @@ export function useWallet() {
     } finally {
       setIsConnecting(false);
     }
-  }, [setConnectedAddress, setWalletState, disconnectWallet]);
+  }, [setWalletState, disconnectWallet]);
 
   return {
     isConnected,

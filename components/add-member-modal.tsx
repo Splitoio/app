@@ -1,9 +1,14 @@
 "use client";
 
-import { useAddMembersToGroup } from "@/features/groups/hooks/use-create-group";
+import {
+  useAddMembersToGroup,
+  useGetGroupById,
+} from "@/features/groups/hooks/use-create-group";
 import { X, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useQueryClient } from "@tanstack/react-query";
+import { QueryKeys } from "@/lib/constants";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -18,6 +23,7 @@ export function AddMemberModal({
 }: AddMemberModalProps) {
   const [email, setEmail] = useState("");
   const { mutate: addMembersToGroup, isPending } = useAddMembersToGroup();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -50,6 +56,16 @@ export function AddMemberModal({
         onSuccess: () => {
           toast.success("Member added successfully");
           setEmail("");
+
+          // refetch the specific group data
+          queryClient.invalidateQueries({
+            queryKey: [QueryKeys.GROUPS, groupId],
+          });
+
+          // refetch the general groups list
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+
+          // Close the modal after successful addition
           onClose();
         },
         onError: (error) => {

@@ -13,12 +13,11 @@ const FriendInviteSchema = z.object({
 });
 
 const FriendSchema = z.object({
-  friend: z.object({
-    id: z.string(),
-    name: z.string(),
-    email: z.string(),
-    image: z.string().nullable(),
-  }),
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string(),
+  balances: z.array(z.object({ currency: z.string(), amount: z.number() })),
+  image: z.string().nullable(),
 });
 
 export const inviteFriend = async (payload: {

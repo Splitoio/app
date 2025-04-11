@@ -78,7 +78,7 @@ export type Group = {
   splits: Split[];
   debts: Debt[];
   splitType: "equal" | "percentage" | "custom";
-  currency: "USD" | "ETH";
+  currency: "USD" | "XLM";
   description?: string;
 };
 

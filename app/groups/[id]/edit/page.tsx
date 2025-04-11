@@ -1,18 +1,22 @@
 "use client";
 
-import { useGroups, type Group, type Split, type Debt } from "@/stores/groups";
+import { type Group, type Split, type Debt } from "@/stores/groups";
 import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { splitter } from "@/utils/splitter";
 import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  useGetGroupById,
+  useUpdateGroup,
+} from "@/features/groups/hooks/use-create-group";
 
 export default function EditGroupPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const { groups, updateGroup } = useGroups();
+  const { data: group, isLoading } = useGetGroupById(params.id);
+  const updateGroupMutation = useUpdateGroup();
   const { address } = useWallet();
-  const group = groups.find((g) => g.id === params.id);
 
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
@@ -24,27 +28,28 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     amount: "",
     members: "",
     splitType: "equal" as "equal" | "percentage" | "custom",
-    currency: "USD" as "USD" | "ETH",
+    currency: "USD" as "USD" | "XLM",
     paidBy: "",
     image: null as File | null,
   });
 
   useEffect(() => {
     if (group) {
-      setSplits(group.splits);
+      // Assuming group.splits is no longer available in the API response
+      // setSplits(group.splits);
       setFormData({
         name: group.name,
         description: group.description || "",
-        amount: group.amount.toString(),
-        members: Array.isArray(group.members)
-          ? group.members.join(", ")
-          : group.members,
-        splitType: group.splitType,
-        currency: group.currency,
-        paidBy: group.paidBy,
+        amount: "0", // Amount is not stored in the group anymore
+        members: "", // Members are now in a different format
+        splitType: "equal", // Not sure if this is stored in the API
+        currency: (group.defaultCurrency === "XLM" ? "XLM" : "USD") as
+          | "USD"
+          | "XLM",
+        paidBy: "", // Not sure if this is stored in the API
         image: null,
       });
-      setImagePreview(group.image);
+      setImagePreview(group.image || null);
     }
   }, [group]);
 
@@ -108,31 +113,29 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
 
     if (!group) return;
 
-    let imageUrl = group.image;
+    let imageUrl = group.image || "";
     if (formData.image) {
       // In a real app, you'd upload to a storage service
       // For now, we'll use the data URL
       imageUrl = URL.createObjectURL(formData.image);
     }
 
-    const memberArray = formData.members
-      .split(",")
-      .map((member) => member.trim())
-      .filter(Boolean);
-
-    const updatedGroup: Partial<Group> = {
-      name: formData.name,
-      description: formData.description,
-      amount: Number(formData.amount),
-      members: memberArray,
-      splitType: formData.splitType,
-      currency: formData.currency,
-      paidBy: formData.paidBy,
-      image: imageUrl,
-    };
-
-    updateGroup(params.id, updatedGroup);
-    router.push("/groups");
+    updateGroupMutation.mutate(
+      {
+        groupId: params.id,
+        payload: {
+          name: formData.name,
+          description: formData.description,
+          currency: formData.currency,
+          imageUrl,
+        },
+      },
+      {
+        onSuccess: () => {
+          router.push(`/groups/${params.id}`);
+        },
+      }
+    );
   };
 
   const handleSplitTypeChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -295,13 +298,13 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          currency: e.target.value as "USD" | "ETH",
+                          currency: e.target.value as "USD" | "XLM",
                         }))
                       }
                       className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
                     >
                       <option value="USD">USD</option>
-                      <option value="ETH">ETH</option>
+                      <option value="XLM">XLM</option>
                     </select>
                   </div>
                 </div>

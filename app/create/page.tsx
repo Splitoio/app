@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useAuthStore } from "@/stores/authStore";
 import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
+import { useUploadFile } from "@/features/files/hooks/use-balances";
 
 export default function CreateGroupPage() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function CreateGroupPage() {
     (state: { isAuthenticated: boolean }) => state.isAuthenticated
   );
   const mutatation = useCreateGroup();
+  const uploadFileMutation = useUploadFile();
 
   useEffect(() => {
     if (!isConnected && !address) {
@@ -138,15 +140,20 @@ export default function CreateGroupPage() {
     return Math.abs(totalSplit - Number(formData.amount)) < 0.01;
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      const response = await uploadFileMutation.mutateAsync(file);
+
+      const imageUrl = response.data.downloadUrl;
+
       setFormData((prev) => ({ ...prev, image: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setImagePreview(imageUrl);
+      // const reader = new FileReader();
+      // reader.onloadend = () => {
+      //   setImagePreview(reader.result as string);
+      // };
+      // reader.readAsDataURL(file);
     }
   };
 
