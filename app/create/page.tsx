@@ -217,21 +217,28 @@ export default function CreateGroupPage() {
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-8 text-white">Create Group</h1>
+      <h1 className="text-mobile-xl sm:text-2xl md:text-3xl font-bold mb-8 text-white">
+        Create Group
+      </h1>
       <Card className="bg-zinc-950 border-white/10">
         <CardHeader>
-          <CardTitle className="text-white">New Group</CardTitle>
+          <CardTitle className="text-mobile-lg sm:text-xl text-white">
+            New Group
+          </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
               <div className="space-y-6">
                 <div>
-                  <Label htmlFor="group-image" className="text-white">
+                  <Label
+                    htmlFor="group-image"
+                    className="text-mobile-base sm:text-base text-white"
+                  >
                     Group Image
                   </Label>
                   <div className="mt-2 flex items-center gap-4">
-                    <div className="h-24 w-24 overflow-hidden rounded-full bg-zinc-900">
+                    <div className="h-20 w-20 sm:h-24 sm:w-24 overflow-hidden rounded-full bg-zinc-900">
                       {imagePreview ? (
                         <Image
                           src={imagePreview}
@@ -248,14 +255,14 @@ export default function CreateGroupPage() {
                     </div>
                     <Input
                       type="file"
+                      id="group-image"
                       accept="image/*"
                       onChange={handleImageChange}
                       className="hidden"
-                      id="group-image"
                     />
                     <Label
                       htmlFor="group-image"
-                      className="cursor-pointer rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800"
+                      className="cursor-pointer text-mobile-sm sm:text-sm text-white bg-zinc-900 hover:bg-zinc-800 px-4 py-2 rounded-lg transition-colors"
                     >
                       Choose Image
                     </Label>
@@ -263,317 +270,93 @@ export default function CreateGroupPage() {
                 </div>
 
                 <div>
-                  <Label htmlFor="name" className="text-white">
+                  <Label
+                    htmlFor="name"
+                    className="text-mobile-base sm:text-base text-white"
+                  >
                     Group Name
                   </Label>
                   <Input
-                    type="text"
                     id="name"
+                    placeholder="Enter group name"
+                    className="bg-zinc-900 border-zinc-800 text-white mt-1 text-mobile-base sm:text-base"
                     value={formData.name}
                     onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                      setFormData({ ...formData, name: e.target.value })
                     }
-                    placeholder="Enter group name"
-                    className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
+                    disabled={isSubmitting}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor="description" className="text-white">
+                  <Label
+                    htmlFor="description"
+                    className="text-mobile-base sm:text-base text-white"
+                  >
                     Description
                   </Label>
                   <Textarea
                     id="description"
+                    placeholder="What's this group for?"
+                    className="bg-zinc-900 border-zinc-800 text-white h-24 mt-1 text-mobile-base sm:text-base"
                     value={formData.description}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
+                      setFormData({
+                        ...formData,
                         description: e.target.value,
-                      }))
+                      })
                     }
-                    rows={4}
-                    placeholder="Enter group description"
-                    className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
+                    disabled={isSubmitting}
                   />
                 </div>
 
-                {/* <div>
-                  <Label htmlFor="members" className="text-white">
-                    Members (Email Addresses)
+                <div>
+                  <Label
+                    htmlFor="currency"
+                    className="text-mobile-base sm:text-base text-white"
+                  >
+                    Currency
                   </Label>
-                  <Textarea
-                    id="members"
-                    value={formData.members}
+                  <select
+                    id="currency"
+                    className="w-full bg-zinc-900 border-zinc-800 text-white rounded-md mt-1 p-2 text-mobile-base sm:text-base"
+                    value={formData.currency}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        members: e.target.value,
-                      }))
+                      setFormData({ ...formData, currency: e.target.value })
                     }
-                    placeholder="Enter email addresses separated by commas"
-                    rows={3}
-                    className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
-                    required
-                  />
-                </div> */}
-                {/* <div>
-                  <Label htmlFor="members" className="text-white">
-                    Members (Wallet Addresses)
-                  </Label>
-                  <Textarea
-                    id="members"
-                    value={formData.members}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        members: e.target.value,
-                      }))
-                    }
-                    placeholder="Enter wallet addresses separated by commas"
-                    rows={3}
-                    className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
-                    required
-                  />
-                </div> */}
+                    disabled={isSubmitting}
+                  >
+                    <option value="USD">USD - US Dollar</option>
+                    <option value="EUR">EUR - Euro</option>
+                    <option value="GBP">GBP - British Pound</option>
+                    <option value="INR">INR - Indian Rupee</option>
+                    <option value="JPY">JPY - Japanese Yen</option>
+                    <option value="CAD">CAD - Canadian Dollar</option>
+                    <option value="AUD">AUD - Australian Dollar</option>
+                    <option value="CNY">CNY - Chinese Yuan</option>
+                  </select>
+                </div>
               </div>
-
-              {/* <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="amount" className="text-white">
-                      Amount
-                    </Label>
-                    <div className="relative mt-2">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none select-none">
-                        {formData.currency === "USD" ? "$" : ""}
-                      </span>
-                      <Input
-                        type="number"
-                        id="amount"
-                        value={formData.amount}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            amount: e.target.value,
-                          }))
-                        }
-                        className="pl-8 bg-zinc-900 border-white/10 text-white"
-                        placeholder="0.00"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label htmlFor="currency" className="text-white">
-                      Currency
-                    </Label>
-                    <Select
-                      value={formData.currency}
-                      onValueChange={(value) =>
-                        setFormData((prev) => ({ ...prev, currency: value }))
-                      }
-                    >
-                      <SelectTrigger className="mt-2 bg-zinc-900 border-white/10 text-white">
-                        <SelectValue
-                          placeholder="Select currency"
-                          className="text-white/70"
-                        />
-                      </SelectTrigger>
-                      <SelectContent className="bg-zinc-900 border-white/10">
-                        <SelectItem
-                          value="USD"
-                          className="text-white hover:bg-white/10"
-                        >
-                          USD
-                        </SelectItem>
-                        <SelectItem
-                          value="ETH"
-                          className="text-white hover:bg-white/10"
-                        >
-                          ETH
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-
-                <div>
-                  <Label htmlFor="splitType">Split Type</Label>
-                  <Select
-                    value={formData.splitType}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, splitType: value }))
-                    }
-                  >
-                    <SelectTrigger className="mt-2 bg-zinc-900 border-white/10 text-white">
-                      <SelectValue
-                        placeholder="Select split type"
-                        className="text-white/70"
-                      />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-white/10">
-                      <SelectItem
-                        value="equal"
-                        className="text-white hover:bg-white/10"
-                      >
-                        Equal Split
-                      </SelectItem>
-                      <SelectItem
-                        value="percentage"
-                        className="text-white hover:bg-white/10"
-                      >
-                        Percentage Split
-                      </SelectItem>
-                      <SelectItem
-                        value="custom"
-                        className="text-white hover:bg-white/10"
-                      >
-                        Custom Split
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="paidBy">Paid By</Label>
-                  <Select
-                    value={formData.paidBy || address || ""}
-                    onValueChange={(value) =>
-                      setFormData((prev) => ({ ...prev, paidBy: value }))
-                    }
-                  >
-                    <SelectTrigger className="mt-2 bg-zinc-900 border-white/10 text-white">
-                      <SelectValue
-                        placeholder="Select who paid"
-                        className="text-white/70"
-                      />
-                    </SelectTrigger>
-                    <SelectContent className="bg-zinc-900 border-white/10">
-                      {address && (
-                        <SelectItem
-                          value={address}
-                          className="text-white hover:bg-white/10"
-                        >
-                          You
-                        </SelectItem>
-                      )}
-                      {formData.members.split(",").map(
-                        (member) =>
-                          member.trim() && (
-                            <SelectItem
-                              key={member.trim()}
-                              value={member.trim()}
-                              className="text-white hover:bg-white/10"
-                            >
-                              {member.trim()}
-                            </SelectItem>
-                          )
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div> */}
             </div>
 
-            {/* {formData.splitType === "custom" && splits.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-lg font-medium">Custom Split</h3>
-                {splits.map((split) => (
-                  <div key={split.address} className="flex items-center gap-4">
-                    <span className="text-sm text-muted-foreground w-40 truncate">
-                      {split.address === address ? "You" : split.address}
-                    </span>
-                    <Input
-                      type="number"
-                      value={split.amount}
-                      onChange={(e) =>
-                        updateCustomSplit(split.address, Number(e.target.value))
-                      }
-                      className="w-32"
-                      placeholder="Amount"
-                    />
-                    <span className="text-sm text-muted-foreground">
-                      {formData.currency}
-                    </span>
-                  </div>
-                ))}
-                <div className="mt-2 text-sm text-muted-foreground">
-                  Total: {splits.reduce((sum, split) => sum + split.amount, 0)}{" "}
-                  {formData.currency}
-                  {Math.abs(
-                    splits.reduce((sum, split) => sum + split.amount, 0) -
-                      Number(formData.amount)
-                  ) > 0.01 && (
-                    <span className="text-destructive ml-2">
-                      (Must equal total amount: {formData.amount}{" "}
-                      {formData.currency})
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {formData.splitType === "percentage" && splits.length > 0 && (
-              <div className="mt-6 space-y-4">
-                <h3 className="text-lg font-medium">Percentage Split</h3>
-                {splits.map((split) => (
-                  <div key={split.address} className="flex items-center gap-4">
-                    <span className="text-sm text-muted-foreground w-40 truncate">
-                      {split.address === address ? "You" : split.address}
-                    </span>
-                    <Input
-                      type="number"
-                      value={percentages[split.address] || ""}
-                      onChange={(e) => {
-                        const value = e.target.value;
-                        if (/^\d*$/.test(value) && Number(value) <= 100) {
-                          updatePercentage(split.address, Number(value));
-                        }
-                      }}
-                      className="w-32 bg-[#1F1F23] text-white/90"
-                      placeholder="Percentage"
-                    />
-                    <span className="text-sm text-muted-foreground">%</span>
-                  </div>
-                ))}
-                <div className="mt-2 text-sm text-muted-foreground">
-                  Total:{" "}
-                  {Object.values(percentages).reduce((sum, p) => sum + p, 0)}%
-                  {Math.abs(
-                    Object.values(percentages).reduce((sum, p) => sum + p, 0) -
-                      100
-                  ) > 0.01 && (
-                    <span className="text-destructive ml-2">
-                      (Must equal 100%)
-                    </span>
-                  )}
-                </div>
-              </div>
-            )} */}
-
-            <div className="flex gap-4 pt-4">
+            <div className="flex justify-end">
               <Button
                 type="submit"
-                className="flex-1 bg-zinc-900 text-white hover:bg-zinc-800"
-                disabled={mutatation.isPending}
+                className="bg-white text-black hover:bg-white/90 px-6 text-mobile-base sm:text-base"
+                disabled={isSubmitting}
               >
-                {mutatation.isPending ? (
+                {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
+                    <span className="text-mobile-base sm:text-base">
+                      Creating...
+                    </span>
                   </>
                 ) : (
-                  "Create Group"
+                  <span className="text-mobile-base sm:text-base">
+                    Create Group
+                  </span>
                 )}
-              </Button>
-              <Button
-                type="button"
-                onClick={() => router.back()}
-                variant="outline"
-                className="flex-1 border-white/10 text-white bg-zinc-900 hover:bg-zinc-800"
-              >
-                Cancel
               </Button>
             </div>
           </form>

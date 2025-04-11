@@ -206,7 +206,7 @@ export default function SettingsPage() {
       variants={fadeIn}
       initial="initial"
       animate="animate"
-      className="flex w-full min-h-screen bg-black"
+      className="flex w-full min-h-screen bg-black rounded-xl"
     >
       <div className="w-[750px] pl-10 pt-10 pr-4 pb-24">
         <div className="flex items-center justify-between mb-8">
@@ -214,17 +214,17 @@ export default function SettingsPage() {
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="flex items-center gap-2 bg-transparent border border-white/20 text-white rounded-full px-5 py-2.5 hover:bg-white/5 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+            className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-transparent border border-white/20 text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoggingOut ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Logging out...
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                <span>Logging out...</span>
               </>
             ) : (
               <>
-                <LogOut className="h-4 w-4" />
-                Logout
+                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Logout</span>
               </>
             )}
           </button>
@@ -302,17 +302,29 @@ export default function SettingsPage() {
             <SelectTrigger className="w-full bg-black border border-white/20 text-white h-12 focus:ring-1 focus:ring-white/40">
               <SelectValue placeholder="Select currency" />
             </SelectTrigger>
-            <SelectContent className="bg-black border-white/10">
-              <SelectItem value="USDT" className="text-white hover:bg-white/10">
+            <SelectContent className="bg-[#101012] border border-white/10 p-2 rounded-xl shadow-xl w-[var(--radix-select-trigger-width)]">
+              <SelectItem
+                value="USDT"
+                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
+              >
                 USDT
               </SelectItem>
-              <SelectItem value="USD" className="text-white hover:bg-white/10">
+              <SelectItem
+                value="USD"
+                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
+              >
                 USD
               </SelectItem>
-              <SelectItem value="ETH" className="text-white hover:bg-white/10">
+              <SelectItem
+                value="ETH"
+                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
+              >
                 ETH
               </SelectItem>
-              <SelectItem value="BNB" className="text-white hover:bg-white/10">
+              <SelectItem
+                value="BNB"
+                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
+              >
                 BNB
               </SelectItem>
             </SelectContent>
@@ -327,15 +339,15 @@ export default function SettingsPage() {
           <button
             onClick={() => setIsWalletModalOpen(true)}
             disabled={isAddingWallet}
-            className="w-full flex items-center justify-center h-12 bg-white text-black rounded-full mb-6 hover:bg-white/90 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center h-10 sm:h-12 gap-1 sm:gap-2 bg-white text-black rounded-full px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isAddingWallet ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                Adding Wallet...
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                <span>Adding Wallet...</span>
               </>
             ) : (
-              <>Add Wallet</>
+              <span>Add Wallet</span>
             )}
           </button>
 
@@ -347,10 +359,10 @@ export default function SettingsPage() {
               <SelectTrigger className="w-full bg-black border border-white/20 text-white h-12 rounded-full focus:ring-1 focus:ring-white/40">
                 <SelectValue placeholder="All Chains" />
               </SelectTrigger>
-              <SelectContent className="bg-black border-white/10">
+              <SelectContent className="bg-[#101012] border border-white/10 p-2 rounded-xl shadow-xl w-[var(--radix-select-trigger-width)]">
                 <SelectItem
                   value="All Chains"
-                  className="text-white hover:bg-white/10 ml-4"
+                  className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
                 >
                   All Chains
                 </SelectItem>
@@ -358,7 +370,7 @@ export default function SettingsPage() {
                   <SelectItem
                     key={chain}
                     value={chain}
-                    className="text-white hover:bg-white/10"
+                    className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
                   >
                     {chain}
                   </SelectItem>
@@ -427,17 +439,17 @@ export default function SettingsPage() {
           <button
             onClick={handleLogout}
             disabled={isLoggingOut}
-            className="w-full flex items-center justify-center gap-2 h-12 bg-transparent border border-red-500/30 text-red-400 rounded-full hover:bg-red-500/10 transition-colors font-medium disabled:opacity-70 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-1 sm:gap-2 h-10 sm:h-12 bg-transparent border border-red-500/30 text-red-400 rounded-full px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-red-500/10 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {isLoggingOut ? (
               <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Logging out...
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                <span>Logging out...</span>
               </>
             ) : (
               <>
-                <LogOut className="h-4 w-4" />
-                Logout from Splito
+                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Logout from Splito</span>
               </>
             )}
           </button>

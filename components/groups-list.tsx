@@ -156,25 +156,29 @@ export function GroupsList() {
 
   if (isGroupsLoading || !groupsData) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-white/50">Loading groups...</div>
+      <div className="flex items-center justify-center py-8 sm:py-12">
+        <div className="text-mobile-base sm:text-base text-white/50">
+          Loading groups...
+        </div>
       </div>
     );
   }
 
   if (groupsData.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-3xl bg-[#101012] p-12 min-h-[calc(100vh-180px)]">
-        <div className="text-xl text-white/70 mb-4">No groups created yet</div>
-        <p className="text-white/50 text-center max-w-md mb-8">
+      <div className="flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl bg-[#101012] p-6 sm:p-12 min-h-[calc(100vh-160px)] sm:min-h-[calc(100vh-180px)]">
+        <div className="text-mobile-lg sm:text-xl text-white/70 mb-3 sm:mb-4">
+          No groups created yet
+        </div>
+        <p className="text-mobile-sm sm:text-base text-white/50 text-center max-w-md mb-6 sm:mb-8">
           Create a group to start tracking expenses and settle debts with your
           friends
         </p>
         <Link
           href="/create"
-          className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-12 px-6 font-medium hover:bg-white/90 transition-all"
+          className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
         >
-          <Plus className="h-5 w-5" strokeWidth={1.5} />
+          <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
           <span>Create New Group</span>
         </Link>
       </div>
@@ -182,28 +186,27 @@ export function GroupsList() {
   }
 
   return (
-    <div className="bg-[#101012] rounded-3xl min-h-[calc(100vh-180px)] p-8">
+    <div className="bg-[#0f0f10] rounded-2xl sm:rounded-[20px] min-h-[calc(100vh-120px)] mt-2">
       <motion.div
         variants={staggerContainer}
         initial="initial"
         animate="animate"
-        className="space-y-6"
       >
         {groupsData.map((group) => (
           <motion.div
             key={group.id}
             variants={slideUp}
-            className="relative rounded-xl p-6"
+            className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0"
           >
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="h-14 w-14 overflow-hidden rounded-xl bg-white/[0.03]">
+              <div className="flex items-center gap-3">
+                <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
                   <Image
                     src={group.image || "/group_icon_placeholder.png"}
                     alt={group.name}
                     className="h-full w-full object-cover"
-                    width={56}
-                    height={56}
+                    width={48}
+                    height={48}
                     onError={(e) => {
                       console.error(
                         `Error loading image for group ${group.name}:`,
@@ -215,27 +218,23 @@ export function GroupsList() {
                   />
                 </div>
                 <div>
-                  <p className="text-xl font-medium text-white">{group.name}</p>
-                  <p className="text-base text-white/60">
+                  <p className="text-mobile-base sm:text-xl font-medium text-white">
+                    {group.name}
+                  </p>
+                  <p className="text-mobile-sm sm:text-sm text-white/60">
                     {/* Show balance status - this would need to be calculated from actual balance data */}
-                    {Math.random() > 0.5 ? (
-                      <span>
-                        Owes you <span className="text-[#53e45d]">$60</span>
-                      </span>
-                    ) : (
-                      <span>
-                        You owe <span className="text-[#FF4444]">$60</span>
-                      </span>
-                    )}
+                    <span>
+                      Owes you <span className="text-[#53e45d]">$60</span>
+                    </span>
                   </p>
                 </div>
               </div>
 
               <Link
                 href={`/groups/${group.id}`}
-                className="text-white font-medium flex items-center gap-2 rounded-full border border-white/80 px-4 py-2 hover:bg-white/[0.03] transition-colors"
+                className="text-white text-mobile-sm sm:text-sm rounded-full border border-white/20 px-3 sm:px-4 py-1.5 hover:bg-white/5 transition-colors"
               >
-                <span>View Group</span>
+                View Group
               </Link>
             </div>
           </motion.div>
@@ -244,10 +243,12 @@ export function GroupsList() {
 
       {/* Delete Confirmation Modal */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-[400px] rounded-xl bg-[#101012] p-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="w-full max-w-[360px] sm:max-w-[400px] rounded-xl bg-[#101012] p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-xl font-medium text-white">Delete Group</h3>
+              <h3 className="text-lg sm:text-xl font-medium text-white">
+                Delete Group
+              </h3>
               <button
                 onClick={() => {
                   setShowDeleteModal(false);
@@ -261,8 +262,8 @@ export function GroupsList() {
 
             {deleteSuccess ? (
               <div className="flex flex-col items-center justify-center py-4">
-                <CheckCircle className="mb-4 h-10 w-10 text-green-500" />
-                <p className="text-center text-white">
+                <CheckCircle className="mb-3 sm:mb-4 h-8 sm:h-10 w-8 sm:w-10 text-green-500" />
+                <p className="text-center text-mobile-base sm:text-base text-white">
                   Group "{groupToDelete?.name}" has been deleted.
                 </p>
               </div>
@@ -271,12 +272,12 @@ export function GroupsList() {
                 {deleteError ? (
                   <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-red-400">
                     <div className="flex items-start gap-2">
-                      <AlertTriangle className="mt-0.5 h-5 w-5 flex-shrink-0" />
-                      <p className="text-sm">{deleteError}</p>
+                      <AlertTriangle className="mt-0.5 h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                      <p className="text-mobile-sm sm:text-sm">{deleteError}</p>
                     </div>
                   </div>
                 ) : (
-                  <p className="mb-4 text-white/70">
+                  <p className="mb-4 text-mobile-base sm:text-base text-white/70">
                     Are you sure you want to delete "{groupToDelete?.name}"?
                     This action cannot be undone.
                   </p>
@@ -288,22 +289,22 @@ export function GroupsList() {
                       setShowDeleteModal(false);
                       setGroupToDelete(null);
                     }}
-                    className="rounded-lg px-4 py-2 text-white/70 hover:bg-white/5"
+                    className="rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-mobile-sm sm:text-sm text-white/70 hover:bg-white/5"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={confirmDelete}
                     disabled={isDeleting}
-                    className="flex items-center gap-2 rounded-lg bg-red-500/10 px-4 py-2 text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                    className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-red-500/10 px-3 sm:px-4 py-1.5 sm:py-2 text-mobile-sm sm:text-sm text-red-400 hover:bg-red-500/20 disabled:opacity-50"
                   >
                     {isDeleting ? (
                       <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Deleting...
+                        <Loader2 className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin" />
+                        <span>Deleting...</span>
                       </>
                     ) : (
-                      <>Delete</>
+                      <span>Delete</span>
                     )}
                   </button>
                 </div>

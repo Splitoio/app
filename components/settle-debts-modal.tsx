@@ -243,46 +243,61 @@ export function SettleDebtsModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[600px]">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[600px] px-4 sm:px-0">
             {/* Settle All Debts Section - Only shown when header button is clicked */}
             {!showIndividualView && (
-              <motion.div className="rounded-[24px] bg-black p-8" {...scaleIn}>
-                <div className="mb-2 text-sm text-white/60">
-                  Settle All Debt
-                </div>
-                <h2 className="text-3xl font-semibold text-white mb-8">
-                  Settle All Debts
-                </h2>
-
-                <div className="space-y-6">
+              <motion.div
+                className="rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                {...scaleIn}
+              >
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <div className="text-lg font-medium text-white mb-4">
+                    <div className="mb-1 text-xs sm:text-sm text-white/60">
+                      Settle All Debt
+                    </div>
+                    <h2 className="text-xl sm:text-3xl font-semibold text-white">
+                      Settle All Debts
+                    </h2>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-full hover:bg-white/[0.03] transition-colors"
+                  >
+                    <X className="h-5 w-5 text-white/60" />
+                  </button>
+                </div>
+
+                <div className="space-y-4 sm:space-y-6">
+                  <div>
+                    <div className="text-base sm:text-lg font-medium text-white mb-3 sm:mb-4">
                       Choose Payment Token
                     </div>
 
-                    <div className="relative mb-4">
-                      <button className="w-full flex items-center justify-between rounded-full h-14 px-6 bg-transparent border border-white/10 text-white">
-                        <span className="text-lg">{selectedToken}</span>
-                        <ChevronDown className="h-5 w-5 text-white/50" />
+                    <div className="relative mb-3 sm:mb-4">
+                      <button className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
+                        <span className="text-base sm:text-lg">
+                          {selectedToken}
+                        </span>
+                        <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-white/50" />
                       </button>
                     </div>
 
                     <div className="relative">
-                      <div className="w-full flex items-center justify-between rounded-full h-14 px-6 bg-transparent border border-white/10 text-white">
+                      <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
                         <input
                           type="text"
                           value={remainingTotal.toFixed(2)}
                           onChange={(e) => setTotalAmount(e.target.value)}
-                          className="bg-transparent outline-none text-lg w-full"
+                          className="bg-transparent outline-none text-base sm:text-lg w-full"
                         />
-                        <span className="text-lg text-white/50">
+                        <span className="text-base sm:text-lg text-white/50">
                           {selectedToken}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  <div className="space-y-5 max-h-[300px] overflow-y-auto pr-2">
+                  <div className="space-y-3 sm:space-y-5 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                     {friendsWithDebts
                       .filter((friend) =>
                         friend.balances.some((b) => b.amount < 0)
@@ -305,8 +320,8 @@ export function SettleDebtsModal({
                               isExcluded ? "opacity-50" : ""
                             }`}
                           >
-                            <div className="flex items-center gap-4">
-                              <div className="h-12 w-12 overflow-hidden rounded-full">
+                            <div className="flex items-center gap-3 sm:gap-4">
+                              <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
                                 <Image
                                   src={
                                     friend.image ||
@@ -324,10 +339,10 @@ export function SettleDebtsModal({
                                 />
                               </div>
                               <div>
-                                <p className="text-xl text-white font-medium">
+                                <p className="text-mobile-base sm:text-xl text-white font-medium">
                                   {friend.name}
                                 </p>
-                                <p className="text-base text-white/60">
+                                <p className="text-mobile-sm sm:text-base text-white/60">
                                   You owe{" "}
                                   <span className="text-[#FF4444]">
                                     ${amount.toFixed(2)}
@@ -337,7 +352,7 @@ export function SettleDebtsModal({
                             </div>
 
                             <button
-                              className={`flex items-center justify-center h-10 w-10 rounded-full border border-white/10 hover:bg-white/5 transition-colors ${
+                              className={`flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-white/10 hover:bg-white/5 transition-colors ${
                                 isExcluded ? "bg-white/5" : ""
                               }`}
                               onClick={() => toggleExcludeFriend(friend.id)}
@@ -348,7 +363,7 @@ export function SettleDebtsModal({
                               }
                             >
                               <MinusCircle
-                                className={`h-5 w-5 text-white ${
+                                className={`h-4 w-4 sm:h-5 sm:w-5 text-white ${
                                   isExcluded ? "text-red-500" : "text-white/70"
                                 }`}
                               />
@@ -360,7 +375,7 @@ export function SettleDebtsModal({
                     {friendsWithDebts.filter((friend) =>
                       friend.balances.some((b) => b.amount < 0)
                     ).length === 0 && (
-                      <div className="text-center text-white/60 py-4">
+                      <div className="text-center text-white/60 py-4 text-mobile-sm sm:text-base">
                         No debts to settle
                       </div>
                     )}
@@ -368,7 +383,7 @@ export function SettleDebtsModal({
                 </div>
 
                 <button
-                  className="w-full mt-12 flex items-center justify-center gap-2 text-lg font-medium h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={handleSettleAll}
                   disabled={
                     isPending ||
@@ -378,7 +393,7 @@ export function SettleDebtsModal({
                 >
                   {isPending ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                       <span>Settling payment...</span>
                     </>
                   ) : (
@@ -388,7 +403,7 @@ export function SettleDebtsModal({
                         alt="Settle Payment"
                         width={24}
                         height={24}
-                        className="invert"
+                        className="invert h-4 w-4 sm:h-5 sm:w-5"
                       />
                       <span>Settle Payment</span>
                     </>
@@ -399,38 +414,53 @@ export function SettleDebtsModal({
 
             {/* Settle Individual Debt Section - Only shown when a friend's button is clicked */}
             {showIndividualView && (
-              <motion.div className="rounded-[24px] bg-black p-8" {...scaleIn}>
-                <div className="mb-2 text-sm text-white/60">
-                  Settle Individual Debt
-                </div>
-                <h2 className="text-3xl font-semibold text-white mb-8">
-                  {selectedUser
-                    ? `Settle ${selectedUser.name}'s Debts`
-                    : "Settle Individual Debt"}
-                </h2>
-
-                <div className="space-y-6">
+              <motion.div
+                className="rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                {...scaleIn}
+              >
+                <div className="flex items-center justify-between mb-4">
                   <div>
-                    <div className="text-lg font-medium text-white mb-4">
+                    <div className="mb-1 text-xs sm:text-sm text-white/60">
+                      Settle Individual Debt
+                    </div>
+                    <h2 className="text-xl sm:text-3xl font-semibold text-white">
+                      {selectedUser
+                        ? `Settle ${selectedUser.name}'s Debts`
+                        : "Settle Individual Debt"}
+                    </h2>
+                  </div>
+                  <button
+                    onClick={onClose}
+                    className="p-2 rounded-full hover:bg-white/[0.03] transition-colors"
+                  >
+                    <X className="h-5 w-5 text-white/60" />
+                  </button>
+                </div>
+
+                <div className="space-y-4 sm:space-y-6">
+                  <div>
+                    <div className="text-base sm:text-lg font-medium text-white mb-3 sm:mb-4">
                       Choose Payment Token
                     </div>
 
-                    <div className="relative mb-4">
-                      <button className="w-full flex items-center justify-between rounded-full h-14 px-6 bg-transparent border border-white/10 text-white">
-                        <span className="text-lg">{selectedToken}</span>
-                        <ChevronDown className="h-5 w-5 text-white/50" />
+                    <div className="relative mb-3 sm:mb-4">
+                      <button className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
+                        <span className="text-base sm:text-lg">
+                          {selectedToken}
+                        </span>
+                        <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-white/50" />
                       </button>
                     </div>
 
                     <div className="relative">
-                      <div className="w-full flex items-center justify-between rounded-full h-14 px-6 bg-transparent border border-white/10 text-white">
+                      <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
                         <input
                           type="text"
                           value={individualAmount}
                           onChange={(e) => setIndividualAmount(e.target.value)}
-                          className="bg-transparent outline-none text-lg w-full"
+                          className="bg-transparent outline-none text-base sm:text-lg w-full"
                         />
-                        <span className="text-lg text-white/50">
+                        <span className="text-base sm:text-lg text-white/50">
                           {selectedToken}
                         </span>
                       </div>
@@ -438,14 +468,14 @@ export function SettleDebtsModal({
                   </div>
 
                   {!selectedUser && (
-                    <div className="text-center text-white/60 py-4">
+                    <div className="text-center text-white/60 py-4 text-mobile-sm sm:text-base">
                       Select a user to settle individual debt
                     </div>
                   )}
 
                   {selectedUser && (
-                    <div className="flex items-center gap-4 p-4 bg-white/5 rounded-xl">
-                      <div className="h-14 w-14 overflow-hidden rounded-full">
+                    <div className="flex items-center gap-3 sm:gap-4 p-3 sm:p-4 bg-white/5 rounded-xl">
+                      <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full">
                         <Image
                           src={
                             selectedUser.image ||
@@ -463,10 +493,10 @@ export function SettleDebtsModal({
                         />
                       </div>
                       <div>
-                        <p className="text-xl text-white font-medium">
+                        <p className="text-mobile-base sm:text-xl text-white font-medium">
                           {selectedUser.name}
                         </p>
-                        <p className="text-base text-white/60">
+                        <p className="text-mobile-sm sm:text-base text-white/60">
                           You owe{" "}
                           <span className="text-[#FF4444]">
                             ${Math.abs(selectedUserBalance).toFixed(2)}
@@ -478,7 +508,7 @@ export function SettleDebtsModal({
                 </div>
 
                 <button
-                  className="w-full mt-12 flex items-center justify-center gap-2 text-lg font-medium h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => selectedUser && handleSettleOne(selectedUser)}
                   disabled={
                     isPending ||
@@ -488,7 +518,7 @@ export function SettleDebtsModal({
                 >
                   {isPending ? (
                     <>
-                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
                       <span>Settling payment...</span>
                     </>
                   ) : (
@@ -498,7 +528,7 @@ export function SettleDebtsModal({
                         alt="Settle Payment"
                         width={24}
                         height={24}
-                        className="invert"
+                        className="invert h-4 w-4 sm:h-5 sm:w-5"
                       />
                       <span>Settle Payment</span>
                     </>

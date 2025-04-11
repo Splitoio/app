@@ -215,7 +215,7 @@ export default function LoginPage() {
               />
             </div>
 
-            <h1 className="text-2xl font-semibold text-white text-center">
+            <h1 className="text-mobile-xl md:text-2xl font-semibold text-white text-center">
               Log in to Splito
             </h1>
 
@@ -223,7 +223,7 @@ export default function LoginPage() {
               <div className="form-group">
                 <label
                   htmlFor="email-mobile"
-                  className="text-sm font-medium text-white/80 mb-2 block"
+                  className="text-mobile-sm font-medium text-white/80 mb-2 block"
                 >
                   Email
                 </label>
@@ -231,7 +231,7 @@ export default function LoginPage() {
                   <input
                     type="email"
                     id="email-mobile"
-                    className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
+                    className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-mobile-base text-white focus:ring-0 focus:border-white/40 placeholder-white/30"
                     placeholder="name@gmail.com"
                     value={formData.email}
                     onChange={(e) =>
@@ -246,7 +246,7 @@ export default function LoginPage() {
               <div className="form-group">
                 <label
                   htmlFor="password-mobile"
-                  className="text-sm font-medium text-white/80 mb-2 block"
+                  className="text-mobile-sm font-medium text-white/80 mb-2 block"
                 >
                   Password
                 </label>
@@ -254,7 +254,7 @@ export default function LoginPage() {
                   <input
                     type={showPassword ? "text" : "password"}
                     id="password-mobile"
-                    className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-white text-base focus:ring-0 focus:border-white/40 placeholder-white/30"
+                    className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-mobile-base text-white focus:ring-0 focus:border-white/40 placeholder-white/30"
                     placeholder="Your password"
                     value={formData.password}
                     onChange={(e) =>
@@ -278,7 +278,7 @@ export default function LoginPage() {
                 </div>
                 <Link
                   href="/forgot-password"
-                  className="text-sm text-green-400 hover:text-green-300 mt-2 inline-block"
+                  className="text-mobile-sm text-green-400 hover:text-green-300 mt-2 inline-block"
                 >
                   Forgot Password?
                 </Link>
@@ -288,7 +288,7 @@ export default function LoginPage() {
                 type="submit"
                 className="w-full h-[50px] flex items-center justify-center mt-8
                 bg-white rounded-full
-                text-lg font-semibold text-black
+                text-mobile-lg font-semibold text-black
                 transition-all duration-200 hover:bg-white/90 disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading !== null}
               >
@@ -302,7 +302,7 @@ export default function LoginPage() {
 
             <div className="relative flex items-center justify-center">
               <div className="flex-grow border-t border-white/20"></div>
-              <span className="mx-4 text-white/50 text-sm">OR</span>
+              <span className="mx-4 text-white/50 text-mobile-sm">OR</span>
               <div className="flex-grow border-t border-white/20"></div>
             </div>
 
@@ -311,7 +311,7 @@ export default function LoginPage() {
               onClick={handleGoogleLogin}
               className="w-full h-[50px] flex items-center justify-center
               bg-transparent border border-white/20 rounded-full
-              text-lg font-medium text-white
+              text-mobile-lg font-medium text-white
               transition-all duration-200 hover:bg-white/5 disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading !== null}
             >
@@ -352,7 +352,7 @@ export default function LoginPage() {
           </div>
 
           <div className="mt-auto pb-12 space-y-6">
-            <p className="text-center text-sm text-white/70">
+            <p className="text-center text-mobile-sm text-white/70">
               Don't have an account?{" "}
               <Link href="/signup" className="text-white hover:underline">
                 Sign up

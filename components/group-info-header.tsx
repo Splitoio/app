@@ -79,12 +79,13 @@ export function GroupInfoHeader({
 
   return (
     <div className="mb-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-white mb-1">
+      <div className="flex justify-between items-start">
+        {/* Group Info */}
+        <div className="flex-1 min-w-0 pr-2">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1 truncate">
             {group.name}
           </h1>
-          <p className="text-lg text-white/70">
+          <p className="text-mobile-base sm:text-lg text-white/70">
             {debtInfo.type === "owed" ? (
               <>
                 Overall, you are owed{" "}
@@ -103,7 +104,102 @@ export function GroupInfoHeader({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        {/* 2x2 Button Grid for Mobile / Row for Desktop */}
+        <div className="sm:hidden flex gap-3 flex-shrink-0">
+          {/* Left Column - Action Buttons */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleAddExpenseClick}
+              disabled={isAddingExpense}
+              className="flex h-10 items-center justify-center gap-1 rounded-full bg-white text-black px-4 text-mobile-sm font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
+            >
+              {isAddingExpense ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  <span className="truncate">Adding...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/plus-sign-circle.svg"
+                    alt="Add Expense"
+                    width={20}
+                    height={20}
+                    className="invert h-4 w-4 flex-shrink-0"
+                  />
+                  <span className="truncate">Add Expense</span>
+                </>
+              )}
+            </button>
+
+            <button
+              onClick={handleSettleClick}
+              disabled={isSettling}
+              className="flex h-10 items-center justify-center gap-1 rounded-full border border-white/80 bg-transparent px-4 text-mobile-sm font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
+            >
+              {isSettling ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  <span className="truncate">Settling...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/coins-dollar.svg"
+                    alt="Settle Debts"
+                    width={20}
+                    height={20}
+                    className="h-4 w-4 flex-shrink-0"
+                  />
+                  <span className="truncate">Settle all debts</span>
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Right Column - Profile and Settings */}
+          <div className="flex flex-col gap-2">
+            <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                {user?.image ? (
+                  <Image
+                    src={user.image}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                      user?.id || user?.email || "user"
+                    }`}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full"
+                    onError={(e) => {
+                      console.error(`Error loading identicon for user`);
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                    }}
+                  />
+                )}
+              </div>
+            </div>
+
+            <button
+              onClick={onSettingsClick}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
+              aria-label="Group Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Horizontal layout for desktop */}
+        <div className="hidden sm:flex items-center gap-3">
           <button
             onClick={onSettingsClick}
             className="flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
@@ -112,79 +208,82 @@ export function GroupInfoHeader({
             <Settings className="h-5 w-5" />
           </button>
 
-          <button
-            onClick={handleAddExpenseClick}
-            disabled={isAddingExpense}
-            className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-black px-5 font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isAddingExpense ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Adding...</span>
-              </>
-            ) : (
-              <>
-                <Image
-                  src="/plus-sign-circle.svg"
-                  alt="Add Expense"
-                  width={20}
-                  height={20}
-                  className="invert"
-                />
-                <span>Add Expense</span>
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={handleSettleClick}
-            disabled={isSettling}
-            className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isSettling ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                <span>Settling...</span>
-              </>
-            ) : (
-              <>
-                <Image
-                  src="/coins-dollar.svg"
-                  alt="Settle Debts"
-                  width={20}
-                  height={20}
-                />
-                <span>Settle all debts</span>
-              </>
-            )}
-          </button>
-
-          <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
-            <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-              {user?.image ? (
-                <Image
-                  src={user.image}
-                  alt="Profile"
-                  width={48}
-                  height={48}
-                  className="h-full w-full object-cover"
-                />
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAddExpenseClick}
+              disabled={isAddingExpense}
+              className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-black px-5 text-base font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isAddingExpense ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Adding...</span>
+                </>
               ) : (
-                <Image
-                  src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                    user?.id || user?.email || "user"
-                  }`}
-                  alt="Profile"
-                  width={48}
-                  height={48}
-                  className="h-full w-full"
-                  onError={(e) => {
-                    console.error(`Error loading identicon for user`);
-                    const target = e.target as HTMLImageElement;
-                    target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                  }}
-                />
+                <>
+                  <Image
+                    src="/plus-sign-circle.svg"
+                    alt="Add Expense"
+                    width={20}
+                    height={20}
+                    className="invert h-5 w-5"
+                  />
+                  <span>Add Expense</span>
+                </>
               )}
+            </button>
+
+            <button
+              onClick={handleSettleClick}
+              disabled={isSettling}
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 text-base font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isSettling ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Settling...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/coins-dollar.svg"
+                    alt="Settle Debts"
+                    width={20}
+                    height={20}
+                    className="h-5 w-5"
+                  />
+                  <span>Settle all debts</span>
+                </>
+              )}
+            </button>
+
+            <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                {user?.image ? (
+                  <Image
+                    src={user.image}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                      user?.id || user?.email || "user"
+                    }`}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full"
+                    onError={(e) => {
+                      console.error(`Error loading identicon for user`);
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                    }}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
