@@ -96,7 +96,7 @@ export function GroupInfoHeader({
           <div className="flex flex-col gap-2">
             <h1 className="text-h1 text-white">{group.name}</h1>
             <div className="inline-flex items-center rounded-xl bg-[#1F1F23]/50 px-3 py-1">
-              <span className="text-body text-white/70">
+              {/* <span className="text-body text-white/70">
                 {debtInfo.type === "owed" ? "You are owed" : "You owe"}{" "}
                 <span
                   className={
@@ -107,7 +107,7 @@ export function GroupInfoHeader({
                 >
                   ${debtInfo.amount.toFixed(2)}
                 </span>
-              </span>
+              </span> */}
             </div>
           </div>
         </div>
