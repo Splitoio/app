@@ -33,6 +33,7 @@ export function SettleDebtsModal({
   const settleDebtMutation = useSettleDebt(groupId);
   const queryClient = useQueryClient();
   useHandleEscapeToCloseModal(isOpen, onClose);
+  const [showTooltip, setShowTooltip] = useState<string | null>(null);
 
   const totalOwe = balances
     ?.filter((item) => item.amount > 0)
@@ -63,6 +64,11 @@ export function SettleDebtsModal({
       return;
     }
 
+    if (!settleWith.stellarAccount) {
+      toast.error(`${settleWith.name} doesn't have a Stellar wallet connected`);
+      return;
+    }
+
     settleDebtMutation.mutate(
       {
         groupId,
@@ -73,12 +79,10 @@ export function SettleDebtsModal({
         onSuccess: () => {
           toast.success(`Successfully settled debt with ${settleWith.name}`);
 
-          // refetch the specific group data
           queryClient.invalidateQueries({
             queryKey: [QueryKeys.GROUPS, groupId],
           });
 
-          // refetch the general groups list and balances
           queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
           queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
 
@@ -94,6 +98,20 @@ export function SettleDebtsModal({
       return;
     }
 
+    // Check if any of the users don't have a stellar account
+    const usersWithoutStellarAccount = settleWithList
+      .filter((item) => !item.member.stellarAccount)
+      .map((item) => item.member.name);
+
+    if (usersWithoutStellarAccount.length > 0) {
+      toast.error(`Some users don't have Stellar wallets`, {
+        description: `${usersWithoutStellarAccount.join(
+          ", "
+        )} need to connect their Stellar wallets first.`,
+      });
+      return;
+    }
+
     settleDebtMutation.mutate(
       {
         groupId,
@@ -101,12 +119,10 @@ export function SettleDebtsModal({
       },
       {
         onSuccess: () => {
-          // refetch the specific group data
           queryClient.invalidateQueries({
             queryKey: [QueryKeys.GROUPS, groupId],
           });
 
-          // refetch the general groups list and balances
           queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
           queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
 
@@ -118,6 +134,13 @@ export function SettleDebtsModal({
   };
 
   const isPending = settleDebtMutation.isPending;
+
+  // Check if any users don't have stellar accounts
+  const usersWithoutStellarAccount = settleWithList
+    .filter((item) => !item.member.stellarAccount)
+    .map((item) => item.member.name);
+
+  const hasUsersWithoutStellarAccount = usersWithoutStellarAccount.length > 0;
 
   return (
     <AnimatePresence>
@@ -199,20 +222,43 @@ export function SettleDebtsModal({
                       )}
                     </motion.button>
 
-                    {/* Dropdown for selecting a person to settle with */}
                     {showDebtorsList && settleWithList.length > 0 && (
                       <div className="absolute top-full left-0 w-full mt-1 bg-[#1F1F23] rounded-[15px] border border-white/10 overflow-hidden z-10">
                         {settleWithList.map((debtor, index) => (
-                          <button
+                          <div
                             key={debtor.member?.id}
-                            className="w-full px-4 py-3 text-left text-white hover:bg-white/10 flex items-center justify-between border-b border-white/5 last:border-b-0"
-                            onClick={() => handleSettleOne(debtor.member)}
+                            className="relative"
+                            onMouseEnter={() =>
+                              !debtor.member.stellarAccount &&
+                              setShowTooltip(debtor.member.id)
+                            }
+                            onMouseLeave={() => setShowTooltip(null)}
                           >
-                            <span>{debtor.member?.name}</span>
-                            <span className="text-[#FF4444]">
-                              ${debtor.balance.amount.toFixed(2)}
-                            </span>
-                          </button>
+                            <button
+                              className={`w-full px-4 py-3 text-left flex items-center justify-between border-b border-white/5 last:border-b-0 ${
+                                !debtor.member.stellarAccount
+                                  ? "text-white/50 cursor-not-allowed"
+                                  : "text-white hover:bg-white/10"
+                              }`}
+                              onClick={() =>
+                                debtor.member.stellarAccount &&
+                                handleSettleOne(debtor.member)
+                              }
+                              disabled={!debtor.member.stellarAccount}
+                            >
+                              <span>{debtor.member?.name}</span>
+                              <span className="text-[#FF4444]">
+                                ${debtor.balance.amount.toFixed(2)}
+                              </span>
+                            </button>
+
+                            {showTooltip === debtor.member.id &&
+                              !debtor.member.stellarAccount && (
+                                <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-black/90 px-3 py-1 rounded-md text-xs whitespace-nowrap">
+                                  User doesn't have a Stellar wallet
+                                </div>
+                              )}
+                          </div>
                         ))}
                       </div>
                     )}
@@ -226,34 +272,74 @@ export function SettleDebtsModal({
                     )}
                   </div>
 
-                  <motion.button
-                    whileHover={{ scale: isPending ? 1 : 1.02 }}
-                    whileTap={{ scale: isPending ? 1 : 0.98 }}
-                    className="w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium text-white hover:bg-[#2a2a2e] transition-colors border border-white flex items-center justify-center gap-2 disabled:opacity-70 disabled:cursor-not-allowed"
-                    onClick={handleSettleAll}
-                    disabled={isPending || totalOwe <= 0}
+                  <div
+                    className="relative"
+                    onMouseEnter={() =>
+                      hasUsersWithoutStellarAccount &&
+                      setShowTooltip("settle-all")
+                    }
+                    onMouseLeave={() => setShowTooltip(null)}
                   >
-                    {isPending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Image
-                        src={"/settleEveryone.svg"}
-                        alt="Settle Everyone"
-                        width={20}
-                        height={20}
-                      />
-                    )}
-                    {isPending ? "Processing..." : "Settle with everyone"}{" "}
-                    {!isPending && (
-                      <span
-                        className={
-                          totalOwe > 0 ? "text-[#FF4444]" : "text-[#53e45d]"
-                        }
-                      >
-                        (${totalOwe.toFixed(2)})
-                      </span>
-                    )}
-                  </motion.button>
+                    <motion.button
+                      whileHover={{
+                        scale:
+                          isPending || hasUsersWithoutStellarAccount ? 1 : 1.02,
+                      }}
+                      whileTap={{
+                        scale:
+                          isPending || hasUsersWithoutStellarAccount ? 1 : 0.98,
+                      }}
+                      className={`w-full h-[50px] rounded-[15px] bg-[#1F1F23] text-body font-medium ${
+                        hasUsersWithoutStellarAccount
+                          ? "text-white/50"
+                          : "text-white hover:bg-[#2a2a2e]"
+                      } transition-colors border border-white flex items-center justify-center gap-2 ${
+                        isPending ||
+                        totalOwe <= 0 ||
+                        hasUsersWithoutStellarAccount
+                          ? "opacity-70 cursor-not-allowed"
+                          : ""
+                      }`}
+                      onClick={handleSettleAll}
+                      disabled={
+                        isPending ||
+                        totalOwe <= 0 ||
+                        hasUsersWithoutStellarAccount
+                      }
+                    >
+                      {isPending ? (
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                      ) : (
+                        <Image
+                          src={"/settleEveryone.svg"}
+                          alt="Settle Everyone"
+                          width={20}
+                          height={20}
+                        />
+                      )}
+                      {isPending ? "Processing..." : "Settle with everyone"}{" "}
+                      {!isPending && (
+                        <span
+                          className={
+                            totalOwe > 0 ? "text-[#FF4444]" : "text-[#53e45d]"
+                          }
+                        >
+                          ${totalOwe.toFixed(2)}
+                        </span>
+                      )}
+                    </motion.button>
+
+                    {showTooltip === "settle-all" &&
+                      hasUsersWithoutStellarAccount && (
+                        <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-black/90 px-3 py-2 rounded-md text-xs text-center whitespace-normal max-w-[200px]">
+                          {usersWithoutStellarAccount.length === 1
+                            ? `${usersWithoutStellarAccount[0]} doesn't have a Stellar wallet`
+                            : `${usersWithoutStellarAccount.join(
+                                ", "
+                              )} don't have Stellar wallets`}
+                        </div>
+                      )}
+                  </div>
                 </div>
               </div>
             </motion.div>

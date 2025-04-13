@@ -60,12 +60,23 @@ export function FriendsList() {
               <Image
                 src={
                   friend.image ||
-                  `https://api.dicebear.com/7.x/identicon/svg?seed=${friend.name}`
+                  `https://api.dicebear.com/9.x/identicon/svg?seed=${
+                    friend.id || friend.name
+                  }`
                 }
                 alt={friend.name}
                 width={48}
                 height={48}
                 className="h-full w-full object-cover"
+                onError={(e) => {
+                  console.error(
+                    `Error loading image for friend ${friend.name}`
+                  );
+                  // @ts-expect-error - fallback to identicon on error
+                  e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${
+                    friend.id || friend.name
+                  }`;
+                }}
               />
             </div>
             <div>

@@ -11,12 +11,15 @@ import {
   useGetGroupById,
   useUpdateGroup,
 } from "@/features/groups/hooks/use-create-group";
+import { useUploadFile } from "@/features/files/hooks/use-balances";
+import { toast } from "sonner";
 
 export default function EditGroupPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { data: group, isLoading } = useGetGroupById(params.id);
   const updateGroupMutation = useUpdateGroup();
   const { address } = useWallet();
+  const uploadFileMutation = useUploadFile();
 
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
@@ -30,7 +33,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     splitType: "equal" as "equal" | "percentage" | "custom",
     currency: "USD" as "USD" | "XLM",
     paidBy: "",
-    image: null as File | null,
+    imageUrl: "",
   });
 
   useEffect(() => {
@@ -47,7 +50,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
           | "USD"
           | "XLM",
         paidBy: "", // Not sure if this is stored in the API
-        image: null,
+        imageUrl: group.image || "",
       });
       setImagePreview(group.image || null);
     }
@@ -113,26 +116,39 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
 
     if (!group) return;
 
-    let imageUrl = group.image || "";
-    if (formData.image) {
-      // In a real app, you'd upload to a storage service
-      // For now, we'll use the data URL
-      imageUrl = URL.createObjectURL(formData.image);
+    const payload: {
+      name: string;
+      description: string;
+      currency: string;
+      imageUrl?: string;
+    } = {
+      name: formData.name,
+      description: formData.description,
+      currency: formData.currency,
+    };
+
+    // Only include imageUrl if it's not empty and not the placeholder
+    if (
+      formData.imageUrl &&
+      formData.imageUrl !== "/group_icon_placeholder.png"
+    ) {
+      payload.imageUrl = formData.imageUrl;
     }
+
+    console.log("Sending update payload:", payload);
+    console.log("Current image preview:", imagePreview);
 
     updateGroupMutation.mutate(
       {
         groupId: params.id,
-        payload: {
-          name: formData.name,
-          description: formData.description,
-          currency: formData.currency,
-          imageUrl,
-        },
+        payload,
       },
       {
-        onSuccess: () => {
+        onSuccess: (data) => {
           router.push(`/groups/${params.id}`);
+        },
+        onError: (error) => {
+          toast.error("Failed to update group");
         },
       }
     );
@@ -165,15 +181,31 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     );
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFormData((prev) => ({ ...prev, image: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      // Show loading state
+      toast.loading("Uploading image...");
+
+      // Upload the file to Google Cloud Storage
+      const response = await uploadFileMutation.mutateAsync(file);
+
+      if (response.success) {
+        // Update form data with the image URL
+        setFormData((prev) => ({
+          ...prev,
+          imageUrl: response.data.downloadUrl,
+        }));
+        setImagePreview(response.data.downloadUrl);
+        toast.dismiss();
+        toast.success("Image uploaded successfully");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.dismiss();
+      toast.error("Failed to upload image. Please try again.");
     }
   };
 

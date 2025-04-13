@@ -167,58 +167,31 @@ export default function CreateGroupPage() {
       return;
     }
 
-    // if (formData.splitType === "custom" && !validateSplits()) {
-    //   alert("The sum of splits must equal the total amount!");
-    //   setIsSubmitting(false);
-    //   return;
-    // }
+    // Get image URL from the preview, but handle the null case
+    // by converting it to undefined, which the API client expects
+    const imageUrl = imagePreview || undefined;
 
-    const imageUrl = "/group_icon_placeholder.png";
-    // if (formData.image) {
-    //   imageUrl = URL.createObjectURL(formData.image);
-    // }
-
-    // const debts = calculateDebts(splits, formData.paidBy);
-
-    // const newGroup: Group = {
-    //   id: Date.now().toString(),
-    //   name: formData.name,
-    //   image: imageUrl,
-    //   creator: "You",
-    //   creatorAddress: address,
-    //   date: new Date().toLocaleDateString(),
-    //   amount: Number(formData.amount),
-    //   paidBy: formData.paidBy,
-    //   members: formData.members.split(",").map((m) => m.trim()),
-    //   splits,
-    //   debts,
-    //   splitType: formData.splitType as "equal" | "percentage" | "custom",
-    //   currency: formData.currency as "USD" | "ETH",
-    //   description: formData.description,
-    // };
-
-    // addGroup(newGroup);
     try {
-      await mutatation.mutateAsync({
-        name: formData.name,
-        currency: formData.currency,
-        description: formData.description,
-        imageUrl: imageUrl,
-      });
-      router.push("/groups");
+      mutatation.mutate(
+        {
+          name: formData.name,
+          description: formData.description,
+          currency: formData.currency,
+          imageUrl: imageUrl,
+        },
+        {
+          onSuccess: (data) => {
+            toast.success("Group created successfully");
+            router.push(`/groups/${data.id}`);
+          },
+          onError: (err: ApiError) => {
+            toast.error(`Error creating group: ${err.message}`);
+            setIsSubmitting(false);
+          },
+        }
+      );
     } catch (error) {
-      const apiError = error as ApiError;
-      const statusCode =
-        apiError.response?.status || apiError.status || apiError.code;
-
-      if (statusCode === 401) {
-        Cookies.remove("sessionToken");
-        router.push("/login");
-        toast.error("Session expired. Please log in again.");
-      } else {
-        toast.error("An error occurred. Please try again.");
-      }
-    } finally {
+      console.error("Error creating group:", error);
       setIsSubmitting(false);
     }
   };
