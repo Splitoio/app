@@ -80,7 +80,7 @@ export default function Page() {
             ) : youOwe.length > 0 ? (
               <div>
                 Overall, you owe{" "}
-                <span className="text-[#FF4444]">
+                <span className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-[#FF4444]">
                   {youOwe.map((debt) => `$${debt.amount}`).join(", ")}
                 </span>
               </div>
@@ -146,35 +146,31 @@ export default function Page() {
 
       {/* Monthly Stats - Three blocks side by side */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6">
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-8">
-          <div className="flex items-center mb-2 sm:mb-4">
-            <span className="text-white/60 text-mobile-base sm:text-xl">
-              You owed this month
-            </span>
+        <div className="rounded-3xl bg-[#101012] p-8">
+          <div className="flex items-center mb-4">
+            <span className="text-white/60 text-xl">You owed this month</span>
           </div>
-          <p className="text-2xl sm:text-3xl font-semibold text-white">
+          <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
             {monthlyStats.owed}
           </p>
         </div>
 
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-8">
-          <div className="flex items-center mb-2 sm:mb-4">
-            <span className="text-white/60 text-mobile-base sm:text-xl">
-              You lent this month
-            </span>
+        <div className="rounded-3xl bg-[#101012] p-8">
+          <div className="flex items-center mb-4">
+            <span className="text-white/60 text-xl">You lent this month</span>
           </div>
-          <p className="text-2xl sm:text-3xl font-semibold text-white">
+          <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
             {monthlyStats.lent}
           </p>
         </div>
 
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-8">
-          <div className="flex items-center mb-2 sm:mb-4">
-            <span className="text-white/60 text-mobile-base sm:text-xl">
+        <div className="rounded-3xl bg-[#101012] p-8">
+          <div className="flex items-center mb-4">
+            <span className="text-white/60 text-xl">
               You settled this month
             </span>
           </div>
-          <p className="text-2xl sm:text-3xl font-semibold text-white">
+          <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
             {monthlyStats.settled}
           </p>
         </div>
@@ -255,14 +251,14 @@ export default function Page() {
                             {friendBalance.amount > 0 ? (
                               <>
                                 Owes you{" "}
-                                <span className="text-[#53e45d]">
+                                <span className="text-[#53e45d] font-medium">
                                   ${Math.abs(friendBalance.amount).toFixed(2)}
                                 </span>
                               </>
                             ) : friendBalance.amount < 0 ? (
                               <>
                                 You owe{" "}
-                                <span className="text-[#FF4444]">
+                                <span className="text-[#FF4444] font-medium">
                                   ${Math.abs(friendBalance.amount).toFixed(2)}
                                 </span>
                               </>
@@ -271,7 +267,7 @@ export default function Page() {
                             )}
                           </p>
                         ) : (
-                          <p className="text-mobile-sm sm:text-base text-white/60">
+                          <p className="text-base text-white/60">
                             No transactions yet
                           </p>
                         )}
