@@ -2,7 +2,7 @@
 
 import { FriendsList } from "@/components/friends-list";
 import { UserPlus } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { AddFriendsModal } from "@/components/add-friends-modal";
 import { motion } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
@@ -12,6 +12,16 @@ import Image from "next/image";
 export default function FriendsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { user } = useAuthStore();
+
+  // Listen for custom event to open the add friend modal
+  useEffect(() => {
+    const handleOpenModal = () => setIsModalOpen(true);
+    document.addEventListener("open-add-friend-modal", handleOpenModal);
+
+    return () => {
+      document.removeEventListener("open-add-friend-modal", handleOpenModal);
+    };
+  }, []);
 
   return (
     <motion.div
@@ -63,9 +73,7 @@ export default function FriendsPage() {
         </div>
       </div>
 
-      <div className="bg-[#0f0f10] rounded-2xl sm:rounded-[20px] min-h-[calc(100vh-120px)] mt-2 px-3 sm:px-5 py-3 sm:py-4">
-        <FriendsList />
-      </div>
+      <FriendsList />
 
       <AddFriendsModal
         isOpen={isModalOpen}

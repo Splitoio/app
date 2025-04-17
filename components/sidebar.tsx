@@ -113,23 +113,6 @@ export function Sidebar() {
 
           {/* Bottom Section */}
           <div className="p-4 mt-auto">
-            <div className="rounded-xl bg-[#17171A] p-4">
-              <div className="flex items-center gap-3">
-                <div className="h-9 w-9 sm:h-10 sm:w-10 rounded-full bg-white/[0.05] flex items-center justify-center">
-                  <Users2
-                    className="h-4 sm:h-5 w-4 sm:w-5 text-white/50"
-                    strokeWidth={1.5}
-                  />
-                </div>
-                <a href="https://splito-j33y.vercel.app/signup">
-                  <div className="flex-1">
-                    <div className="text-mobile-sm sm:text-sm text-white/50">
-                      Get started with Splito
-                    </div>
-                  </div>
-                </a>
-              </div>
-            </div>
             <a
               href="https://x.com/splitodotio"
               target="_blank"

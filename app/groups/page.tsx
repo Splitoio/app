@@ -6,13 +6,60 @@ import { fadeIn } from "@/utils/animations";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { CreateGroupForm } from "@/components/create-group-form";
+import { toast } from "sonner";
 
 export default function GroupsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Listen for custom event to open the create group modal
+  useEffect(() => {
+    const handleOpenModal = () => {
+      // Check if user has a connected wallet
+      if (!user?.stellarAccount) {
+        toast.error("You need to connect a wallet before creating a group", {
+          description: "Add a wallet in your settings to continue",
+          action: {
+            label: "Add Wallet",
+            onClick: () => router.push("/settings"),
+          },
+          duration: 8000,
+        });
+        return;
+      }
+
+      // If they have a wallet, open the modal
+      setIsCreateModalOpen(true);
+    };
+
+    document.addEventListener("open-create-group-modal", handleOpenModal);
+
+    return () => {
+      document.removeEventListener("open-create-group-modal", handleOpenModal);
+    };
+  }, [user, router]);
+
+  // Function to handle clicking the "Add Group" button
+  const handleAddGroupClick = () => {
+    // Check if user has a connected wallet
+    if (!user?.stellarAccount) {
+      toast.error("You need to connect a wallet before creating a group", {
+        description: "Add a wallet in your settings to continue",
+        action: {
+          label: "Add Wallet",
+          onClick: () => router.push("/settings"),
+        },
+        duration: 8000,
+      });
+      return;
+    }
+
+    // If they have a wallet, open the modal
+    setIsCreateModalOpen(true);
+  };
 
   return (
     <motion.div
@@ -27,7 +74,7 @@ export default function GroupsPage() {
         </h1>
         <div className="flex items-center gap-3 sm:gap-4">
           <button
-            onClick={() => setIsCreateModalOpen(true)}
+            onClick={handleAddGroupClick}
             className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-all"
           >
             <Image
