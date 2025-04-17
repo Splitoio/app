@@ -167,6 +167,21 @@ export default function CreateGroupPage() {
       return;
     }
 
+    // Add check for wallet
+    const user = useAuthStore.getState().user;
+    if (!user?.stellarAccount) {
+      toast.error("You need to connect a wallet before creating a group", {
+        description: "Add a wallet in your settings to continue",
+        action: {
+          label: "Add Wallet",
+          onClick: () => router.push("/settings"),
+        },
+        duration: 8000,
+      });
+      setIsSubmitting(false);
+      return;
+    }
+
     // Get image URL from the preview, but handle the null case
     // by converting it to undefined, which the API client expects
     const imageUrl = imagePreview || undefined;

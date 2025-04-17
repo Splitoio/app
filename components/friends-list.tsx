@@ -9,6 +9,7 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { useEffect } from "react";
 import { ApiError } from "@/types/api-error";
+import { UserPlus } from "lucide-react";
 
 export function FriendsList() {
   const { data: friends, isLoading, error } = useGetFriends();
@@ -40,14 +41,33 @@ export function FriendsList() {
 
   if (!friends?.length) {
     return (
-      <div className="text-mobile-base sm:text-base text-white/70 text-center py-6">
-        No friends added yet
+      <div className="flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl bg-[#0f0f10] p-6 sm:p-12 min-h-[calc(100vh-160px)] sm:min-h-[calc(100vh-180px)]">
+        <div className="text-mobile-lg sm:text-xl text-white/70 mb-3 sm:mb-4">
+          No friends added yet
+        </div>
+        <p className="text-mobile-sm sm:text-base text-white/50 text-center max-w-md mb-6 sm:mb-8">
+          Add friends to start tracking expenses and settle debts together
+        </p>
+        <button
+          onClick={() =>
+            document.dispatchEvent(new CustomEvent("open-add-friend-modal"))
+          }
+          className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
+        >
+          <UserPlus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
+          <span>Add Friend</span>
+        </button>
       </div>
     );
   }
 
   return (
-    <motion.div variants={staggerContainer} initial="initial" animate="animate">
+    <motion.div
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
+      className="bg-[#0f0f10] rounded-2xl sm:rounded-[20px] min-h-[calc(100vh-120px)] p-3 sm:p-5"
+    >
       {friends.map((friend) => (
         <motion.div
           key={friend.id}

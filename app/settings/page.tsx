@@ -2,10 +2,18 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { Loader2, Trash2, LogOut, Minus } from "lucide-react";
+import {
+  Loader2,
+  Trash2,
+  LogOut,
+  Minus,
+  Save,
+  ChevronDown,
+  Check,
+} from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
@@ -23,6 +31,7 @@ import {
   updateWallet as apiUpdateWallet,
   removeWallet as apiRemoveWallet,
 } from "@/services/walletService";
+import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 
 // Define wallet interface
 interface Wallet {
@@ -39,10 +48,19 @@ export default function SettingsPage() {
   const { isAuthenticated, isLoading, user, setUser } = useAuthStore();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const { mutate: updateUser } = useUpdateUser();
 
   // State for user settings
   const [displayName, setDisplayName] = useState<string>("");
   const [preferredCurrency, setPreferredCurrency] = useState<string>("USDT");
+  const [initialDisplayName, setInitialDisplayName] = useState<string>("");
+  const [initialPreferredCurrency, setInitialPreferredCurrency] =
+    useState<string>("USDT");
+  const [initialPreferredChain, setInitialPreferredChain] =
+    useState<string>("ETH");
+  const [preferredChain, setPreferredChain] = useState<string>("ETH");
+  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [selectedChainFilter, setSelectedChainFilter] =
     useState<string>("All Chains");
 
@@ -52,11 +70,33 @@ export default function SettingsPage() {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
 
+  // Blockchain chains available
+  const blockchainChains = {
+    Base: ["ETH", "USDC", "USDT"],
+    Stellar: ["XLM"],
+  };
+
+  // Check if user has made changes to their profile
+  const hasChanges =
+    displayName !== initialDisplayName ||
+    preferredCurrency !== initialPreferredCurrency ||
+    preferredChain !== initialPreferredChain;
+
   // Load user data and wallets
   useEffect(() => {
     if (user) {
-      setDisplayName(user.name || "");
-      setPreferredCurrency(user.currency || "USDT");
+      const name = user.name || "";
+      const currency = user.currency || "USDT";
+      const chain = (user as any).preferredChain || "ETH";
+
+      setDisplayName(name);
+      setPreferredCurrency(currency);
+      setPreferredChain(chain);
+
+      // Also store initial values for comparison
+      setInitialDisplayName(name);
+      setInitialPreferredCurrency(currency);
+      setInitialPreferredChain(chain);
 
       // Fetch wallets from API
       fetchUserWallets();
@@ -84,6 +124,51 @@ export default function SettingsPage() {
       router.push("/login");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Handle save changes
+  const handleSaveChanges = async () => {
+    if (!hasChanges) return;
+
+    setIsSaving(true);
+
+    try {
+      // Prepare update data
+      const updateData: any = {};
+
+      if (displayName !== initialDisplayName) {
+        updateData.name = displayName;
+      }
+
+      if (preferredCurrency !== initialPreferredCurrency) {
+        updateData.currency = preferredCurrency;
+      }
+
+      if (preferredChain !== initialPreferredChain) {
+        updateData.preferredChain = preferredChain;
+      }
+
+      // Call update API
+      updateUser(updateData, {
+        onSuccess: () => {
+          // Update initial values to match current values
+          setInitialDisplayName(displayName);
+          setInitialPreferredCurrency(preferredCurrency);
+          setInitialPreferredChain(preferredChain);
+
+          toast.success("Profile updated successfully");
+        },
+        onError: (error) => {
+          toast.error("Failed to update profile");
+          console.error("Error updating profile:", error);
+        },
+      });
+    } catch (error) {
+      toast.error("Failed to update profile");
+      console.error("Error updating profile:", error);
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   // Logout handler
   const handleLogout = async () => {
@@ -180,6 +265,51 @@ export default function SettingsPage() {
       ? wallets
       : wallets.filter((wallet) => wallet.chain === selectedChainFilter);
 
+  // Available currencies
+  const currencies = [
+    "EUR",
+    "GBP",
+    "INR",
+    "JPY",
+    "CAD",
+    "AUD",
+    "CNY",
+    "VND",
+    "CHF",
+  ];
+
+  // Function to toggle dropdowns
+  const toggleDropdown = (dropdown: string) => {
+    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
+  };
+
+  // Dropdown animation variants
+  const dropdownVariants = {
+    hidden: {
+      opacity: 0,
+      y: -5,
+      scale: 0.95,
+    },
+    visible: {
+      opacity: 1,
+      y: 0,
+      scale: 1,
+      transition: {
+        duration: 0.2,
+        ease: "easeOut",
+      },
+    },
+    exit: {
+      opacity: 0,
+      y: -5,
+      scale: 0.95,
+      transition: {
+        duration: 0.15,
+        ease: "easeIn",
+      },
+    },
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -211,23 +341,46 @@ export default function SettingsPage() {
       <div className="w-[750px] pl-10 pt-10 pr-4 pb-24">
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold text-white">Settings</h1>
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-transparent border border-white/20 text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isLoggingOut ? (
-              <>
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                <span>Logging out...</span>
-              </>
-            ) : (
-              <>
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Logout</span>
-              </>
-            )}
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={handleSaveChanges}
+              disabled={!hasChanges || isSaving}
+              className={`flex items-center justify-center gap-1 sm:gap-2 rounded-full border text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium transition-all disabled:cursor-not-allowed ${
+                hasChanges
+                  ? "bg-black text-black border-white hover:bg-zinc-900"
+                  : "bg-transparent border-white/20 text-white/40"
+              }`}
+            >
+              {isSaving ? (
+                <>
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                <>
+                  <Save className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span>Save Changes</span>
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-transparent border border-white/20 text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isLoggingOut ? (
+                <>
+                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                  <span>Logging out...</span>
+                </>
+              ) : (
+                <>
+                  <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
+                  <span>Logout</span>
+                </>
+              )}
+            </button>
+          </div>
         </div>
 
         {/* Profile Photo Upload */}
@@ -290,45 +443,135 @@ export default function SettingsPage() {
           />
         </div>
 
+        {/* Preferred Chain */}
+        <div className="mb-8">
+          <label className="block text-white mb-2">Preferred Chain</label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleDropdown("chain")}
+              className="w-full h-12 bg-black border border-white/20 text-white rounded-lg px-4 
+                flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
+            >
+              <span>{preferredChain}</span>
+              <ChevronDown
+                className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
+                  activeDropdown === "chain" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {activeDropdown === "chain" && (
+                <motion.div
+                  variants={dropdownVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
+                >
+                  {Object.entries(blockchainChains).map(
+                    ([category, chains]) => (
+                      <div key={category} className="mb-2 last:mb-0">
+                        <div className="px-4 py-1 text-sm text-white/50 font-medium">
+                          {category}
+                        </div>
+                        <div>
+                          {chains.map((chain) => (
+                            <button
+                              key={chain}
+                              type="button"
+                              className={`w-full px-4 py-2.5 text-left text-white hover:bg-white/5 flex items-center ${
+                                chain === preferredChain ? "bg-white/5" : ""
+                              }`}
+                              onClick={() => {
+                                setPreferredChain(chain);
+                                setActiveDropdown(null);
+                              }}
+                            >
+                              <div
+                                className={`w-5 h-5 flex items-center justify-center rounded-md border ${
+                                  chain === preferredChain
+                                    ? "border-white bg-white"
+                                    : "border-white/30 bg-transparent"
+                                } mr-3`}
+                              >
+                                {chain === preferredChain && (
+                                  <Check className="h-3.5 w-3.5 text-black" />
+                                )}
+                              </div>
+                              <span className="font-medium">{chain}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        </div>
+
         {/* Preferred Currency */}
         <div className="mb-8">
-          <label htmlFor="currency" className="block text-white mb-2">
-            Preferred Currency
-          </label>
-          <Select
-            value={preferredCurrency}
-            onValueChange={setPreferredCurrency}
-          >
-            <SelectTrigger className="w-full bg-black border border-white/20 text-white h-12 focus:ring-1 focus:ring-white/40">
-              <SelectValue placeholder="Select currency" />
-            </SelectTrigger>
-            <SelectContent className="bg-[#101012] border border-white/10 p-2 rounded-xl shadow-xl w-[var(--radix-select-trigger-width)]">
-              <SelectItem
-                value="USDT"
-                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-              >
-                USDT
-              </SelectItem>
-              <SelectItem
-                value="USD"
-                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-              >
-                USD
-              </SelectItem>
-              <SelectItem
-                value="ETH"
-                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-              >
-                ETH
-              </SelectItem>
-              <SelectItem
-                value="BNB"
-                className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-              >
-                BNB
-              </SelectItem>
-            </SelectContent>
-          </Select>
+          <label className="block text-white mb-2">Preferred Currency</label>
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => toggleDropdown("currency")}
+              className="w-full h-12 bg-black border border-white/20 text-white rounded-lg px-4 
+                flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
+            >
+              <span>{preferredCurrency}</span>
+              <ChevronDown
+                className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
+                  activeDropdown === "currency" ? "rotate-180" : ""
+                }`}
+              />
+            </button>
+
+            <AnimatePresence>
+              {activeDropdown === "currency" && (
+                <motion.div
+                  variants={dropdownVariants}
+                  initial="hidden"
+                  animate="visible"
+                  exit="exit"
+                  className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
+                >
+                  <div>
+                    {currencies.map((currency) => (
+                      <button
+                        key={currency}
+                        type="button"
+                        className={`w-full px-4 py-2.5 text-left text-white hover:bg-white/5 flex items-center ${
+                          currency === preferredCurrency ? "bg-white/5" : ""
+                        }`}
+                        onClick={() => {
+                          setPreferredCurrency(currency);
+                          setActiveDropdown(null);
+                        }}
+                      >
+                        <div
+                          className={`w-5 h-5 flex items-center justify-center rounded-md border ${
+                            currency === preferredCurrency
+                              ? "border-white bg-white"
+                              : "border-white/30 bg-transparent"
+                          } mr-3`}
+                        >
+                          {currency === preferredCurrency && (
+                            <Check className="h-3.5 w-3.5 text-black" />
+                          )}
+                        </div>
+                        <span className="font-medium">{currency}</span>
+                      </button>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
         </div>
 
         {/* Divider Line */}
@@ -432,27 +675,6 @@ export default function SettingsPage() {
               </div>
             )}
           </div>
-        </div>
-
-        {/* Logout Section */}
-        <div className="pt-8 border-t border-white/10">
-          <button
-            onClick={handleLogout}
-            disabled={isLoggingOut}
-            className="w-full flex items-center justify-center gap-1 sm:gap-2 h-10 sm:h-12 bg-transparent border border-red-500/30 text-red-400 rounded-full px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-red-500/10 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isLoggingOut ? (
-              <>
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                <span>Logging out...</span>
-              </>
-            ) : (
-              <>
-                <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Logout from Splito</span>
-              </>
-            )}
-          </button>
         </div>
       </div>
 

@@ -174,13 +174,15 @@ export function GroupsList() {
           Create a group to start tracking expenses and settle debts with your
           friends
         </p>
-        <Link
-          href="/create"
+        <button
+          onClick={() =>
+            document.dispatchEvent(new CustomEvent("open-create-group-modal"))
+          }
           className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
         >
           <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
           <span>Create New Group</span>
-        </Link>
+        </button>
       </div>
     );
   }

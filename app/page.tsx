@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
+import { AddFriendsModal } from "@/components/add-friends-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import {
@@ -28,6 +29,7 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [isSettling, setIsSettling] = useState(false);
   const { isConnected, address } = useWallet();
@@ -184,7 +186,10 @@ export default function Page() {
             <h2 className="text-xl sm:text-2xl font-semibold text-white">
               Your Friends
             </h2>
-            <button className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors">
+            <button
+              onClick={() => setIsAddFriendModalOpen(true)}
+              className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
+            >
               <Image
                 src="/plus-sign-circle.svg"
                 alt="Add"
@@ -389,6 +394,11 @@ export default function Page() {
         onClose={() => setIsSettleModalOpen(false)}
         showIndividualView={settleFriendId !== null}
         selectedFriendId={settleFriendId}
+      />
+
+      <AddFriendsModal
+        isOpen={isAddFriendModalOpen}
+        onClose={() => setIsAddFriendModalOpen(false)}
       />
     </div>
   );

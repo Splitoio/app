@@ -3,7 +3,7 @@
 import { X, ChevronDown, Check } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 
 // Define wallet interface
@@ -37,6 +37,11 @@ export function AddWalletModal({
   const [selectedChain, setSelectedChain] = useState<string>(CHAINS[0].value);
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Clear wallet address when chain changes
+  useEffect(() => {
+    setWalletAddress("");
+  }, [selectedChain]);
 
   const handleSubmit = async () => {
     if (!walletAddress.trim()) {
@@ -75,6 +80,11 @@ export function AddWalletModal({
   const handleChainSelect = (chain: string) => {
     setSelectedChain(chain);
     setIsDropdownOpen(false);
+  };
+
+  // Get placeholder with the selected chain name directly
+  const getPlaceholder = (): string => {
+    return `Enter ${selectedChain} wallet address`;
   };
 
   return (
@@ -127,7 +137,7 @@ export function AddWalletModal({
                       value={walletAddress}
                       onChange={(e) => setWalletAddress(e.target.value)}
                       className="w-full bg-black border border-white/20 text-white p-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-white/30"
-                      placeholder="0x..."
+                      placeholder={getPlaceholder()}
                       disabled={isSubmitting}
                     />
                   </div>
