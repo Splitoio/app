@@ -7,6 +7,7 @@ import {
   UserSchema,
 } from "@/api-helpers/modelSchema";
 import { z } from "zod";
+import { CurrencyType } from "@/api-helpers/types";
 
 export const GenericResponseSchema = z.object({
   message: z.string(),
@@ -83,17 +84,30 @@ export const addMembersToGroup = async (
 
 export interface ExpensePayload {
   amount: number;
+  name: string;
   description: string;
   paidBy: string;
-  splitAmong: string[];
-  date?: string;
+  splitType: string;
+  participants: Array<{ userId: string; amount: number }>;
+  currency: string;
+  currencyType: CurrencyType;
+  chainId?: string;
+  tokenId?: string;
+  timeLockIn: boolean;
+  convertedAmount?: number;
+  category?: string;
+  groupId?: string;
 }
 
 export const addOrEditExpense = async (
   groupId: string,
   payload: ExpensePayload
 ) => {
-  const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
+  // Use the enhanced-expenses endpoint for multi-currency support
+  const response = await apiClient.post(`/enhanced-expenses`, {
+    ...payload,
+    groupId,
+  });
   return response;
 };
 

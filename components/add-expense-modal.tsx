@@ -21,10 +21,16 @@ import { useAuthStore } from "@/stores/authStore";
 import { X } from "lucide-react";
 import { User } from "@/api-helpers/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
+import type { CreateExpenseParams } from "@/features/expenses/hooks/use-create-expense";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import Image from "next/image";
+import {
+  useGetFiatCurrencies,
+  useGetAllCurrencies,
+} from "@/features/currencies/hooks/use-currencies";
+import { CurrencyType } from "@/api-helpers/types";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -39,19 +45,15 @@ interface ExpenseFormData {
   amount: string;
   splitType: string;
   currency: string;
+  currencyType: CurrencyType;
+  chainId?: string;
+  tokenId?: string;
+  timeLockIn: boolean;
   paidBy: string;
 }
 
-// Define an interface for the expense payload
-interface ExpensePayload {
-  category: string;
-  name: string;
-  participants: { userId: string; amount: number }[];
-  splitType: string;
-  amount: number;
-  currency: string;
-  paidBy: string;
-}
+// Define an interface for the expense payload (matches CreateExpenseParams)
+type ExpensePayload = CreateExpenseParams;
 
 export function AddExpenseModal({
   isOpen,
@@ -63,12 +65,20 @@ export function AddExpenseModal({
   const queryClient = useQueryClient();
   const user = useAuthStore((state) => state.user);
 
+  // Fetch supported currencies
+  const { data: fiatCurrencies, isLoading: isLoadingFiat } =
+    useGetFiatCurrencies();
+  const { data: allCurrencies, isLoading: isLoadingAll } =
+    useGetAllCurrencies();
+
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     description: "",
     amount: "",
     splitType: "equal",
     currency: "USD",
+    currencyType: "FIAT", // Default to FIAT
+    timeLockIn: false, // Default to not locked in
     paidBy: user?.id || "",
   });
 
@@ -172,101 +182,73 @@ export function AddExpenseModal({
     return Math.abs(totalSplit - Number(formData.amount)) < 0.01;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!isAuthenticated) {
-      toast.error("Please sign in first!");
-      return;
-    }
-
-    const memberIds = members.map((m) => m.id);
-    if (!formData.amount || Number(formData.amount) <= 0) {
-      toast.error("Please enter a valid amount");
-      return;
-    }
-
-    // Description is now optional
-    const description = formData.description.trim() || "Expense";
-
-    // Validate that custom or percentage splits add up correctly
     if (
-      (formData.splitType === "custom" ||
-        formData.splitType === "percentage") &&
-      !validateSplits()
+      !formData.name ||
+      !formData.amount ||
+      !formData.currency ||
+      !formData.paidBy
     ) {
-      toast.error("Split amounts must add up to the total expense amount");
+      toast.error("Please fill in all required fields");
       return;
     }
 
-    let shares: number[] = [];
-    let splitType = "EQUAL";
-
-    switch (formData.splitType) {
-      case "equal":
-        // For equal split, each member gets equal amount
-        const equalAmount = Number(formData.amount) / members.length;
-        shares = members.map((_, index) =>
-          index === members.length - 1
-            ? Number(formData.amount) - equalAmount * (members.length - 1) // Last member gets remaining to ensure total matches
-            : equalAmount
-        );
-        splitType = "EQUAL";
-        break;
-
-      case "percentage":
-        // Convert percentages to actual amounts
-        shares = members.map((member) => {
-          const percentage = percentages[member.id] || 0;
-          return (percentage / 100) * Number(formData.amount);
-        });
-        splitType = "PERCENTAGE";
-        break;
-
-      case "custom":
-        // Use the exact amounts from splits
-        shares = splits.map((split) => split.amount);
-        splitType = "EXACT";
-        break;
+    // Ensure proper fields are included based on currency type
+    if (
+      formData.currencyType === "TOKEN" &&
+      (!formData.chainId || !formData.tokenId)
+    ) {
+      toast.error("Please select both blockchain and token for token expenses");
+      return;
     }
 
-    expenseMutation.mutate(
-      {
-        category: "OTHER",
-        name: description,
-        participants: memberIds.map((id, index) => ({
-          userId: id,
-          amount: shares[index],
-        })),
-        splitType: splitType,
-        amount: Number(formData.amount),
-        currency: formData.currency,
-        paidBy: formData.paidBy || user?.id || "",
-      } as ExpensePayload,
-      {
-        onSuccess: () => {
-          toast.success("Expense added successfully");
+    // Create a properly typed payload
+    const payload: ExpensePayload = {
+      category: "OTHER",
+      name: formData.name || "Expense",
+      description: formData.description || "",
+      amount: parseFloat(formData.amount),
+      currency: formData.currency,
+      currencyType: formData.currencyType,
+      timeLockIn: formData.timeLockIn,
+      paidBy: formData.paidBy,
+      splitType: formData.splitType.toUpperCase(),
+      participants: splits.map((split) => ({
+        userId: split.address,
+        amount: split.amount,
+      })),
+    };
 
-          // refetch the specific group data
-          queryClient.invalidateQueries({
-            queryKey: [QueryKeys.GROUPS, groupId],
-          });
+    // Add optional fields based on currency type
+    if (formData.currencyType === "TOKEN") {
+      payload.chainId = formData.chainId;
+      payload.tokenId = formData.tokenId;
+    }
 
-          // refetch the general groups list and balances
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+    expenseMutation.mutate(payload, {
+      onSuccess: () => {
+        toast.success("Expense added successfully");
 
-          onClose();
-        },
-        onError: (error) => {
-          toast.error(
-            error.message || "Failed to add expense. Please try again."
-          );
-          console.error("Error adding expense:", error);
-        },
-      }
-    );
+        // refetch the specific group data
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.GROUPS, groupId],
+        });
+
+        // refetch the general groups list and balances
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+
+        onClose();
+      },
+      onError: (error) => {
+        toast.error(
+          error.message || "Failed to add expense. Please try again."
+        );
+        console.error("Error adding expense:", error);
+      },
+    });
   };
 
   useEffect(() => {
@@ -352,44 +334,134 @@ export function AddExpenseModal({
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#17171A] border-white/10">
-                  <SelectItem
-                    value="USDT"
-                    className="text-white hover:bg-white/10"
-                  >
-                    USDT
-                  </SelectItem>
-                  <SelectItem
-                    value="USD"
-                    className="text-white hover:bg-white/10"
-                  >
-                    USD
-                  </SelectItem>
-                  <SelectItem
-                    value="XLM"
-                    className="text-white hover:bg-white/10"
-                  >
-                    XLM
-                  </SelectItem>
+                  {isLoadingFiat ? (
+                    <SelectItem value="USD">Loading...</SelectItem>
+                  ) : (
+                    fiatCurrencies?.map((currency) => (
+                      <SelectItem key={currency.code} value={currency.code}>
+                        {currency.code} - {currency.name}
+                      </SelectItem>
+                    ))
+                  )}
                 </SelectContent>
               </Select>
+            </div>
 
-              {/* Lock price toggle */}
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-sm text-white/70">
-                  Lock price at $1 = 1 USDT
-                </span>
-                <div
-                  className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${
-                    lockPrice ? "bg-white/30" : "bg-[#333]"
-                  }`}
-                  onClick={() => setLockPrice(!lockPrice)}
-                >
-                  <div
-                    className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                      lockPrice ? "translate-x-6" : "translate-x-0"
-                    }`}
-                  />
+            <div>
+              <label className="text-white mb-2 block">Currency Type</label>
+              <Select
+                value={formData.currencyType}
+                onValueChange={(value) => {
+                  setFormData((prev) => ({
+                    ...prev,
+                    currencyType: value as CurrencyType,
+                    // Reset chain and token when changing currency type
+                    chainId: value === "TOKEN" ? prev.chainId : undefined,
+                    tokenId: value === "TOKEN" ? prev.tokenId : undefined,
+                  }));
+                }}
+              >
+                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                  <SelectValue placeholder="Select currency type" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#17171A] border-white/10">
+                  <SelectItem value="FIAT">Fiat Currency</SelectItem>
+                  <SelectItem value="TOKEN">Blockchain Token</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {formData.currencyType === "TOKEN" && (
+              <>
+                <div>
+                  <label className="text-white mb-2 block">Blockchain</label>
+                  <Select
+                    value={formData.chainId}
+                    onValueChange={(value) => {
+                      setFormData((prev) => ({
+                        ...prev,
+                        chainId: value,
+                        // Reset token when changing chain
+                        tokenId: undefined,
+                      }));
+                    }}
+                  >
+                    <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                      <SelectValue placeholder="Select blockchain" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-[#17171A] border-white/10">
+                      {isLoadingAll ? (
+                        <SelectItem value="ethereum">Loading...</SelectItem>
+                      ) : (
+                        allCurrencies?.chains?.map((chain) => (
+                          <SelectItem key={chain.id} value={chain.id}>
+                            {chain.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
                 </div>
+
+                {formData.chainId && (
+                  <div>
+                    <label className="text-white mb-2 block">Token</label>
+                    <Select
+                      value={formData.tokenId}
+                      onValueChange={(value) => {
+                        const selectedToken = allCurrencies?.tokens?.find(
+                          (token) =>
+                            token.id === value &&
+                            token.chainId === formData.chainId
+                        );
+                        setFormData((prev) => ({
+                          ...prev,
+                          tokenId: value,
+                          currency: selectedToken?.symbol || value,
+                        }));
+                      }}
+                    >
+                      <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                        <SelectValue placeholder="Select token" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#17171A] border-white/10">
+                        {allCurrencies?.tokens
+                          ?.filter(
+                            (token) => token.chainId === formData.chainId
+                          )
+                          .map((token) => (
+                            <SelectItem key={token.id} value={token.id}>
+                              {token.symbol} - {token.name}
+                            </SelectItem>
+                          ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Time Lock-In toggle */}
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-sm text-white/70">
+                Lock exchange rate (Fix the value at current exchange rate)
+              </span>
+              <div
+                className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${
+                  formData.timeLockIn ? "bg-white/30" : "bg-[#333]"
+                }`}
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    timeLockIn: !prev.timeLockIn,
+                  }))
+                }
+              >
+                <div
+                  className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
+                    formData.timeLockIn ? "translate-x-6" : "translate-x-0"
+                  }`}
+                />
               </div>
             </div>
 

@@ -1,9 +1,13 @@
 import { z } from "zod";
 import { SplitTypeSchema } from "../inputTypeSchemas/SplitTypeSchema";
+import { CurrencyType } from "../types";
 
 /////////////////////////////////////////
 // EXPENSE SCHEMA
 /////////////////////////////////////////
+
+// Define the currency type schema
+export const CurrencyTypeSchema = z.enum(["FIAT", "TOKEN"]);
 
 export const ExpenseSchema = z.object({
   splitType: SplitTypeSchema,
@@ -17,6 +21,13 @@ export const ExpenseSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   currency: z.string(),
+  // New multi-currency fields
+  currencyType: CurrencyTypeSchema.default("FIAT"),
+  chainId: z.string().nullable().optional(),
+  tokenId: z.string().nullable().optional(),
+  timeLockIn: z.boolean().default(false),
+  convertedAmount: z.number().nullable().optional(),
+  exchangeRate: z.number().nullable().optional(),
   fileKey: z.string().nullable(),
   groupId: z.string().nullable(),
   deletedAt: z.coerce.date().nullable(),

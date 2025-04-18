@@ -6,6 +6,8 @@ type SplitType =
   | "ADJUSTMENT"
   | "SETTLEMENT";
 
+export type CurrencyType = "FIAT" | "TOKEN";
+
 export interface Account {
   id: string;
   accountId: string;
@@ -128,6 +130,12 @@ export interface Expense {
   createdAt: Date;
   updatedAt: Date;
   currency: string;
+  currencyType: CurrencyType;
+  chainId?: string | null;
+  tokenId?: string | null;
+  timeLockIn: boolean;
+  convertedAmount?: number | null;
+  exchangeRate?: number | null;
   fileKey?: string | null;
   groupId?: string | null;
   deletedAt?: Date | null;
