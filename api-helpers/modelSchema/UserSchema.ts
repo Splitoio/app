@@ -12,6 +12,7 @@ export const UserSchema = z.object({
   image: z.string().nullable(),
   currency: z.string(),
   stellarAccount: z.string().nullable(),
+  preferredChain: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });

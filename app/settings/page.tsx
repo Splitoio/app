@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
 import {
   Loader2,
@@ -32,6 +32,7 @@ import {
   removeWallet as apiRemoveWallet,
 } from "@/services/walletService";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
+import { asEnhancedUser } from "@/types/user";
 
 // Define wallet interface
 interface Wallet {
@@ -43,6 +44,14 @@ interface Wallet {
 
 // Define the available chains
 const CHAINS = ["ETH", "BNB", "SOL", "XLM", "MATIC"];
+
+// Define a type for user update data
+interface UserUpdateData {
+  name?: string;
+  currency?: string;
+  preferredChain?: string;
+  [key: string]: string | undefined;
+}
 
 export default function SettingsPage() {
   const { isAuthenticated, isLoading, user, setUser } = useAuthStore();
@@ -82,12 +91,29 @@ export default function SettingsPage() {
     preferredCurrency !== initialPreferredCurrency ||
     preferredChain !== initialPreferredChain;
 
+  // Fetch user's wallets from API - wrapped in useCallback
+  const fetchUserWallets = useCallback(async () => {
+    if (!user?.id) return;
+
+    setIsLoadingWallets(true);
+    try {
+      const walletsData = await getUserWallets(user.id);
+      setWallets(walletsData);
+    } catch (error) {
+      console.error("Error fetching wallets:", error);
+      // Toast notification is handled in the service
+    } finally {
+      setIsLoadingWallets(false);
+    }
+  }, [user?.id]);
+
   // Load user data and wallets
   useEffect(() => {
     if (user) {
-      const name = user.name || "";
-      const currency = user.currency || "USDT";
-      const chain = (user as any).preferredChain || "ETH";
+      const enhancedUser = asEnhancedUser(user);
+      const name = enhancedUser.name || "";
+      const currency = enhancedUser.currency || "USDT";
+      const chain = enhancedUser.preferredChain || "ETH";
 
       setDisplayName(name);
       setPreferredCurrency(currency);
@@ -101,23 +127,7 @@ export default function SettingsPage() {
       // Fetch wallets from API
       fetchUserWallets();
     }
-  }, [user]);
-
-  // Fetch user's wallets from API
-  const fetchUserWallets = async () => {
-    if (!user?.id) return;
-
-    setIsLoadingWallets(true);
-    try {
-      const walletsData = await getUserWallets(user.id);
-      setWallets(walletsData);
-    } catch (error) {
-      console.error("Error fetching wallets:", error);
-      // Toast notification is handled in the service
-    } finally {
-      setIsLoadingWallets(false);
-    }
-  };
+  }, [user, fetchUserWallets]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
@@ -133,7 +143,7 @@ export default function SettingsPage() {
 
     try {
       // Prepare update data
-      const updateData: any = {};
+      const updateData: UserUpdateData = {};
 
       if (displayName !== initialDisplayName) {
         updateData.name = displayName;
