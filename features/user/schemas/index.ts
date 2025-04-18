@@ -5,4 +5,5 @@ export const UpdateUserResponseSchema = z.object({
   currency: z.string().optional(),
   stellarAccount: z.string().nullable().optional(),
   image: z.string().optional(),
+  preferredChain: z.string().nullable().optional(),
 });

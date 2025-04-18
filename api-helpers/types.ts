@@ -43,6 +43,7 @@ export interface User {
   image?: string | null;
   currency: string;
   stellarAccount?: string | null;
+  preferredChain?: string | null;
   accounts: Account[];
   sessions: Session[];
   groups: Group[];
