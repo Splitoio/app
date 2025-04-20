@@ -1,10 +1,14 @@
 "use client";
 
-import { X, ChevronDown, Check } from "lucide-react";
+import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import {
+  getAvailableChains,
+  addMultichainAccount,
+} from "@/services/walletService";
 
 // Define wallet interface
 interface Wallet {
@@ -14,18 +18,29 @@ interface Wallet {
   isPrimary: boolean;
 }
 
+interface Chain {
+  id: string;
+  name: string;
+  enabled: boolean;
+}
+
+interface ChainResponse {
+  chains: Chain[];
+}
+
 interface AddWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
   onAddWallet: (wallet: Omit<Wallet, "id">) => void;
 }
 
-const CHAINS = [
-  { value: "Solana", label: "Solana" },
-  { value: "Base", label: "Base" },
-  { value: "ETH", label: "ETH" },
-  { value: "Stellar", label: "Stellar" },
-  { value: "Aptos", label: "Aptos" },
+// Fallback chains in case API fails
+const FALLBACK_CHAINS = [
+  { id: "ethereum", name: "Ethereum", enabled: true },
+  { id: "stellar", name: "Stellar", enabled: true },
+  { id: "solana", name: "Solana", enabled: true },
+  { id: "polygon", name: "Polygon", enabled: true },
+  { id: "binance", name: "Binance", enabled: true },
 ];
 
 export function AddWalletModal({
@@ -34,14 +49,51 @@ export function AddWalletModal({
   onAddWallet,
 }: AddWalletModalProps) {
   const [walletAddress, setWalletAddress] = useState("");
-  const [selectedChain, setSelectedChain] = useState<string>(CHAINS[0].value);
+  const [selectedChain, setSelectedChain] = useState<string>("");
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [chains, setChains] = useState<Chain[]>([]);
+  const [isLoadingChains, setIsLoadingChains] = useState(false);
+
+  // Fetch chains from API when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      fetchChains();
+    }
+  }, [isOpen]);
 
   // Clear wallet address when chain changes
   useEffect(() => {
     setWalletAddress("");
   }, [selectedChain]);
+
+  // Fetch available chains from the API
+  const fetchChains = async () => {
+    setIsLoadingChains(true);
+    try {
+      const response = (await getAvailableChains()) as ChainResponse;
+      if (
+        response &&
+        response.chains &&
+        Array.isArray(response.chains) &&
+        response.chains.length > 0
+      ) {
+        setChains(response.chains);
+        setSelectedChain(response.chains[0].id);
+      } else {
+        // Use fallback chains if the API returns empty data
+        setChains(FALLBACK_CHAINS);
+        setSelectedChain(FALLBACK_CHAINS[0].id);
+      }
+    } catch (error) {
+      console.error("Error fetching chains:", error);
+      // Use fallback chains if the API fails
+      setChains(FALLBACK_CHAINS);
+      setSelectedChain(FALLBACK_CHAINS[0].id);
+    } finally {
+      setIsLoadingChains(false);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!walletAddress.trim()) {
@@ -49,10 +101,18 @@ export function AddWalletModal({
       return;
     }
 
+    if (!selectedChain) {
+      toast.error("Please select a blockchain");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
-      // Create the new wallet object
+      // Add via the multichain API
+      await addMultichainAccount(selectedChain, walletAddress, false);
+
+      // Create the new wallet object for the UI
       const newWallet = {
         address: walletAddress,
         chain: selectedChain,
@@ -64,7 +124,6 @@ export function AddWalletModal({
 
       // Reset form
       setWalletAddress("");
-      setSelectedChain(CHAINS[0].value);
 
       // Close modal
       onClose();
@@ -77,15 +136,20 @@ export function AddWalletModal({
   };
 
   // Function to handle chain selection
-  const handleChainSelect = (chain: string) => {
-    setSelectedChain(chain);
+  const handleChainSelect = (chainId: string) => {
+    setSelectedChain(chainId);
     setIsDropdownOpen(false);
   };
 
-  // Get placeholder with the selected chain name directly
+  // Get placeholder with the selected chain name
   const getPlaceholder = (): string => {
-    return `Enter ${selectedChain} wallet address`;
+    const chainName =
+      chains.find((c) => c.id === selectedChain)?.name || "blockchain";
+    return `Enter ${chainName} wallet address`;
   };
+
+  // Find the currently selected chain
+  const selectedChainObject = chains.find((c) => c.id === selectedChain);
 
   return (
     <AnimatePresence>
@@ -147,57 +211,67 @@ export function AddWalletModal({
                     <label className="block text-white text-base">
                       Wallet Chain
                     </label>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                        className="w-full bg-black border border-[#2e2e31] text-white p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white/30 flex items-center justify-between"
-                        disabled={isSubmitting}
-                      >
-                        <span>{selectedChain}</span>
-                        <ChevronDown
-                          className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
-                            isDropdownOpen ? "rotate-180" : ""
-                          }`}
-                        />
-                      </button>
 
-                      {/* Dropdown */}
-                      <AnimatePresence>
-                        {isDropdownOpen && (
-                          <motion.div
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: -10 }}
-                            transition={{ duration: 0.15 }}
-                            className="absolute left-0 right-0 mt-1 bg-black border border-[#2e2e31] rounded-lg overflow-hidden z-10 max-h-[250px] overflow-y-auto"
-                          >
-                            {CHAINS.map((chain) => (
-                              <button
-                                key={chain.value}
-                                type="button"
-                                onClick={() => handleChainSelect(chain.value)}
-                                className="w-full text-left px-4 py-3 text-white hover:bg-white/5 transition-colors flex items-center"
-                              >
-                                <div className="w-5 h-5 flex items-center justify-center border border-white/30 rounded mr-3">
-                                  {selectedChain === chain.value && (
-                                    <Check className="h-3.5 w-3.5 text-white" />
-                                  )}
-                                </div>
-                                {chain.label}
-                              </button>
-                            ))}
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                    {isLoadingChains ? (
+                      <div className="flex items-center p-3 text-white/70">
+                        <Loader2 className="h-5 w-5 animate-spin mr-2" />
+                        <span>Loading blockchains...</span>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <button
+                          type="button"
+                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                          className="w-full bg-black border border-[#2e2e31] text-white p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white/30 flex items-center justify-between"
+                          disabled={isSubmitting}
+                        >
+                          <span>
+                            {selectedChainObject?.name || "Select blockchain"}
+                          </span>
+                          <ChevronDown
+                            className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
+                              isDropdownOpen ? "rotate-180" : ""
+                            }`}
+                          />
+                        </button>
+
+                        {/* Dropdown */}
+                        <AnimatePresence>
+                          {isDropdownOpen && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -10 }}
+                              transition={{ duration: 0.15 }}
+                              className="absolute left-0 right-0 mt-1 bg-black border border-[#2e2e31] rounded-lg overflow-hidden z-10 max-h-[250px] overflow-y-auto"
+                            >
+                              {chains.map((chain) => (
+                                <button
+                                  key={chain.id}
+                                  type="button"
+                                  onClick={() => handleChainSelect(chain.id)}
+                                  className="w-full text-left px-4 py-3 text-white hover:bg-white/5 transition-colors flex items-center"
+                                >
+                                  <div className="w-5 h-5 flex items-center justify-center border border-white/30 rounded mr-3">
+                                    {selectedChain === chain.id && (
+                                      <Check className="h-3.5 w-3.5 text-white" />
+                                    )}
+                                  </div>
+                                  {chain.name}
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 {/* Add Wallet Button */}
                 <motion.button
                   onClick={handleSubmit}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isLoadingChains}
                   whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
                   whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
                   className="w-full h-[58px] flex items-center justify-center
