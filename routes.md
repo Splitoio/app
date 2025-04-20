@@ -392,7 +392,208 @@ Gets the historical price of a token/currency.
   {
     "price": 38000.25
   }
-  ```
+  ```# Splito API Routes
+
+## Base URL
+
+
+https://server.splito.io
+
+
+## Currency Routes
+
+### Get Fiat Currencies
+
+- *Method*: GET
+- *URL*: /api/currency/fiat
+- *Description*: Retrieve all supported fiat currencies
+
+### Get All Currencies
+
+- *Method*: GET
+- *URL*: /api/currency/all
+- *Description*: Retrieve all currencies (fiat and tokens)
+
+### Get Exchange Rate
+
+- *Method*: GET
+- *URL*: /api/currency/rate
+- *Query Parameters*:
+  - fromCurrency (string): The source currency code
+  - toCurrency (string): The target currency code
+  - fromType (string): Type of the source currency (FIAT or TOKEN)
+  - toType (string): Type of the target currency (FIAT or TOKEN)
+  - fromChainId (string, optional): Chain ID for token (if applicable)
+  - toChainId (string, optional): Chain ID for token (if applicable)
+- *Description*: Get the exchange rate between two currencies
+
+### Convert Amount
+
+- *Method*: GET
+- *URL*: /api/currency/convert
+- *Query Parameters*:
+  - amount (number): The amount to convert
+  - fromCurrency (string): The source currency code
+  - toCurrency (string): The target currency code
+  - fromType (string): Type of the source currency (FIAT or TOKEN)
+  - toType (string): Type of the target currency (FIAT or TOKEN)
+  - fromChainId (string, optional): Chain ID for token (if applicable)
+  - toChainId (string, optional): Chain ID for token (if applicable)
+- *Description*: Convert an amount from one currency to another
+
+## Enhanced Expense Routes
+
+### Create Enhanced Expense
+
+- *Method*: POST
+- *URL*: /api/enhanced-expense
+- *Body*:
+  json
+  {
+    "groupId": "group-id-123",
+    "paidBy": "user-id-123",
+    "name": "Group Dinner",
+    "category": "Food",
+    "amount": 100.5,
+    "splitType": "EQUAL",
+    "currency": "USD",
+    "currencyType": "FIAT",
+    "timeLockIn": true,
+    "participants": [
+      {
+        "userId": "user-id-123",
+        "amount": 50.25
+      },
+      {
+        "userId": "user-id-456",
+        "amount": 50.25
+      }
+    ],
+    "expenseDate": "2023-08-15T12:00:00Z"
+  }
+  
+- *Description*: Create a new expense with support for multiple currency types and time lock-in
+
+### Get Enhanced Expenses
+
+- *Method*: GET
+- *URL*: /api/enhanced-expense/:groupId
+- *Query Parameters*:
+  - targetCurrency (string): Currency to convert expense values to
+- *Description*: Get expenses with converted values based on time lock-in
+
+## Multichain Routes
+
+### Get Available Chains
+
+- *Method*: GET
+- *URL*: /api/multichain/chains
+- *Description*: Get all available blockchain networks for the user
+
+### Get Available Tokens
+
+- *Method*: GET
+- *URL*: /api/multichain/tokens/:chainId
+- *Description*: Get all available tokens for a specific blockchain network
+
+### Get All Chains and Tokens
+
+- *Method*: GET
+- *URL*: /api/multichain/all-chains-tokens
+- *Description*: Get all chains and their available tokens in one request
+
+### Get User Chain Accounts
+
+- *Method*: GET
+- *URL*: /api/multichain/accounts
+- *Description*: Get all blockchain accounts for the current user
+
+### Add User Chain Account
+
+- *Method*: POST
+- *URL*: /api/multichain/accounts
+- *Body*:
+  json
+  {
+    "chainId": "ethereum",
+    "address": "0x1234567890abcdef1234567890abcdef12345678",
+    "isDefault": true
+  }
+  
+- *Description*: Add a new blockchain account for the current user
+
+### Create Multichain Settlement
+
+- *Method*: POST
+- *URL*: /api/multichain/settlements
+- *Body*:
+  json
+  {
+    "chainId": "ethereum",
+    "tokenId": "eth",
+    "groupId": "group-id-123",
+    "transactions": [
+      {
+        "toUserId": "user-id-456",
+        "amount": "0.01",
+        "description": "Debt settlement for dinner"
+      }
+    ]
+  }
+  
+- *Description*: Create a new multichain settlement transaction
+
+### Submit Multichain Settlement
+
+- *Method*: POST
+- *URL*: /api/multichain/settlements/submit
+- *Body*:
+  json
+  {
+    "transactionId": "tx-id-123",
+    "signedTx": "0x..."
+  }
+  
+- *Description*: Submit a signed multichain settlement transaction
+
+## Pricing Routes
+
+### Get Price
+
+- *Method*: GET
+- *URL*: /api/pricing/price
+- *Query Parameters*:
+  - id (string): ID of the token/currency
+  - baseCurrency (string): Base currency for price
+- *Description*: Get the current price of a token or currency
+
+### Get Prices
+
+- *Method*: GET
+- *URL*: /api/pricing/prices
+- *Query Parameters*:
+  - ids (string): Comma-separated list of token/currency IDs
+  - baseCurrency (string): Base currency for prices
+- *Description*: Get the prices of multiple tokens/currencies
+
+### Get Historical Price
+
+- *Method*: GET
+- *URL*: /api/pricing/historical
+- *Query Parameters*:
+  - id (string): ID of the token/currency
+  - baseCurrency (string): Base currency for price
+  - date (string): Date for historical price (ISO format)
+- *Description*: Get the historical price of a token/currency
+
+### Get Exchange Rate
+
+- *Method*: GET
+- *URL*: /api/pricing/exchange-rate
+- *Query Parameters*:
+  - fromId (string): ID of the source token/currency
+  - toId (string): ID of the target token/currency
+- *Description*: Get exchange rate between two currencies/tokens
 
 ### Get Exchange Rate
 

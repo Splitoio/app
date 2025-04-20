@@ -26,13 +26,56 @@ import {
 } from "@/components/ui/select";
 import { AddWalletModal } from "@/components/add-wallet-modal";
 import {
-  getUserWallets,
-  addWallet as apiAddWallet,
-  updateWallet as apiUpdateWallet,
-  removeWallet as apiRemoveWallet,
+  getFiatCurrencies,
+  getAvailableChains,
+  getUserMultichainAccounts,
+  addMultichainAccount,
+  getTokensForChain,
 } from "@/services/walletService";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { asEnhancedUser } from "@/types/user";
+
+// Define interfaces for API responses
+interface Currency {
+  id: string;
+  code: string;
+  name: string;
+  symbol: string;
+  enabled: boolean;
+}
+
+interface CurrencyResponse {
+  currencies: Currency[];
+}
+
+interface Token {
+  id: string;
+  name: string;
+  symbol: string;
+  enabled: boolean;
+}
+
+interface TokenResponse {
+  tokens: Token[];
+}
+
+interface Chain {
+  id: string;
+  name: string;
+  enabled: boolean;
+  tokens?: Token[];
+}
+
+interface ChainResponse {
+  chains: Chain[];
+}
+
+// Define chain categories with their tokens
+const chainCategories = {
+  "Layer 1": ["ethereum", "solana"],
+  "Layer 2": ["base", "polygon"],
+  Other: ["stellar"],
+};
 
 // Define wallet interface
 interface Wallet {
@@ -42,9 +85,6 @@ interface Wallet {
   isPrimary: boolean;
 }
 
-// Define the available chains
-const CHAINS = ["ETH", "BNB", "SOL", "XLM", "MATIC"];
-
 // Define a type for user update data
 interface UserUpdateData {
   name?: string;
@@ -52,6 +92,30 @@ interface UserUpdateData {
   preferredChain?: string;
   [key: string]: string | undefined;
 }
+
+const FALLBACK_CURRENCIES: Currency[] = [
+  {
+    id: "USD",
+    code: "USD",
+    name: "US Dollar",
+    symbol: "$",
+    enabled: true,
+  },
+  {
+    id: "EUR",
+    code: "EUR",
+    name: "Euro",
+    symbol: "€",
+    enabled: true,
+  },
+  {
+    id: "GBP",
+    code: "GBP",
+    name: "British Pound",
+    symbol: "£",
+    enabled: true,
+  },
+];
 
 export default function SettingsPage() {
   const { isAuthenticated, isLoading, user, setUser } = useAuthStore();
@@ -79,11 +143,19 @@ export default function SettingsPage() {
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
   const [isLoadingWallets, setIsLoadingWallets] = useState(false);
 
-  // Blockchain chains available
-  const blockchainChains = {
-    Base: ["ETH", "USDC", "USDT"],
-    Stellar: ["XLM"],
-  };
+  // Updated: State for available chains
+  const [availableChains, setAvailableChains] = useState<Chain[]>([]);
+  const [isLoadingChains, setIsLoadingChains] = useState(false);
+
+  // Add state for currencies
+  const [currencies, setCurrencies] = useState<Currency[]>([]);
+  const [isLoadingCurrencies, setIsLoadingCurrencies] = useState(false);
+
+  // Add state for chain tokens
+  const [chainTokens, setChainTokens] = useState<Record<string, Token[]>>({});
+  const [isLoadingTokens, setIsLoadingTokens] = useState<
+    Record<string, boolean>
+  >({});
 
   // Check if user has made changes to their profile
   const hasChanges =
@@ -91,21 +163,81 @@ export default function SettingsPage() {
     preferredCurrency !== initialPreferredCurrency ||
     preferredChain !== initialPreferredChain;
 
-  // Fetch user's wallets from API - wrapped in useCallback
-  const fetchUserWallets = useCallback(async () => {
-    if (!user?.id) return;
+  // Fetch chains from API
+  const fetchAvailableChains = useCallback(async () => {
+    setIsLoadingChains(true);
+    try {
+      const response = (await getAvailableChains()) as ChainResponse;
 
+      if (
+        response &&
+        response.chains &&
+        Array.isArray(response.chains) &&
+        response.chains.length > 0
+      ) {
+        setAvailableChains(response.chains);
+
+        // Start fetching tokens for each chain
+        response.chains.forEach((chain) => {
+          fetchTokensForChain(chain.id);
+        });
+      }
+    } catch (error) {
+      console.error("Error fetching chains:", error);
+      toast.error("Failed to fetch available chains");
+    } finally {
+      setIsLoadingChains(false);
+    }
+  }, []);
+
+  // Fetch tokens for a specific chain
+  const fetchTokensForChain = async (chainId: string) => {
+    setIsLoadingTokens((prev) => ({ ...prev, [chainId]: true }));
+    try {
+      const response = (await getTokensForChain(chainId)) as TokenResponse;
+      if (response && response.tokens) {
+        setChainTokens((prev) => ({
+          ...prev,
+          [chainId]: response.tokens,
+        }));
+      }
+    } catch (error) {
+      console.error(`Error fetching tokens for chain ${chainId}:`, error);
+    } finally {
+      setIsLoadingTokens((prev) => ({ ...prev, [chainId]: false }));
+    }
+  };
+
+  // Fetch user's wallets from API
+  const fetchUserWallets = useCallback(async () => {
     setIsLoadingWallets(true);
     try {
-      const walletsData = await getUserWallets(user.id);
-      setWallets(walletsData);
+      const accountsData = await getUserMultichainAccounts();
+
+      if (
+        accountsData &&
+        Array.isArray(accountsData) &&
+        accountsData.length > 0
+      ) {
+        // Map the multichain account format to our wallet format
+        const formattedWallets = accountsData.map((account) => ({
+          id: account.id || account._id,
+          address: account.address,
+          chain: account.chainId,
+          isPrimary: account.isDefault || false,
+        }));
+        setWallets(formattedWallets);
+      } else {
+        setWallets([]);
+      }
     } catch (error) {
       console.error("Error fetching wallets:", error);
-      // Toast notification is handled in the service
+      toast.error("Failed to load wallets");
+      setWallets([]);
     } finally {
       setIsLoadingWallets(false);
     }
-  }, [user?.id]);
+  }, []);
 
   // Load user data and wallets
   useEffect(() => {
@@ -124,16 +256,49 @@ export default function SettingsPage() {
       setInitialPreferredCurrency(currency);
       setInitialPreferredChain(chain);
 
-      // Fetch wallets from API
+      // Fetch wallets and chains from API
       fetchUserWallets();
+      fetchAvailableChains();
     }
-  }, [user, fetchUserWallets]);
+  }, [user, fetchUserWallets, fetchAvailableChains]);
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
       router.push("/login");
     }
   }, [isLoading, isAuthenticated, router]);
+
+  // Function to fetch fiat currencies
+  const fetchCurrencies = useCallback(async () => {
+    setIsLoadingCurrencies(true);
+    try {
+      const response = (await getFiatCurrencies()) as CurrencyResponse;
+
+      if (
+        response &&
+        response.currencies &&
+        Array.isArray(response.currencies) &&
+        response.currencies.length > 0
+      ) {
+        // Map the API response to our expected format
+        setCurrencies(response.currencies);
+      } else {
+        // Fallback currencies in case API returns empty data
+        setCurrencies(FALLBACK_CURRENCIES);
+      }
+    } catch (error) {
+      console.error("Error fetching currencies:", error);
+      // Fallback currencies in case API fails
+      setCurrencies(FALLBACK_CURRENCIES);
+    } finally {
+      setIsLoadingCurrencies(false);
+    }
+  }, []);
+
+  // Fetch currencies on component mount
+  useEffect(() => {
+    fetchCurrencies();
+  }, [fetchCurrencies]);
 
   // Handle save changes
   const handleSaveChanges = async () => {
@@ -199,64 +364,74 @@ export default function SettingsPage() {
 
   // Set a wallet as primary
   const setAsPrimary = async (walletId: string) => {
-    if (!user?.id) return;
-
     try {
-      await apiUpdateWallet(user.id, walletId, true);
+      // Find the wallet to update
+      const walletToUpdate = wallets.find((w) => w.id === walletId);
+      if (!walletToUpdate) return;
 
-      // Update local state
-      setWallets(
-        wallets.map((wallet) => ({
-          ...wallet,
-          isPrimary: wallet.id === walletId,
-        }))
+      // Add it again with isDefault set to true
+      await addMultichainAccount(
+        walletToUpdate.chain,
+        walletToUpdate.address,
+        true
       );
+
+      // Refresh the wallet list
+      await fetchUserWallets();
 
       toast.success("Primary wallet updated");
     } catch (error) {
       console.error("Error setting primary wallet:", error);
-      // Toast notification is handled in the service
+      toast.error("Failed to update primary wallet");
     }
   };
 
   // Remove a wallet
   const removeWallet = async (walletId: string) => {
-    if (!user?.id) return;
-
     try {
-      const success = await apiRemoveWallet(user.id, walletId);
+      // In a full implementation, we would call an API to remove the wallet
+      // For now, just show a toast since we haven't implemented the delete endpoint
+      toast.error("Wallet removal not implemented in this version");
 
-      if (success) {
+      // Alternatively, we could make the call to the API if it exists
+      /*
+      const response = await fetch(`/api/multichain/accounts/${walletId}`, {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
         // Update local state
-        setWallets(wallets.filter((wallet) => wallet.id !== walletId));
+        setWallets(wallets.filter(wallet => wallet.id !== walletId));
         toast.success("Wallet removed successfully");
+      } else {
+        toast.error("Failed to remove wallet");
       }
+      */
     } catch (error) {
       console.error("Error removing wallet:", error);
-      // Toast notification is handled in the service
+      toast.error("Failed to remove wallet");
     }
   };
 
   // Add a new wallet
   const handleAddWallet = async (walletData: Omit<Wallet, "id">) => {
-    if (!user?.id) {
-      toast.error("User ID is required");
-      return;
-    }
-
     setIsAddingWallet(true);
 
     try {
-      // Call API to add wallet
-      const newWallet = await apiAddWallet(user.id, walletData);
+      await addMultichainAccount(
+        walletData.chain,
+        walletData.address,
+        walletData.isPrimary
+      );
 
-      // Update local state
-      setWallets([...wallets, newWallet]);
+      // Refresh wallet list after adding
+      await fetchUserWallets();
+
       toast.success("Wallet added successfully");
-      return newWallet;
+      return { ...walletData, id: Date.now().toString() }; // Return a temporary object for the UI
     } catch (error) {
       console.error("Error adding wallet:", error);
-      // Toast notification is handled in the service
+      toast.error("Failed to add wallet");
       throw error;
     } finally {
       setIsAddingWallet(false);
@@ -269,24 +444,17 @@ export default function SettingsPage() {
     toast.success("Profile picture updated");
   };
 
+  // Display wallet chain name instead of ID
+  const getChainName = (chainId: string) => {
+    const chain = availableChains.find((c) => c.id === chainId);
+    return chain ? chain.name : chainId;
+  };
+
   // Filter wallets based on selected chain
   const filteredWallets =
     selectedChainFilter === "All Chains"
       ? wallets
       : wallets.filter((wallet) => wallet.chain === selectedChainFilter);
-
-  // Available currencies
-  const currencies = [
-    "EUR",
-    "GBP",
-    "INR",
-    "JPY",
-    "CAD",
-    "AUD",
-    "CNY",
-    "VND",
-    "CHF",
-  ];
 
   // Function to toggle dropdowns
   const toggleDropdown = (dropdown: string) => {
@@ -463,7 +631,12 @@ export default function SettingsPage() {
               className="w-full h-12 bg-black border border-white/20 text-white rounded-lg px-4 
                 flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
             >
-              <span>{preferredChain}</span>
+              <span className="uppercase font-medium">
+                {isLoadingChains
+                  ? "Loading chains..."
+                  : availableChains.find((c) => c.id === preferredChain)
+                      ?.name || preferredChain}
+              </span>
               <ChevronDown
                 className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
                   activeDropdown === "chain" ? "rotate-180" : ""
@@ -480,42 +653,56 @@ export default function SettingsPage() {
                   exit="exit"
                   className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
                 >
-                  {Object.entries(blockchainChains).map(
-                    ([category, chains]) => (
-                      <div key={category} className="mb-2 last:mb-0">
-                        <div className="px-4 py-1 text-sm text-white/50 font-medium">
-                          {category}
+                  {isLoadingChains ? (
+                    <div className="px-4 py-3 text-white/60 flex items-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span>Loading chains...</span>
+                    </div>
+                  ) : (
+                    availableChains.map((chain) => (
+                      <div key={chain.id} className="py-1">
+                        <div className="px-4 py-1 text-sm text-white/50">
+                          {chain.name}
                         </div>
-                        <div>
-                          {chains.map((chain) => (
+                        {isLoadingTokens[chain.id] ? (
+                          <div className="px-4 py-2 text-white/60 flex items-center">
+                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
+                            <span className="text-sm">Loading tokens...</span>
+                          </div>
+                        ) : chainTokens[chain.id] ? (
+                          chainTokens[chain.id].map((token) => (
                             <button
-                              key={chain}
+                              key={token.id}
                               type="button"
-                              className={`w-full px-4 py-2.5 text-left text-white hover:bg-white/5 flex items-center ${
-                                chain === preferredChain ? "bg-white/5" : ""
-                              }`}
+                              className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center`}
                               onClick={() => {
-                                setPreferredChain(chain);
+                                setPreferredChain(token.id);
                                 setActiveDropdown(null);
                               }}
                             >
                               <div
                                 className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                                  chain === preferredChain
+                                  preferredChain === token.id
                                     ? "border-white bg-white"
                                     : "border-white/30 bg-transparent"
                                 } mr-3`}
                               >
-                                {chain === preferredChain && (
+                                {preferredChain === token.id && (
                                   <Check className="h-3.5 w-3.5 text-black" />
                                 )}
                               </div>
-                              <span className="font-medium">{chain}</span>
+                              <span className="font-medium">
+                                {token.symbol}
+                              </span>
                             </button>
-                          ))}
-                        </div>
+                          ))
+                        ) : (
+                          <div className="px-4 py-2 text-white/60">
+                            <span className="text-sm">No tokens available</span>
+                          </div>
+                        )}
                       </div>
-                    )
+                    ))
                   )}
                 </motion.div>
               )}
@@ -533,11 +720,30 @@ export default function SettingsPage() {
               className="w-full h-12 bg-black border border-white/20 text-white rounded-lg px-4 
                 flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
             >
-              <span>{preferredCurrency}</span>
+              <span className="truncate text-left">
+                {isLoadingCurrencies
+                  ? "Loading currencies..."
+                  : (() => {
+                      const selected = currencies.find(
+                        (c) => c.code === preferredCurrency
+                      );
+                      return selected ? (
+                        <span>
+                          <span className="font-medium">{selected.code}</span>
+                          <span className="text-white/70">
+                            {" "}
+                            {selected.symbol} • {selected.name}
+                          </span>
+                        </span>
+                      ) : (
+                        preferredCurrency
+                      );
+                    })()}
+              </span>
               <ChevronDown
                 className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
                   activeDropdown === "currency" ? "rotate-180" : ""
-                }`}
+                } ml-2 flex-shrink-0`}
               />
             </button>
 
@@ -550,34 +756,48 @@ export default function SettingsPage() {
                   exit="exit"
                   className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
                 >
-                  <div>
-                    {currencies.map((currency) => (
+                  {isLoadingCurrencies ? (
+                    <div className="px-4 py-3 text-white/60 flex items-center">
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                      <span>Loading currencies...</span>
+                    </div>
+                  ) : (
+                    currencies.map((currency) => (
                       <button
-                        key={currency}
+                        key={currency.id}
                         type="button"
                         className={`w-full px-4 py-2.5 text-left text-white hover:bg-white/5 flex items-center ${
-                          currency === preferredCurrency ? "bg-white/5" : ""
+                          currency.code === preferredCurrency
+                            ? "bg-white/5"
+                            : ""
                         }`}
                         onClick={() => {
-                          setPreferredCurrency(currency);
+                          setPreferredCurrency(currency.code);
                           setActiveDropdown(null);
                         }}
                       >
                         <div
                           className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                            currency === preferredCurrency
+                            currency.code === preferredCurrency
                               ? "border-white bg-white"
                               : "border-white/30 bg-transparent"
                           } mr-3`}
                         >
-                          {currency === preferredCurrency && (
+                          {currency.code === preferredCurrency && (
                             <Check className="h-3.5 w-3.5 text-black" />
                           )}
                         </div>
-                        <span className="font-medium">{currency}</span>
+                        <div className="flex items-center">
+                          <span className="font-medium mr-2">
+                            {currency.code}
+                          </span>
+                          <span className="text-white/60">
+                            {currency.symbol} • {currency.name}
+                          </span>
+                        </div>
                       </button>
-                    ))}
-                  </div>
+                    ))
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -604,6 +824,7 @@ export default function SettingsPage() {
             )}
           </button>
 
+          {/* Select for Chain Filter */}
           <div className="mt-2 mb-6">
             <Select
               value={selectedChainFilter}
@@ -619,15 +840,22 @@ export default function SettingsPage() {
                 >
                   All Chains
                 </SelectItem>
-                {CHAINS.map((chain) => (
-                  <SelectItem
-                    key={chain}
-                    value={chain}
-                    className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-                  >
-                    {chain}
-                  </SelectItem>
-                ))}
+                {isLoadingChains ? (
+                  <div className="px-4 py-3 text-white/60 flex items-center">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <span>Loading chains...</span>
+                  </div>
+                ) : (
+                  availableChains.map((chain) => (
+                    <SelectItem
+                      key={chain.id}
+                      value={chain.id}
+                      className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
+                    >
+                      {chain.name}
+                    </SelectItem>
+                  ))
+                )}
               </SelectContent>
             </Select>
           </div>
@@ -674,7 +902,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="mt-2">
                     <p className="text-white/60 text-sm">
-                      {wallet.chain} {wallet.chain === "ETH" && "(Base)"}
+                      {getChainName(wallet.chain)}
                     </p>
                   </div>
                 </div>
