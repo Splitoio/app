@@ -158,6 +158,10 @@ export const addMultichainAccount = async (
   isDefault: boolean
 ) => {
   try {
+    console.log(
+      `Adding chain account - ChainID: ${chainId}, Address: ${address}`
+    );
+
     const response = await fetch(`${API_URL}/api/multichain/accounts`, {
       method: "POST",
       headers: {
@@ -172,14 +176,28 @@ export const addMultichainAccount = async (
     });
 
     if (!response.ok) {
-      throw new Error("Failed to add wallet address");
+      // Try to get a more specific error message from the response
+      let errorMessage = "Failed to add wallet address";
+      try {
+        const errorData = await response.json();
+        console.error("Server error response:", errorData);
+        if (errorData && errorData.error) {
+          errorMessage = errorData.error;
+        }
+      } catch (e) {
+        // If we can't parse the error JSON, use the default message
+        console.error("Could not parse error response:", e);
+      }
+      throw new Error(errorMessage);
     }
 
     toast.success("Wallet address added successfully");
     return await response.json();
   } catch (error) {
     console.error("Error adding wallet address:", error);
-    toast.error("Failed to add wallet address");
+    toast.error(
+      error instanceof Error ? error.message : "Failed to add wallet address"
+    );
     throw error;
   }
 };
@@ -249,6 +267,29 @@ export const getFiatCurrencies = async () => {
     return await response.json();
   } catch (error) {
     console.error("Error fetching fiat currencies:", error);
+    toast.error("Failed to fetch currencies");
+    throw error;
+  }
+};
+
+// Get all currencies (both fiat and crypto)
+export const getAllCurrencies = async () => {
+  try {
+    const response = await fetch(`${API_URL}/api/currency/all`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to fetch currencies");
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error fetching currencies:", error);
     toast.error("Failed to fetch currencies");
     throw error;
   }

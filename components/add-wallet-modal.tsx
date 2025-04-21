@@ -3,12 +3,28 @@
 import { X, ChevronDown, Check, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import {
   getAvailableChains,
   addMultichainAccount,
 } from "@/services/walletService";
+import {
+  StellarWalletsKit,
+  WalletNetwork,
+  allowAllModules,
+  XBULL_ID,
+} from "@creit.tech/stellar-wallets-kit";
+import {
+  useAvailableChains,
+  useAddWallet,
+  useUserWallets,
+  useSetWalletAsPrimary,
+} from "@/features/wallets/hooks/use-wallets";
+import {
+  Wallet as WalletType,
+  ChainResponse as ChainResponseType,
+} from "@/features/wallets/api/client";
 
 // Define wallet interface
 interface Wallet {
@@ -31,7 +47,6 @@ interface ChainResponse {
 interface AddWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onAddWallet: (wallet: Omit<Wallet, "id">) => void;
 }
 
 // Fallback chains in case API fails
@@ -43,57 +58,61 @@ const FALLBACK_CHAINS = [
   { id: "binance", name: "Binance", enabled: true },
 ];
 
-export function AddWalletModal({
-  isOpen,
-  onClose,
-  onAddWallet,
-}: AddWalletModalProps) {
-  const [walletAddress, setWalletAddress] = useState("");
-  const [selectedChain, setSelectedChain] = useState<string>("");
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [chains, setChains] = useState<Chain[]>([]);
-  const [isLoadingChains, setIsLoadingChains] = useState(false);
+// API URL for access to backend
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-  // Fetch chains from API when modal opens
+export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
+  const [walletAddress, setWalletAddress] = useState<string>("");
+  const [selectedChain, setSelectedChain] = useState<Chain | null>(null);
+  const [step, setStep] = useState<"address" | "connecting">("address");
+  const [primaryWalletExists, setPrimaryWalletExists] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isConnectingWallet, setIsConnectingWallet] = useState(false);
+  const walletKitRef = useRef<StellarWalletsKit | null>(null);
+
+  // Fetch user's wallets and available chains
+  const { data: walletsData } = useUserWallets();
+  const { data: availableChains, isLoading: chainsLoading } =
+    useAvailableChains();
+  const wallets = walletsData?.accounts || [];
+
+  // Add wallet mutation
+  const { mutate: addWalletMutation, isPending: isAddingWallet } =
+    useAddWallet();
+  const { mutate: setPrimaryWallet, isPending: isSettingPrimary } =
+    useSetWalletAsPrimary();
+
+  // Process chains data
+  const chains = availableChains?.chains || FALLBACK_CHAINS;
+
+  // Initialize Stellar Wallets Kit
   useEffect(() => {
-    if (isOpen) {
-      fetchChains();
+    if (!walletKitRef.current) {
+      walletKitRef.current = new StellarWalletsKit({
+        network: WalletNetwork.PUBLIC, // Use testnet for development, PUBLIC for production
+        selectedWalletId: XBULL_ID, // Default selected wallet
+        modules: allowAllModules(),
+      });
     }
-  }, [isOpen]);
+
+    return () => {
+      // Cleanup if needed
+      walletKitRef.current = null;
+    };
+  }, []);
+
+  // Set initial chain when data is loaded
+  useEffect(() => {
+    if (chains.length > 0 && !selectedChain && isOpen) {
+      setSelectedChain(chains[0]);
+    }
+  }, [chains, selectedChain, isOpen]);
 
   // Clear wallet address when chain changes
   useEffect(() => {
     setWalletAddress("");
   }, [selectedChain]);
-
-  // Fetch available chains from the API
-  const fetchChains = async () => {
-    setIsLoadingChains(true);
-    try {
-      const response = (await getAvailableChains()) as ChainResponse;
-      if (
-        response &&
-        response.chains &&
-        Array.isArray(response.chains) &&
-        response.chains.length > 0
-      ) {
-        setChains(response.chains);
-        setSelectedChain(response.chains[0].id);
-      } else {
-        // Use fallback chains if the API returns empty data
-        setChains(FALLBACK_CHAINS);
-        setSelectedChain(FALLBACK_CHAINS[0].id);
-      }
-    } catch (error) {
-      console.error("Error fetching chains:", error);
-      // Use fallback chains if the API fails
-      setChains(FALLBACK_CHAINS);
-      setSelectedChain(FALLBACK_CHAINS[0].id);
-    } finally {
-      setIsLoadingChains(false);
-    }
-  };
 
   const handleSubmit = async () => {
     if (!walletAddress.trim()) {
@@ -106,50 +125,161 @@ export function AddWalletModal({
       return;
     }
 
-    setIsSubmitting(true);
-
-    try {
-      // Add via the multichain API
-      await addMultichainAccount(selectedChain, walletAddress, false);
-
-      // Create the new wallet object for the UI
-      const newWallet = {
-        address: walletAddress,
-        chain: selectedChain,
-        isPrimary: false,
-      };
-
-      // Call the callback function
-      await onAddWallet(newWallet);
-
-      // Reset form
-      setWalletAddress("");
-
-      // Close modal
-      onClose();
-    } catch (error) {
-      console.error("Error adding wallet:", error);
-      toast.error("Failed to add wallet. Please try again.");
-    } finally {
-      setIsSubmitting(false);
+    // Basic client-side validation based on chain type
+    if (selectedChain.id === "stellar") {
+      // Stellar addresses should start with G and be 56 characters long
+      // For Stellar: public keys are 56 chars and start with G
+      if (!/^G[A-Z0-9]{55}$/.test(walletAddress)) {
+        toast.error(
+          "Invalid Stellar address format. Addresses should start with G and be 56 characters long."
+        );
+        return;
+      }
+    } else if (
+      selectedChain.id === "ethereum" ||
+      selectedChain.id === "polygon"
+    ) {
+      // Ethereum-compatible addresses are 42 characters including 0x prefix
+      if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        toast.error(
+          "Invalid Ethereum address format. Addresses should start with 0x and be 42 characters long."
+        );
+        return;
+      }
+    } else if (selectedChain.id === "solana") {
+      // Solana addresses are typically base58 encoded and 32-44 characters
+      if (walletAddress.length < 32 || walletAddress.length > 44) {
+        toast.error("Invalid Solana address format.");
+        return;
+      }
     }
+
+    // Make sure we're using the exact chainId as expected by the backend
+    // Use "xlm" when the selected chain is "stellar"
+    const chainId = selectedChain.id === "stellar" ? "xlm" : selectedChain.id;
+
+    // Add the wallet using our mutation
+    addWalletMutation(
+      {
+        chainId,
+        address: walletAddress,
+        isPrimary: false,
+      },
+      {
+        onSuccess: () => {
+          // Reset form
+          setWalletAddress("");
+
+          // Close modal
+          onClose();
+        },
+      }
+    );
   };
 
   // Function to handle chain selection
-  const handleChainSelect = (chainId: string) => {
-    setSelectedChain(chainId);
+  const handleChainSelect = (chain: Chain) => {
+    setSelectedChain(chain);
     setIsDropdownOpen(false);
   };
 
   // Get placeholder with the selected chain name
   const getPlaceholder = (): string => {
     const chainName =
-      chains.find((c) => c.id === selectedChain)?.name || "blockchain";
+      chains.find((c) => c.id === selectedChain?.id)?.name || "blockchain";
     return `Enter ${chainName} wallet address`;
   };
 
   // Find the currently selected chain
-  const selectedChainObject = chains.find((c) => c.id === selectedChain);
+  const selectedChainObject = chains.find((c) => c.id === selectedChain?.id);
+
+  // Handle connect wallet with Stellar Wallets Kit
+  const handleConnectWallet = async () => {
+    if (isConnectingWallet) return;
+
+    setIsConnectingWallet(true);
+
+    try {
+      if (selectedChain?.id !== "stellar") {
+        toast.error(
+          "Web wallet connection only works with Stellar blockchain."
+        );
+        setIsConnectingWallet(false);
+        return;
+      }
+
+      if (!walletKitRef.current) {
+        toast.error("Wallet connection is not available");
+        setIsConnectingWallet(false);
+        return;
+      }
+
+      // Open wallet selection modal with callback for wallet selection
+      await walletKitRef.current.openModal({
+        onWalletSelected: async (selectedWallet) => {
+          try {
+            if (!selectedWallet) {
+              console.log("No wallet selected");
+              return;
+            }
+
+            if (!walletKitRef.current) return;
+
+            walletKitRef.current.setWallet(selectedWallet.id);
+
+            // Get wallet address
+            const response = await walletKitRef.current.getAddress();
+            const publicKey =
+              typeof response === "object" && response !== null
+                ? response.address
+                : response;
+
+            if (!publicKey || typeof publicKey !== "string") {
+              toast.error("Failed to get wallet address. Please try again.");
+              return;
+            }
+
+            try {
+              // Add the wallet using our mutation hook
+              addWalletMutation(
+                {
+                  chainId: "xlm", // Use xlm for Stellar chain ID
+                  address: publicKey,
+                  isPrimary: false,
+                },
+                {
+                  onSuccess: () => {
+                    toast.success("Stellar wallet connected successfully!");
+                    onClose();
+                  },
+                }
+              );
+            } catch (error) {
+              console.error("Error adding wallet:", error);
+              // Error is handled by addWallet function
+            }
+          } catch (error) {
+            console.error("Error in wallet selection:", error);
+            toast.error(
+              error instanceof Error
+                ? error.message
+                : "Failed to connect wallet. Please try again."
+            );
+          } finally {
+            setIsConnectingWallet(false);
+          }
+        },
+      });
+    } catch (error) {
+      console.error("Error connecting wallet:", error);
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Failed to connect wallet. Please try again."
+      );
+      setIsConnectingWallet(false);
+    }
+  };
 
   return (
     <AnimatePresence>
@@ -202,7 +332,7 @@ export function AddWalletModal({
                       onChange={(e) => setWalletAddress(e.target.value)}
                       className="w-full bg-black border border-white/20 text-white p-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-white/30"
                       placeholder={getPlaceholder()}
-                      disabled={isSubmitting}
+                      disabled={isAddingWallet || isSettingPrimary}
                     />
                   </div>
 
@@ -212,7 +342,7 @@ export function AddWalletModal({
                       Wallet Chain
                     </label>
 
-                    {isLoadingChains ? (
+                    {chainsLoading ? (
                       <div className="flex items-center p-3 text-white/70">
                         <Loader2 className="h-5 w-5 animate-spin mr-2" />
                         <span>Loading blockchains...</span>
@@ -223,10 +353,10 @@ export function AddWalletModal({
                           type="button"
                           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                           className="w-full bg-black border border-[#2e2e31] text-white p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white/30 flex items-center justify-between"
-                          disabled={isSubmitting}
+                          disabled={isAddingWallet || isSettingPrimary}
                         >
                           <span>
-                            {selectedChainObject?.name || "Select blockchain"}
+                            {selectedChain?.name || "Select blockchain"}
                           </span>
                           <ChevronDown
                             className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
@@ -249,11 +379,11 @@ export function AddWalletModal({
                                 <button
                                   key={chain.id}
                                   type="button"
-                                  onClick={() => handleChainSelect(chain.id)}
+                                  onClick={() => handleChainSelect(chain)}
                                   className="w-full text-left px-4 py-3 text-white hover:bg-white/5 transition-colors flex items-center"
                                 >
                                   <div className="w-5 h-5 flex items-center justify-center border border-white/30 rounded mr-3">
-                                    {selectedChain === chain.id && (
+                                    {selectedChain?.id === chain.id && (
                                       <Check className="h-3.5 w-3.5 text-white" />
                                     )}
                                   </div>
@@ -271,15 +401,19 @@ export function AddWalletModal({
                 {/* Add Wallet Button */}
                 <motion.button
                   onClick={handleSubmit}
-                  disabled={isSubmitting || isLoadingChains}
-                  whileHover={{ scale: isSubmitting ? 1 : 1.02 }}
-                  whileTap={{ scale: isSubmitting ? 1 : 0.98 }}
+                  disabled={isAddingWallet || isSettingPrimary || chainsLoading}
+                  whileHover={{
+                    scale: isAddingWallet || isSettingPrimary ? 1 : 1.02,
+                  }}
+                  whileTap={{
+                    scale: isAddingWallet || isSettingPrimary ? 1 : 0.98,
+                  }}
                   className="w-full h-[58px] flex items-center justify-center
                   bg-white rounded-full
                   text-lg font-semibold text-black
                   transition-all duration-200 hover:bg-white/90 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
-                  {isSubmitting ? (
+                  {isAddingWallet || isSettingPrimary ? (
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
                       <span>Adding...</span>
@@ -291,13 +425,42 @@ export function AddWalletModal({
 
                 {/* Connect Wallet Link */}
                 <div className="mt-4 text-center">
+                  <div className="flex items-center gap-2 my-2">
+                    <div className="h-px bg-white/20 flex-grow"></div>
+                    <span className="text-white/50 text-sm">OR</span>
+                    <div className="h-px bg-white/20 flex-grow"></div>
+                  </div>
                   <button
                     type="button"
-                    className="text-white hover:text-white/80 transition-colors text-base"
-                    onClick={onClose}
+                    className={`text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 ${
+                      selectedChain?.id === "stellar"
+                        ? "border-white/40 hover:bg-white/10"
+                        : "border-white/10 cursor-not-allowed opacity-50"
+                    }`}
+                    onClick={handleConnectWallet}
+                    disabled={
+                      isConnectingWallet || selectedChain?.id !== "stellar"
+                    }
                   >
-                    or Connect Wallet
+                    {isConnectingWallet ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Connecting...</span>
+                      </>
+                    ) : (
+                      <span>Connect Stellar Wallet</span>
+                    )}
                   </button>
+                  {selectedChain?.id !== "stellar" ? (
+                    <p className="text-white/50 text-xs mt-2">
+                      Web wallet connection only works with Stellar blockchain
+                    </p>
+                  ) : (
+                    <p className="text-white/70 text-xs mt-2">
+                      Connect with xBull, Lobstr, Freighter, and other Stellar
+                      wallets
+                    </p>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -306,4 +469,4 @@ export function AddWalletModal({
       )}
     </AnimatePresence>
   );
-}
+};
