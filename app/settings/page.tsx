@@ -40,33 +40,6 @@ import {
 // Base API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
-// Define interfaces for API responses
-interface CurrencyType {
-  id: string;
-  name: string;
-  symbol: string;
-  type: "FIAT" | "native" | "token";
-  chainId: string | null;
-  logoUrl: string | null;
-  decimals?: number;
-  contractAddress?: string;
-  enabled?: boolean;
-  exchangeRateSource?: string;
-}
-
-interface CurrencyResponse {
-  currencies: CurrencyType[];
-}
-
-// Define wallet interface
-interface Wallet {
-  id: string;
-  address: string;
-  chain: string;
-  isPrimary: boolean;
-}
-
-// Define a type for user update data
 interface UserUpdateData {
   name?: string;
   preferredCurrency?: string;
@@ -158,11 +131,11 @@ export default function SettingsPage() {
     }
   }, [user]);
 
-  useEffect(() => {
-    if (!isLoading && !isAuthenticated) {
-      router.push("/login");
-    }
-  }, [isLoading, isAuthenticated, router]);
+  // useEffect(() => {
+  //   if (!isLoading && !isAuthenticated) {
+  //     router.push("/login");
+  //   }
+  // }, [isLoading, isAuthenticated, router]);
 
   // Handle save changes
   const handleSaveChanges = async () => {
@@ -227,7 +200,7 @@ export default function SettingsPage() {
     if (!walletToUpdate) return;
 
     setWalletAsPrimary({
-      chainId: walletToUpdate.chain,
+      chainId: walletToUpdate.chainId,
       address: walletToUpdate.address,
     });
   };
@@ -353,7 +326,7 @@ export default function SettingsPage() {
   const filteredWallets =
     selectedChainFilter === "All Chains"
       ? wallets
-      : wallets.filter((wallet) => wallet.chain === selectedChainFilter);
+      : wallets.filter((wallet) => wallet.chainId === selectedChainFilter);
 
   // Function to toggle dropdowns
   const toggleDropdown = (dropdown: string) => {
@@ -488,6 +461,8 @@ export default function SettingsPage() {
     );
   }
 
+  console.log(isAuthenticated, user);
+
   if (!isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -497,6 +472,8 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  console.log("filteredWallets", filteredWallets);
 
   return (
     <motion.div
@@ -764,8 +741,12 @@ export default function SettingsPage() {
               filteredWallets.map((wallet) => (
                 <div key={wallet.id} className="pb-6 mb-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-white font-mono">{wallet.address}</p>
-                    {!wallet.isPrimary ? (
+                    <p className="text-white font-mono">
+                      {wallet.address.length > 20
+                        ? wallet.address.slice(0, 17) + "..." + wallet.address.slice(-4)
+                        : wallet.address}
+                    </p>
+                    {!wallet.isDefault ? (
                       <div className="flex items-center">
                         <button
                           onClick={() => handleSetAsPrimary(wallet.id)}
@@ -796,7 +777,7 @@ export default function SettingsPage() {
                   </div>
                   <div className="mt-2">
                     <p className="text-white/60 text-sm">
-                      {getChainName(wallet.chain)}
+                      {getChainName(wallet.chainId)}
                     </p>
                   </div>
                 </div>

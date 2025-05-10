@@ -252,7 +252,7 @@ export const getTokensForChain = async (chainId: string) => {
 // Get fiat currencies
 export const getFiatCurrencies = async () => {
   try {
-    const response = await fetch(`${API_URL}/api/currencies/fiat`, {
+    const response = await fetch(`${API_URL}/api/currency/fiat`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

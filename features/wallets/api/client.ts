@@ -5,11 +5,29 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 // Types
 export interface Wallet {
-  id: string;
-  address: string;
-  chain: string;
-  isPrimary: boolean;
+  id:        string;
+  userId:    string;
+  chainId:   string;
+  address:   string;
+  isDefault: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  chain:     Chain;
 }
+
+export interface Chain {
+  id:            string;
+  name:          string;
+  currency:      string;
+  rpcUrl:        string;
+  blockExplorer: string;
+  testnet:       boolean;
+  logoUrl:       string;
+  enabled:       boolean;
+  createdAt:     Date;
+  updatedAt:     Date;
+}
+
 
 export interface ChainResponse {
   chains: Array<{

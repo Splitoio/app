@@ -19,17 +19,17 @@ export default function GroupsPage() {
   useEffect(() => {
     const handleOpenModal = () => {
       // Check if user has a connected wallet
-      if (!user?.stellarAccount) {
-        toast.error("You need to connect a wallet before creating a group", {
-          description: "Add a wallet in your settings to continue",
-          action: {
-            label: "Add Wallet",
-            onClick: () => router.push("/settings"),
-          },
-          duration: 8000,
-        });
-        return;
-      }
+      // if (!user?.stellarAccount) {
+      //   toast.error("You need to connect a wallet before creating a group", {
+      //     description: "Add a wallet in your settings to continue",
+      //     action: {
+      //       label: "Add Wallet",
+      //       onClick: () => router.push("/settings"),
+      //     },
+      //     duration: 8000,
+      //   });
+      //   return;
+      // }
 
       // If they have a wallet, open the modal
       setIsCreateModalOpen(true);
@@ -45,17 +45,17 @@ export default function GroupsPage() {
   // Function to handle clicking the "Add Group" button
   const handleAddGroupClick = () => {
     // Check if user has a connected wallet
-    if (!user?.stellarAccount) {
-      toast.error("You need to connect a wallet before creating a group", {
-        description: "Add a wallet in your settings to continue",
-        action: {
-          label: "Add Wallet",
-          onClick: () => router.push("/settings"),
-        },
-        duration: 8000,
-      });
-      return;
-    }
+    // if (!user?.stellarAccount) {
+    //   toast.error("You need to connect a wallet before creating a group", {
+    //     description: "Add a wallet in your settings to continue",
+    //     action: {
+    //       label: "Add Wallet",
+    //       onClick: () => router.push("/settings"),
+    //     },
+    //     duration: 8000,
+    //   });
+    //   return;
+    // }
 
     // If they have a wallet, open the modal
     setIsCreateModalOpen(true);
