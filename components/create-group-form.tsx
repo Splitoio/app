@@ -123,18 +123,18 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Check if user has a connected wallet in their profile
-    if (!user?.stellarAccount) {
-      toast.error("You need to connect a wallet before creating a group", {
-        description: "Add a wallet in your settings to continue",
-        action: {
-          label: "Add Wallet",
-          onClick: () => router.push("/settings"),
-        },
-        duration: 8000,
-      });
-      return;
-    }
+    // // Check if user has a connected wallet in their profile
+    // if (!user?.stellarAccount) {
+    //   toast.error("You need to connect a wallet before creating a group", {
+    //     description: "Add a wallet in your settings to continue",
+    //     action: {
+    //       label: "Add Wallet",
+    //       onClick: () => router.push("/settings"),
+    //     },
+    //     duration: 8000,
+    //   });
+    //   return;
+    // }
 
     if (!formData.name.trim()) {
       toast.error("Please enter a group name");

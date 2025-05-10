@@ -70,7 +70,7 @@ export const getAllCurrencies = async (): Promise<CurrencyResponse> => {
 // Get fiat currencies
 export const getFiatCurrencies = async (): Promise<FiatCurrency[]> => {
   try {
-    const response = await fetch(`${API_URL}/api/currencies/fiat`, {
+    const response = await fetch(`${API_URL}/api/currency/fiat`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",

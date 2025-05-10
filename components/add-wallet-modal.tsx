@@ -156,7 +156,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
 
     // Make sure we're using the exact chainId as expected by the backend
     // Use "xlm" when the selected chain is "stellar"
-    const chainId = selectedChain.id === "stellar" ? "xlm" : selectedChain.id;
+    const chainId = selectedChain.id;
 
     // Add the wallet using our mutation
     addWalletMutation(
