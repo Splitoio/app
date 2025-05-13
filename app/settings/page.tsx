@@ -10,6 +10,7 @@ import {
   Save,
   ChevronDown,
   Check,
+  Info,
 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
@@ -36,6 +37,13 @@ import {
   useAddWallet,
   useSetWalletAsPrimary,
 } from "@/features/wallets/hooks/use-wallets";
+import CurrencyDropdown from "@/components/currency-dropdown";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Base API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -62,6 +70,8 @@ export default function SettingsPage() {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [selectedChainFilter, setSelectedChainFilter] =
     useState<string>("All Chains");
+
+  const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
 
   // State for wallets
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
@@ -601,6 +611,29 @@ export default function SettingsPage() {
           />
         </div>
 
+        <div className="mb-8">
+          <label className="block text-white mb-2 flex items-center gap-2">
+            Preferred Tokens
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Info className="h-4 w-4 text-white/80" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Select the tokens you want to accept payments in
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </label>
+
+          <CurrencyDropdown
+            selectedCurrencies={selectedCurrencies}
+            setSelectedCurrencies={setSelectedCurrencies}
+          />
+        </div>
+
         {/* Preferred Currency - Single Dropdown */}
         <div className="mb-8">
           <label className="block text-white mb-2">Preferred Currency</label>
@@ -743,7 +776,9 @@ export default function SettingsPage() {
                   <div className="flex items-center justify-between">
                     <p className="text-white font-mono">
                       {wallet.address.length > 20
-                        ? wallet.address.slice(0, 17) + "..." + wallet.address.slice(-4)
+                        ? wallet.address.slice(0, 17) +
+                          "..." +
+                          wallet.address.slice(-4)
                         : wallet.address}
                     </p>
                     {!wallet.isDefault ? (
