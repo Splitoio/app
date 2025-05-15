@@ -21,6 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useReminders } from "@/features/reminders/hooks/use-reminders";
 
 export default function GroupDetailsPage({
   params,
@@ -32,6 +33,7 @@ export default function GroupDetailsPage({
   const { data: group, isLoading } = useGetGroupById(groupId);
   const { address } = useWallet();
   const router = useRouter();
+  const { sendReminder, isSending } = useReminders();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
@@ -65,6 +67,19 @@ export default function GroupDetailsPage({
     // Implement delete group functionality
     toast.success("Group deleted successfully");
     router.push("/groups");
+  };
+
+  const handleSendReminder = async (receiverId: string, splitId: string) => {
+    try {
+      await sendReminder({
+        receiverId,
+        reminderType: "SPLIT",
+        splitId,
+        content: "Please settle your split in the group.",
+      });
+    } catch (error) {
+      console.error("Error sending reminder:", error);
+    }
   };
 
   if (isLoading) {
@@ -345,10 +360,14 @@ export default function GroupDetailsPage({
                       {!isCurrentUser && (
                         <div className="flex items-center gap-2">
                           {owed > 0 && (
-                            <button className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors">
+                            <button 
+                              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
+                              onClick={() => handleSendReminder(member.user.id, group.id)}
+                              disabled={isSending}
+                            >
                               <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                               <span className="hidden sm:inline">
-                                Send a Reminder
+                                {isSending ? "Sending..." : "Send a Reminder"}
                               </span>
                             </button>
                           )}

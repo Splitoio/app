@@ -46,9 +46,9 @@ export class ApiError extends Error {
 }
 
 export const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL + "/api",
-  timeout: API_TIMEOUT,
+  baseURL: "http://localhost:4000/api",
   withCredentials: true,
+  headers: { "Cache-Control": "no-cache" }
 });
 
 // Request interceptor - only check if the route requires auth

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddFriendsModal } from "@/components/add-friends-modal";
@@ -11,6 +11,7 @@ import {
   getTransactionsFromGroups,
 } from "@/utils/calculations";
 import Image from "next/image";
+import { apiClient } from "@/api-helpers/client"; // <-- Use your apiClient here
 import {
   Loader2,
   Users2,
@@ -33,20 +34,42 @@ export default function Page() {
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [isSettling, setIsSettling] = useState(false);
   const { isConnected, address } = useWallet();
-  const { data: groups, isLoading: isGroupsLoading } = useGetAllGroups();
+  const { data: groups = [], isLoading: isGroupsLoading } = useGetAllGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
-  const { data: friends, isLoading: isFriendsLoading } = useGetFriends();
+  const { data: friends = [], isLoading: isFriendsLoading } = useGetFriends();
   const { user } = useAuthStore();
   const youOwe = balanceData?.youOwe || [];
   const youGet = balanceData?.youGet || [];
   const queryClient = useQueryClient();
+  const [analyticsData, setAnalyticsData] = useState<{
+    owed: string;
+    lent: string;
+    settled: string;
+  } | null>(null);
+  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
+  const [errorAnalytics, setErrorAnalytics] = useState<string | null>(null);
 
-  // Mock data for the monthly stats
-  const monthlyStats = {
-    owed: "$500.00 USD",
-    lent: "$650.50 USD",
-    settled: "$100.29 USD",
-  };
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const response = await apiClient.get<{
+          owed: string;
+          lent: string;
+          settled: string;
+        }>("/analytics");
+        setAnalyticsData(response.data);
+      } catch (err: any) {
+        console.error("Analytics error:", err);
+        setErrorAnalytics(
+          `Failed to fetch analytics: ${err.message || "Network error"}`
+        );
+      } finally {
+        setLoadingAnalytics(false);
+      }
+    };
+
+    fetchAnalytics();
+  }, []);
 
   const handleSettleAllClick = () => {
     setSettleFriendId(null); // Clear any selected friend
@@ -126,9 +149,7 @@ export default function Page() {
                   />
                 ) : (
                   <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                      user?.id || user?.email || "user"
-                    }`}
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
                     alt="Profile"
                     width={56}
                     height={56}
@@ -153,7 +174,13 @@ export default function Page() {
             <span className="text-white/60 text-xl">You owed this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {monthlyStats.owed}
+            {loadingAnalytics ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            ) : errorAnalytics ? (
+              <span className="text-red-500">{errorAnalytics}</span>
+            ) : (
+              analyticsData?.owed || "$0.00 USD"
+            )}
           </p>
         </div>
 
@@ -162,18 +189,28 @@ export default function Page() {
             <span className="text-white/60 text-xl">You lent this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {monthlyStats.lent}
+            {loadingAnalytics ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            ) : errorAnalytics ? (
+              <span className="text-red-500">{errorAnalytics}</span>
+            ) : (
+              analyticsData?.lent || "$0.00 USD"
+            )}
           </p>
         </div>
 
         <div className="rounded-3xl bg-[#101012] p-8">
           <div className="flex items-center mb-4">
-            <span className="text-white/60 text-xl">
-              You settled this month
-            </span>
+            <span className="text-white/60 text-xl">You settled this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {monthlyStats.settled}
+            {loadingAnalytics ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            ) : errorAnalytics ? (
+              <span className="text-red-500">{errorAnalytics}</span>
+            ) : (
+              analyticsData?.settled || "$0.00 USD"
+            )}
           </p>
         </div>
       </div>

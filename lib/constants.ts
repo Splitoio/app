@@ -6,4 +6,5 @@ export const QueryKeys = {
   LEGACY_EXPENSES: "legacy-expenses",
   BALANCES: "balances",
   USER: "user",
+  REMINDERS: "reminders",
 } as const;
