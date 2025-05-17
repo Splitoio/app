@@ -185,12 +185,19 @@ export function AddExpenseModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      // !formData.name ||
       !formData.amount ||
       !formData.currency ||
-      !formData.paidBy
+      !formData.paidBy ||
+      !groupId ||
+      !splits.length
     ) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Validate split amounts
+    if (!validateSplits()) {
+      toast.error("Split amounts must equal the total amount");
       return;
     }
 
@@ -206,7 +213,7 @@ export function AddExpenseModal({
     // Create a properly typed payload
     const payload: ExpensePayload = {
       category: "OTHER",
-      name: formData.name || "Expense",
+      name: formData.description || "Expense",
       description: formData.description || "",
       amount: parseFloat(formData.amount),
       currency: formData.currency,
@@ -218,6 +225,7 @@ export function AddExpenseModal({
         userId: split.address,
         amount: split.amount,
       })),
+      groupId: groupId,
     };
 
     // Add optional fields based on currency type
@@ -443,7 +451,7 @@ export function AddExpenseModal({
                         setFormData((prev) => ({
                           ...prev,
                           tokenId: value,
-                          currency: selectedToken?.symbol || value,
+                          currency: value,
                         }));
                       }}
                     >
@@ -745,18 +753,24 @@ export function AddExpenseModal({
               )}
             </div>
 
-            <input
-              type="text"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              placeholder="What's this for?"
-              className="w-full h-12 px-4 mt-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-            />
+            <div>
+              <label className="text-white mb-2 block">Description</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="What's this expense for?"
+                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                  required
+                />
+              </div>
+            </div>
 
             <Button
               type="submit"

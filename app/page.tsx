@@ -6,10 +6,9 @@ import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddFriendsModal } from "@/components/add-friends-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
-import {
-  calculateBalances,
-  getTransactionsFromGroups,
-} from "@/utils/calculations";
+import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
+import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import { TransactionRequestList } from "@/components/transaction-request-list";
 import Image from "next/image";
 import { apiClient } from "@/api-helpers/client"; // <-- Use your apiClient here
 import {
@@ -27,6 +26,7 @@ import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
+import { toast } from "sonner";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -37,51 +37,46 @@ export default function Page() {
   const { data: groups = [], isLoading: isGroupsLoading } = useGetAllGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
   const { data: friends = [], isLoading: isFriendsLoading } = useGetFriends();
+  const { data: analyticsData, isLoading: isAnalyticsLoading, error: analyticsError } = useAnalytics();
+  const {
+    reminders,
+    isLoading: isRemindersLoading,
+    acceptReminder,
+    rejectReminder,
+    isAccepting,
+    isRejecting
+  } = useReminders();
   const { user } = useAuthStore();
   const youOwe = balanceData?.youOwe || [];
   const youGet = balanceData?.youGet || [];
   const queryClient = useQueryClient();
-  const [analyticsData, setAnalyticsData] = useState<{
-    owed: string;
-    lent: string;
-    settled: string;
-  } | null>(null);
-  const [loadingAnalytics, setLoadingAnalytics] = useState(true);
-  const [errorAnalytics, setErrorAnalytics] = useState<string | null>(null);
 
+  // Add debug logging
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      try {
-        const response = await apiClient.get<{
-          owed: string;
-          lent: string;
-          settled: string;
-        }>("/analytics");
-        setAnalyticsData(response.data);
-      } catch (err: any) {
-        console.error("Analytics error:", err);
-        setErrorAnalytics(
-          `Failed to fetch analytics: ${err.message || "Network error"}`
-        );
-      } finally {
-        setLoadingAnalytics(false);
-      }
-    };
-
-    fetchAnalytics();
-  }, []);
+    if (analyticsData) {
+      console.log("Analytics data in component:", analyticsData);
+    }
+    if (analyticsError) {
+      console.error("Analytics error in component:", analyticsError);
+      // Log the full error object for debugging
+      console.error("Full error object:", {
+        name: analyticsError.name,
+        message: analyticsError.message,
+        stack: analyticsError.stack,
+        cause: analyticsError.cause
+      });
+    }
+  }, [analyticsData, analyticsError]);
 
   const handleSettleAllClick = () => {
-    setSettleFriendId(null); // Clear any selected friend
+    setSettleFriendId(null);
     setIsSettling(true);
     setIsSettleModalOpen(true);
 
-    // Refetch data after settling debts
     setTimeout(() => {
-      // Refetch balances and groups data
       queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
       setIsSettling(false);
     }, 500);
   };
@@ -174,10 +169,16 @@ export default function Page() {
             <span className="text-white/60 text-xl">You owed this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {loadingAnalytics ? (
+            {isAnalyticsLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-white/50" />
-            ) : errorAnalytics ? (
-              <span className="text-red-500">{errorAnalytics}</span>
+            ) : analyticsError ? (
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] })}
+                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
+              >
+                <span>Error loading data</span>
+                <span className="text-sm">(click to retry)</span>
+              </button>
             ) : (
               analyticsData?.owed || "$0.00 USD"
             )}
@@ -189,10 +190,16 @@ export default function Page() {
             <span className="text-white/60 text-xl">You lent this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {loadingAnalytics ? (
+            {isAnalyticsLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-white/50" />
-            ) : errorAnalytics ? (
-              <span className="text-red-500">{errorAnalytics}</span>
+            ) : analyticsError ? (
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] })}
+                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
+              >
+                <span>Error loading data</span>
+                <span className="text-sm">(click to retry)</span>
+              </button>
             ) : (
               analyticsData?.lent || "$0.00 USD"
             )}
@@ -204,10 +211,16 @@ export default function Page() {
             <span className="text-white/60 text-xl">You settled this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {loadingAnalytics ? (
+            {isAnalyticsLoading ? (
               <Loader2 className="h-4 w-4 animate-spin text-white/50" />
-            ) : errorAnalytics ? (
-              <span className="text-red-500">{errorAnalytics}</span>
+            ) : analyticsError ? (
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] })}
+                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
+              >
+                <span>Error loading data</span>
+                <span className="text-sm">(click to retry)</span>
+              </button>
             ) : (
               analyticsData?.settled || "$0.00 USD"
             )}
@@ -215,8 +228,10 @@ export default function Page() {
         </div>
       </div>
 
-      {/* Friends and Groups - Two blocks side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      {/* Transaction Requests and Groups/Friends section */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4 sm:gap-6">
+        {/* Friends and Groups section */}
+        <div className="space-y-4 sm:space-y-6">
         {/* Friends block (wider) */}
         <div className="lg:col-span-2 rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4 sm:mb-8">
@@ -423,6 +438,38 @@ export default function Page() {
               </div>
             )}
           </div>
+          </div>
+        </div>
+
+        {/* Transaction Requests */}
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl text-white font-medium">Transaction Requests</h2>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.REMINDERS] })}
+              className="p-2 rounded-full hover:bg-white/5 transition-colors"
+            >
+              <Bell className="h-5 w-5 text-white/70" />
+            </button>
+          </div>
+
+          {isRemindersLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+            </div>
+          ) : (
+            <TransactionRequestList
+              reminders={reminders || []}
+              onAccept={(reminderId) => {
+                acceptReminder(reminderId);
+              }}
+              onReject={(reminderId) => {
+                rejectReminder(reminderId);
+              }}
+              isAccepting={isAccepting}
+              isRejecting={isRejecting}
+            />
+          )}
         </div>
       </div>
 
