@@ -69,13 +69,12 @@ export default function GroupDetailsPage({
     router.push("/groups");
   };
 
-  const handleSendReminder = async (receiverId: string, splitId: string) => {
+  const handleSendReminder = async (receiverId: string) => {
     try {
       await sendReminder({
         receiverId,
-        reminderType: "SPLIT",
-        splitId,
-        content: "Please settle your split in the group.",
+        reminderType: "USER",
+        content: "Please settle your balance in the group.",
       });
     } catch (error) {
       console.error("Error sending reminder:", error);
@@ -193,21 +192,23 @@ export default function GroupDetailsPage({
                   ) || 0
                 );
 
+                const isCurrentUser = member.user.id === user.id;
+
                 return (
                   <div
                     key={member.user.id}
                     className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
                   >
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full">
                         <Image
                           src={
                             member.user.image ||
                             `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`
                           }
                           alt={member.user.name || "User"}
-                          width={48}
-                          height={48}
+                          width={40}
+                          height={40}
                           className="h-full w-full object-cover"
                           onError={(e) => {
                             console.error(
@@ -219,25 +220,109 @@ export default function GroupDetailsPage({
                         />
                       </div>
                       <div>
-                        <p className="text-mobile-base sm:text-lg font-medium text-white">
-                          {member.user.name}
+                        <p className="text-mobile-base sm:text-base text-white font-medium">
+                          {isCurrentUser ? "You" : member.user.name}
                         </p>
-                        <p className="text-mobile-sm sm:text-base text-white/60">
-                          {member.user.email}
-                        </p>
+                        <div className="flex items-center gap-2">
+                          {owed > 0 && (
+                            <p className="text-mobile-sm sm:text-base text-green-500">
+                              Owes you ${owed.toFixed(2)}
+                            </p>
+                          )}
+                          {owe > 0 && (
+                            <p className="text-mobile-sm sm:text-base text-red-500">
+                              You owe ${owe.toFixed(2)}
+                            </p>
+                          )}
+                          {owed === 0 && owe === 0 && (
+                            <p className="text-mobile-sm sm:text-base text-white/70">
+                              No Payment Requirement
+                            </p>
+                          )}
+                        </div>
                       </div>
                     </div>
 
-                    {member.user.id !== user?.id && (
-                      <div>
+                    <div className="flex items-center gap-2">
+                      {!isCurrentUser && (
+                        <div className="flex items-center gap-2">
+                          {owed > 0 && (
+                            <button 
+                              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
+                              onClick={() => handleSendReminder(member.user.id)}
+                              disabled={isSending}
+                            >
+                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
+                              <span className="hidden sm:inline">
+                                {isSending ? "Sending..." : "Send a Reminder"}
+                              </span>
+                            </button>
+                          )}
+
+                          {owe > 0 && (
+                            <>
+                              <button
+                                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
+                                onClick={() => {
+                                  // Set the friend to settle with
+                                  setIsSettleModalOpen(true);
+                                }}
+                              >
+                                <Image
+                                  src="/coins-dollar.svg"
+                                  alt="Settle Debts"
+                                  width={16}
+                                  height={16}
+                                  className="h-3 w-3 sm:h-4 sm:w-4"
+                                />
+                                <span className="hidden sm:inline">
+                                  Settle Debts
+                                </span>
+                              </button>
+
                         <button
-                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5"
-                          aria-label="Remove member"
-                        >
-                          <Trash2 className="h-4 w-4 sm:h-6 sm:w-6 text-white" />
+                                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
+                                onClick={() => {
+                                  // Implementation for marking as paid would go here
+                                  toast.success(
+                                    `Marked payment to ${member.user.name} as paid`,
+                                    {
+                                      description:
+                                        "This will be recorded in your activity.",
+                                    }
+                                  );
+                                }}
+                              >
+                                <Image
+                                  src="/checkmark-circle.svg"
+                                  alt="Mark as Paid"
+                                  width={16}
+                                  height={16}
+                                  className="h-3 w-3 sm:h-4 sm:w-4"
+                                />
+                                <span className="hidden sm:inline">
+                                  Mark as Paid
+                                </span>
                         </button>
+                            </>
+                          )}
                       </div>
                     )}
+
+                      <button
+                        className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
+                        onClick={() => {
+                          // Implementation for removing the split
+                          toast.success(
+                            `Removed ${
+                              isCurrentUser ? "your" : member.user.name + "'s"
+                            } payment requirement`
+                          );
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
+                      </button>
+                    </div>
                   </div>
                 );
               })}
@@ -362,7 +447,7 @@ export default function GroupDetailsPage({
                           {owed > 0 && (
                             <button 
                               className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                              onClick={() => handleSendReminder(member.user.id, group.id)}
+                              onClick={() => handleSendReminder(member.user.id)}
                               disabled={isSending}
                             >
                               <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
@@ -548,11 +633,15 @@ export default function GroupDetailsPage({
 
               <form className="space-y-4 sm:space-y-6">
                 <div>
-                  <label className="text-mobile-base sm:text-base text-white mb-1 sm:mb-2 block">
+                  <label
+                    htmlFor="groupName"
+                    className="block text-mobile-base sm:text-base text-white/80 mb-2"
+                  >
                     Group Name
                   </label>
                   <input
                     type="text"
+                    id="groupName"
                     value={groupSettings.name}
                     onChange={(e) =>
                       setGroupSettings((prev) => ({
@@ -560,15 +649,16 @@ export default function GroupDetailsPage({
                         name: e.target.value,
                       }))
                     }
-                    placeholder="New Split Group"
-                    className="w-full h-10 sm:h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-                    required
+                    className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20 focus:outline-none focus:border-white/40"
                   />
                 </div>
 
                 <div>
-                  <label className="text-mobile-base sm:text-base text-white mb-1 sm:mb-2 block">
-                    Choose Payment Token
+                  <label
+                    htmlFor="currency"
+                    className="block text-mobile-base sm:text-base text-white/80 mb-2"
+                  >
+                    Default Currency
                   </label>
                   <Select
                     value={groupSettings.currency}
@@ -579,110 +669,64 @@ export default function GroupDetailsPage({
                       }))
                     }
                   >
-                    <SelectTrigger className="w-full h-10 sm:h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                    <SelectTrigger className="w-full">
                       <SelectValue placeholder="Select currency" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#17171A] border-white/10">
-                      <SelectItem
-                        value="ETH"
-                        className="text-white hover:bg-white/10"
-                      >
-                        ETH
-                      </SelectItem>
-                      <SelectItem
-                        value="USDT"
-                        className="text-white hover:bg-white/10"
-                      >
-                        USDT
-                      </SelectItem>
-                      <SelectItem
-                        value="USD"
-                        className="text-white hover:bg-white/10"
-                      >
-                        USD
-                      </SelectItem>
+                    <SelectContent>
+                      <SelectItem value="ETH">ETH</SelectItem>
+                      <SelectItem value="USDC">USDC</SelectItem>
+                      <SelectItem value="USDT">USDT</SelectItem>
                     </SelectContent>
                   </Select>
-
-                  {/* Lock price toggle */}
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-mobile-xs sm:text-sm text-white/70">
-                      {groupSettings.currency === "ETH" &&
-                        "Lock price at 1 ETH = $1880.89"}
-                      {groupSettings.currency === "USDT" &&
-                        "Lock price at 1 USDT = $1.00"}
-                      {groupSettings.currency === "USD" &&
-                        "Lock price at 1 USD = $1.00"}
-                    </span>
-                    <div
-                      className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${
-                        groupSettings.lockPrice ? "bg-white/30" : "bg-[#333]"
-                      }`}
-                      onClick={() =>
-                        setGroupSettings((prev) => ({
-                          ...prev,
-                          lockPrice: !prev.lockPrice,
-                        }))
-                      }
-                    >
-                      <div
-                        className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                          groupSettings.lockPrice
-                            ? "translate-x-6"
-                            : "translate-x-0"
-                        }`}
-                      />
-                    </div>
-                  </div>
                 </div>
 
-                <div className="border-t border-white/10 pt-4 sm:pt-6">
-                  <label className="text-mobile-base sm:text-base text-white mb-1 sm:mb-2 block">
-                    Invite members
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="lockPrice"
+                    className="text-mobile-base sm:text-base text-white/80"
+                  >
+                    Lock Price at Time of Split
                   </label>
-                  <div className="flex gap-2">
                     <input
-                      type="email"
-                      value={groupSettings.memberEmail}
+                    type="checkbox"
+                    id="lockPrice"
+                    checked={groupSettings.lockPrice}
                       onChange={(e) =>
                         setGroupSettings((prev) => ({
                           ...prev,
-                          memberEmail: e.target.value,
-                        }))
-                      }
-                      placeholder="me@email.com"
-                      className="flex-1 h-10 sm:h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-                    />
-                    <button
-                      type="button"
-                      className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-white"
-                    >
-                      <Image
-                        src="/plus-sign-circle.svg"
-                        alt="Add"
-                        width={16}
-                        height={16}
-                        className="w-4 h-4 sm:w-5 sm:h-5 invert"
-                      />
-                    </button>
-                  </div>
+                        lockPrice: e.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded border-gray-300"
+                  />
                 </div>
 
+                <div className="flex justify-end gap-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => setIsSettingsModalOpen(false)}
+                    className="px-4 py-2 rounded-lg text-white/80 hover:text-white"
+                  >
+                    Cancel
+                  </button>
                 <button
                   type="submit"
-                  className="w-full h-10 sm:h-12 rounded-full bg-white text-black text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-colors mt-4 sm:mt-6"
+                    className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90"
                 >
-                  Save changes
+                    Save Changes
                 </button>
-
-                <button
-                  type="button"
-                  onClick={handleDeleteGroup}
-                  className="w-full text-center text-red-500 text-mobile-base sm:text-base py-2"
-                >
-                  Delete Group
-                </button>
+                </div>
               </form>
+
+              <div className="mt-8 pt-6 border-t border-white/20">
+                <button
+                  onClick={handleDeleteGroup}
+                  className="flex items-center gap-2 text-red-500 hover:text-red-400"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  <span>Delete Group</span>
+                </button>
+              </div>
             </div>
           </div>
         </div>

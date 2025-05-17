@@ -7,6 +7,14 @@ const reminderRequestSchema = z.object({
   reminderType: z.enum(["USER", "SPLIT"]),
   splitId: z.string().optional(),
   content: z.string().optional(),
+}).refine((data) => {
+  // Make splitId required when reminderType is SPLIT
+  if (data.reminderType === "SPLIT" && !data.splitId) {
+    return false;
+  }
+  return true;
+}, {
+  message: "splitId is required when reminderType is SPLIT",
 });
 
 // Schema for reminder response
@@ -20,6 +28,22 @@ const reminderResponseSchema = z.object({
   status: z.string(),
   createdAt: z.string(),
   updatedAt: z.string(),
+  sender: z.object({
+    id: z.string(),
+    name: z.string(),
+  }),
+  split: z.object({
+    id: z.string(),
+    amount: z.number(),
+    name: z.string().optional(),
+    paidByUser: z.object({
+      id: z.string(),
+      name: z.string(),
+    }).optional(),
+    expenseParticipants: z.array(z.object({
+      amount: z.number(),
+    })).optional(),
+  }).nullable(),
 });
 
 export type ReminderRequest = z.infer<typeof reminderRequestSchema>;
@@ -35,4 +59,16 @@ export const sendReminder = async (data: ReminderRequest): Promise<ReminderRespo
 export const getReminders = async (): Promise<ReminderResponse[]> => {
   const response = await apiClient.get("/reminders");
   return z.array(reminderResponseSchema).parse(response);
+};
+
+// Accept a reminder
+export const acceptReminder = async (reminderId: string): Promise<ReminderResponse> => {
+  const response = await apiClient.post(`/reminders/${reminderId}/accept`);
+  return reminderResponseSchema.parse(response);
+};
+
+// Reject a reminder
+export const rejectReminder = async (reminderId: string): Promise<ReminderResponse> => {
+  const response = await apiClient.post(`/reminders/${reminderId}/reject`);
+  return reminderResponseSchema.parse(response);
 };
