@@ -46,7 +46,8 @@ export class ApiError extends Error {
 }
 
 export const apiClient = axios.create({
-  baseURL: "http://localhost:4000/api",
+  baseURL: process.env.NEXT_PUBLIC_API_URL + "/api",
+  timeout: API_TIMEOUT,
   withCredentials: true,
   headers: { "Cache-Control": "no-cache" }
 });

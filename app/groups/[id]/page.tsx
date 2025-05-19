@@ -68,17 +68,12 @@ export default function GroupDetailsPage({
     toast.success("Group deleted successfully");
     router.push("/groups");
   };
-
-  const handleSendReminder = async (receiverId: string) => {
-    try {
-      await sendReminder({
-        receiverId,
-        reminderType: "USER",
-        content: "Please settle your balance in the group.",
-      });
-    } catch (error) {
-      console.error("Error sending reminder:", error);
-    }
+  const handleSendReminder = (receiverId: string) => {
+    sendReminder({
+      receiverId,
+      reminderType: "USER",
+      content: "Please settle your balance in the group."
+    });
   };
 
   if (isLoading) {
