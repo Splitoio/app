@@ -185,12 +185,19 @@ export function AddExpenseModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (
-      !formData.name ||
       !formData.amount ||
       !formData.currency ||
-      !formData.paidBy
+      !formData.paidBy ||
+      !groupId ||
+      !splits.length
     ) {
       toast.error("Please fill in all required fields");
+      return;
+    }
+
+    // Validate split amounts
+    if (!validateSplits()) {
+      toast.error("Split amounts must equal the total amount");
       return;
     }
 
@@ -206,7 +213,7 @@ export function AddExpenseModal({
     // Create a properly typed payload
     const payload: ExpensePayload = {
       category: "OTHER",
-      name: formData.name || "Expense",
+      name: formData.description || "Expense",
       description: formData.description || "",
       amount: parseFloat(formData.amount),
       currency: formData.currency,
@@ -218,6 +225,7 @@ export function AddExpenseModal({
         userId: split.address,
         amount: split.amount,
       })),
+      groupId: groupId,
     };
 
     // Add optional fields based on currency type
@@ -318,9 +326,7 @@ export function AddExpenseModal({
             </div>
 
             <div>
-              <label className="text-white mb-2 block">
-                Choose Payment Token
-              </label>
+              <label className="text-white mb-2 block">Choose Payment Token</label>
               <Select
                 value={formData.currency}
                 onValueChange={(value) =>
@@ -334,15 +340,39 @@ export function AddExpenseModal({
                   <SelectValue placeholder="Select currency" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#17171A] border-white/10">
-                  {isLoadingFiat ? (
-                    <SelectItem value="USD">Loading...</SelectItem>
-                  ) : (
-                    fiatCurrencies?.map((currency) => (
-                      <SelectItem key={currency.code} value={currency.code}>
-                        {currency.code} - {currency.name}
-                      </SelectItem>
-                    ))
-                  )}
+                  {formData.currencyType === "FIAT" ? (
+                    isLoadingFiat ? (
+                      <SelectItem value="USD">Loading...</SelectItem>
+                    ) : (fiatCurrencies?.length ?? 0) > 0 ? (
+                      fiatCurrencies!.map((currency) => (
+                        <SelectItem key={currency.id} value={currency.symbol}>
+                          {currency.symbol} - {currency.name}
+                        </SelectItem>
+                      ))
+                    ) : (
+                      <span className="block px-4 py-2 text-white/60">
+                        No fiat currencies found
+                      </span>
+                    )
+                  ) : formData.currencyType === "TOKEN" ? (
+                    isLoadingAll ? (
+                      <SelectItem value="loading">Loading...</SelectItem>
+                    ) : allCurrencies?.currencies?.filter(
+                        (c) => c.type === "token" && c.chainId === formData.chainId
+                      ).length > 0 ? (
+                      allCurrencies.currencies
+                        .filter((c) => c.type === "token" && c.chainId === formData.chainId)
+                        .map((token) => (
+                          <SelectItem key={token.id} value={token.id}>
+                            {token.symbol} - {token.name}
+                          </SelectItem>
+                        ))
+                    ) : (
+                      <span className="block px-4 py-2 text-white/60">
+                        No tokens found
+                      </span>
+                    )
+                  ) : null}
                 </SelectContent>
               </Select>
             </div>
@@ -355,7 +385,6 @@ export function AddExpenseModal({
                   setFormData((prev) => ({
                     ...prev,
                     currencyType: value as CurrencyType,
-                    // Reset chain and token when changing currency type
                     chainId: value === "TOKEN" ? prev.chainId : undefined,
                     tokenId: value === "TOKEN" ? prev.tokenId : undefined,
                   }));
@@ -376,12 +405,11 @@ export function AddExpenseModal({
                 <div>
                   <label className="text-white mb-2 block">Blockchain</label>
                   <Select
-                    value={formData.chainId}
+                    value={formData.chainId || ""}
                     onValueChange={(value) => {
                       setFormData((prev) => ({
                         ...prev,
                         chainId: value,
-                        // Reset token when changing chain
                         tokenId: undefined,
                       }));
                     }}
@@ -391,13 +419,18 @@ export function AddExpenseModal({
                     </SelectTrigger>
                     <SelectContent className="bg-[#17171A] border-white/10">
                       {isLoadingAll ? (
-                        <SelectItem value="ethereum">Loading...</SelectItem>
+                        <SelectItem value="">Loading...</SelectItem>
                       ) : (
-                        allCurrencies?.chains?.map((chain) => (
-                          <SelectItem key={chain.id} value={chain.id}>
-                            {chain.name}
-                          </SelectItem>
-                        ))
+                        allCurrencies?.currencies
+                          ?.filter((c) => c.type === "native")
+                          .map((chain) => (
+                            <SelectItem
+                              key={chain.id}
+                              value={chain.chainId || chain.id}
+                            >
+                              {chain.name}
+                            </SelectItem>
+                          ))
                       )}
                     </SelectContent>
                   </Select>
@@ -407,17 +440,18 @@ export function AddExpenseModal({
                   <div>
                     <label className="text-white mb-2 block">Token</label>
                     <Select
-                      value={formData.tokenId}
+                      value={formData.tokenId || ""}
                       onValueChange={(value) => {
-                        const selectedToken = allCurrencies?.tokens?.find(
+                        const selectedToken = allCurrencies?.currencies?.find(
                           (token) =>
+                            token.type === "token" &&
                             token.id === value &&
                             token.chainId === formData.chainId
                         );
                         setFormData((prev) => ({
                           ...prev,
                           tokenId: value,
-                          currency: selectedToken?.symbol || value,
+                          currency: value,
                         }));
                       }}
                     >
@@ -425,10 +459,8 @@ export function AddExpenseModal({
                         <SelectValue placeholder="Select token" />
                       </SelectTrigger>
                       <SelectContent className="bg-[#17171A] border-white/10">
-                        {allCurrencies?.tokens
-                          ?.filter(
-                            (token) => token.chainId === formData.chainId
-                          )
+                        {allCurrencies?.currencies
+                          ?.filter((c) => c.type === "token" && c.chainId === formData.chainId)
                           .map((token) => (
                             <SelectItem key={token.id} value={token.id}>
                               {token.symbol} - {token.name}
@@ -721,18 +753,24 @@ export function AddExpenseModal({
               )}
             </div>
 
-            <input
-              type="text"
-              value={formData.description}
-              onChange={(e) =>
-                setFormData((prev) => ({
-                  ...prev,
-                  description: e.target.value,
-                }))
-              }
-              placeholder="What's this for?"
-              className="w-full h-12 px-4 mt-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-            />
+            <div>
+              <label className="text-white mb-2 block">Description</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="What's this expense for?"
+                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                  required
+                />
+              </div>
+            </div>
 
             <Button
               type="submit"

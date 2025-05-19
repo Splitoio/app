@@ -6,6 +6,7 @@ import {
   EnhancedExpensePayload,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
+import { toast } from "sonner";
 
 // Export the expense payload type for components to use
 export type CreateExpenseParams = EnhancedExpensePayload;
@@ -23,6 +24,14 @@ export const useCreateExpense = (groupId: string) => {
       queryClient.invalidateQueries({
         queryKey: [QueryKeys.BALANCES],
       });
+      queryClient.invalidateQueries({
+        queryKey: [QueryKeys.ANALYTICS],
+      });
+      toast.success("Expense added successfully");
+    },
+    onError: (error: Error) => {
+      console.error("Error creating expense:", error);
+      toast.error(error.message || "Failed to create expense");
     },
   });
 };
