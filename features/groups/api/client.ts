@@ -124,3 +124,11 @@ export const updateGroup = async (
   const response = await apiClient.put(`/groups/${groupId}`, payload);
   return GroupSchema.parse(response);
 };
+
+export const markAsPaid = async (
+  groupId: string,
+  payload: { payerId: string; payeeId: string; amount: number; currency?: string; currencyType?: string }
+) => {
+  const response = await apiClient.post(`/groups/${groupId}/mark-paid`, payload);
+  return response;
+};

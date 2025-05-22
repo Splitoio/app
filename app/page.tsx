@@ -44,7 +44,9 @@ export default function Page() {
     acceptReminder,
     rejectReminder,
     isAccepting,
-    isRejecting
+    isRejecting,
+    sendReminder,
+    isSending
   } = useReminders();
   const { user } = useAuthStore();
   const youOwe = balanceData?.youOwe || [];
@@ -333,7 +335,15 @@ export default function Page() {
 
                     {/* Show appropriate button based on debt direction */}
                     {hasPositiveBalance && (
-                      <button className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                      <button
+                        className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                        onClick={() => sendReminder({
+                          receiverId: friend.id,
+                          reminderType: "USER",
+                          content: "Please settle your balance."
+                        })}
+                        disabled={isSending}
+                      >
                         <Image
                           src="/clock-03.svg"
                           alt="Reminder"
@@ -341,7 +351,7 @@ export default function Page() {
                           height={20}
                           className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
                         />
-                        <span>Send a Reminder</span>
+                        <span>{isSending ? "Sending..." : "Send a Reminder"}</span>
                       </button>
                     )}
 

@@ -7,11 +7,10 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
-import { useGetGroupById } from "@/features/groups/hooks/use-create-group";
+import { useGetGroupById, useMarkAsPaid, useDeleteGroup } from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
 
 import { useAuthStore } from "@/stores/authStore";
-import { useGetExpenses } from "@/features/expenses/hooks/use-create-expense";
 import { Loader2, Plus, Settings, Users, Clock, X, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -22,6 +21,9 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import axios from "axios";
+
+const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 export default function GroupDetailsPage({
   params,
@@ -62,18 +64,39 @@ export default function GroupDetailsPage({
     }
   }, [group]);
 
+  const deleteGroupMutation = useDeleteGroup();
+
   // Handle delete group action
   const handleDeleteGroup = () => {
-    // Implement delete group functionality
-    toast.success("Group deleted successfully");
-    router.push("/groups");
+    deleteGroupMutation.mutate(groupId, {
+      onSuccess: () => {
+        toast.success("Group deleted successfully");
+        router.push("/groups");
+      },
+      onError: (error: any) => {
+        toast.error(error?.message || "Failed to delete group");
+      },
+    });
   };
+
   const handleSendReminder = (receiverId: string) => {
     sendReminder({
       receiverId,
       reminderType: "USER",
       content: "Please settle your balance in the group."
     });
+  };
+
+  const markAsPaidMutation = useMarkAsPaid();
+
+  const handleRemoveMember = async (memberId: string) => {
+    try {
+      await axios.delete(`${BACKEND_URL}/api/groups/${groupId}/members/${memberId}`, { withCredentials: true });
+      toast.success("Member removed from group");
+      window.location.reload();
+    } catch (error: any) {
+      toast.error(error.response?.data?.error || "Failed to remove member");
+    }
   };
 
   if (isLoading) {
@@ -277,16 +300,31 @@ export default function GroupDetailsPage({
 
                         <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => {
-                                  // Implementation for marking as paid would go here
-                                  toast.success(
-                                    `Marked payment to ${member.user.name} as paid`,
+                                onClick={async () => {
+                                  markAsPaidMutation.mutate(
                                     {
-                                      description:
-                                        "This will be recorded in your activity.",
+                                      groupId,
+                                      payload: {
+                                        payerId: user.id,
+                                        payeeId: member.user.id,
+                                        amount: owe,
+                                        currency: group.defaultCurrency || "USD",
+                                        currencyType: "FIAT",
+                                      },
+                                    },
+                                    {
+                                      onSuccess: () => {
+                                        toast.success(`Marked payment to ${member.user.name} as paid`, {
+                                          description: "This will be recorded in your activity.",
+                                        });
+                                      },
+                                      onError: (error) => {
+                                        toast.error("Failed to mark as paid");
+                                      },
                                     }
                                   );
                                 }}
+                                disabled={markAsPaidMutation.isPending}
                               >
                                 <Image
                                   src="/checkmark-circle.svg"
@@ -306,14 +344,7 @@ export default function GroupDetailsPage({
 
                       <button
                         className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                        onClick={() => {
-                          // Implementation for removing the split
-                          toast.success(
-                            `Removed ${
-                              isCurrentUser ? "your" : member.user.name + "'s"
-                            } payment requirement`
-                          );
-                        }}
+                        onClick={() => handleRemoveMember(member.user.id)}
                       >
                         <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
                       </button>
@@ -475,16 +506,31 @@ export default function GroupDetailsPage({
 
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => {
-                                  // Implementation for marking as paid would go here
-                                  toast.success(
-                                    `Marked payment to ${member.user.name} as paid`,
+                                onClick={async () => {
+                                  markAsPaidMutation.mutate(
                                     {
-                                      description:
-                                        "This will be recorded in your activity.",
+                                      groupId,
+                                      payload: {
+                                        payerId: user.id,
+                                        payeeId: member.user.id,
+                                        amount: owe,
+                                        currency: group.defaultCurrency || "USD",
+                                        currencyType: "FIAT",
+                                      },
+                                    },
+                                    {
+                                      onSuccess: () => {
+                                        toast.success(`Marked payment to ${member.user.name} as paid`, {
+                                          description: "This will be recorded in your activity.",
+                                        });
+                                      },
+                                      onError: (error) => {
+                                        toast.error("Failed to mark as paid");
+                                      },
                                     }
                                   );
                                 }}
+                                disabled={markAsPaidMutation.isPending}
                               >
                                 <Image
                                   src="/checkmark-circle.svg"
@@ -504,14 +550,7 @@ export default function GroupDetailsPage({
 
                       <button
                         className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                        onClick={() => {
-                          // Implementation for removing the split
-                          toast.success(
-                            `Removed ${
-                              isCurrentUser ? "your" : member.user.name + "'s"
-                            } payment requirement`
-                          );
-                        }}
+                        onClick={() => handleRemoveMember(member.user.id)}
                       >
                         <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
                       </button>
@@ -529,12 +568,27 @@ export default function GroupDetailsPage({
               </h3>
 
               {expenses && expenses.length > 0 ? (
-                expenses.map((expense, index) => {
+                expenses.map((expense: any, index: number) => {
                   const paidBy = group?.groupUsers.find(
                     (user) => user.user.id === expense.paidBy
                   )?.user;
 
+                  // For SETTLEMENT expenses, show a custom message
                   if (!paidBy) return null;
+
+                  // Find payee for SETTLEMENT
+                  let settlementPayee = null;
+                  if (expense.splitType === "SETTLEMENT") {
+                    // The payee is the participant with amount > 0
+                    const payeeParticipant = (expense.expenseParticipants || []).find(
+                      (p: any) => p.amount > 0
+                    );
+                    if (payeeParticipant) {
+                      settlementPayee = group?.groupUsers.find(
+                        (user) => user.user.id === payeeParticipant.userId
+                      )?.user;
+                    }
+                  }
 
                   return (
                     <div
@@ -562,12 +616,26 @@ export default function GroupDetailsPage({
                           />
                         </div>
                         <div>
-                          <p className="text-mobile-base sm:text-base text-white">
-                            <span className="font-medium">
-                              {paidBy.id === user?.id ? "You" : paidBy.name}
-                            </span>{" "}
-                            added expense "{expense.name}"
-                          </p>
+                          {expense.splitType === "SETTLEMENT" && settlementPayee ? (
+                            <p className="text-mobile-base sm:text-base text-white">
+                              <span className="font-medium">
+                                {paidBy.id === user?.id ? "You" : paidBy.name}
+                              </span>{" "}
+                              marked payment to
+                              {" "}
+                              <span className="font-medium">
+                                {settlementPayee.id === user?.id ? "you" : settlementPayee.name}
+                              </span>{" "}
+                              as settled
+                            </p>
+                          ) : (
+                            <p className="text-mobile-base sm:text-base text-white">
+                              <span className="font-medium">
+                                {paidBy.id === user?.id ? "You" : paidBy.name}
+                              </span>{" "}
+                              added expense "{expense.name}"
+                            </p>
+                          )}
                           <p className="text-mobile-xs sm:text-sm text-white/60">
                             {new Date(expense.createdAt).toLocaleString()}
                           </p>

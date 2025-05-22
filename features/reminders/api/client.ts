@@ -44,6 +44,7 @@ const reminderResponseSchema = z.object({
       amount: z.number(),
     })).optional(),
   }).nullable(),
+  amount: z.number().optional(),
 });
 
 export type ReminderRequest = z.infer<typeof reminderRequestSchema>;
