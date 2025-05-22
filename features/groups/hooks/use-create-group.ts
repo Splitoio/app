@@ -10,6 +10,7 @@ import {
   getGroupById,
   joinGroup,
   updateGroup,
+  markAsPaid,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -146,6 +147,29 @@ export const useUpdateGroup = () => {
       queryClient.invalidateQueries({
         queryKey: [QueryKeys.GROUPS, variables.groupId],
       });
+    },
+  });
+};
+
+export const useMarkAsPaid = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, payload }: { groupId: string; payload: { payerId: string; payeeId: string; amount: number; currency?: string; currencyType?: string } }) =>
+      markAsPaid(groupId, payload),
+    onSuccess: (_, variables) => {
+      // Invalidate group data
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, variables.groupId] });
+      
+      // Invalidate expenses
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES, variables.groupId] });
+      
+      // Invalidate balances
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+      
+      // Invalidate analytics
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
     },
   });
 };

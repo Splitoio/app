@@ -357,21 +357,23 @@ export function AddExpenseModal({
                   ) : formData.currencyType === "TOKEN" ? (
                     isLoadingAll ? (
                       <SelectItem value="loading">Loading...</SelectItem>
-                    ) : allCurrencies?.currencies?.filter(
-                        (c) => c.type === "token" && c.chainId === formData.chainId
-                      ).length > 0 ? (
-                      allCurrencies.currencies
-                        .filter((c) => c.type === "token" && c.chainId === formData.chainId)
-                        .map((token) => (
+                    ) : (() => {
+                      const tokens =
+                        allCurrencies?.currencies?.filter(
+                          (c) => c.type === "token" && c.chainId === formData.chainId
+                        ) || [];
+                      return tokens.length > 0 ? (
+                        tokens.map((token) => (
                           <SelectItem key={token.id} value={token.id}>
                             {token.symbol} - {token.name}
                           </SelectItem>
                         ))
-                    ) : (
-                      <span className="block px-4 py-2 text-white/60">
-                        No tokens found
-                      </span>
-                    )
+                      ) : (
+                        <span className="block px-4 py-2 text-white/60">
+                          No tokens found
+                        </span>
+                      );
+                    })()
                   ) : null}
                 </SelectContent>
               </Select>

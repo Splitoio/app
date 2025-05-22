@@ -66,11 +66,21 @@ export function TransactionRequestList({
   return (
     <div className={`space-y-3 ${className}`}>
       {reminders.map((reminder) => {
-        // Get amount from split if available, otherwise use 0
-        const amount = reminder.split?.amount || 0;
-        const requestText = reminder.split 
-          ? `Requested $${amount.toFixed(2)}` 
-          : "Request pending";
+        // Get amount from split if available, otherwise try to get from content or balances
+        const amount = reminder.split?.amount || reminder.amount || 0;
+        let requestText = "Request pending";
+        if (reminder.split) {
+          requestText = `$${amount.toFixed(2)}`;
+        } else if (reminder.reminderType === "USER") {
+          // Try to extract amount from content or use a default
+          if (amount > 0) {
+            requestText = `$${amount.toFixed(2)}`;
+          } else if (reminder.content) {
+            requestText = reminder.content;
+          } else {
+            requestText = "Requested payment";
+          }
+        }
 
         return (
           <div
