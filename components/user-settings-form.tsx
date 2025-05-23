@@ -58,6 +58,7 @@ export function UserSettingsForm({ user }: { user: User }) {
     image: user.image || "",
     stellarAccount: user.stellarAccount || "",
     currency: user.currency || "USD",
+    timeLockInDefault: false,
   });
 
   // Update the form with wallet address when connected
@@ -136,6 +137,10 @@ export function UserSettingsForm({ user }: { user: User }) {
 
     if (formData.currency) {
       updateData.currency = formData.currency;
+    }
+
+    if (formData.timeLockInDefault !== undefined && formData.timeLockInDefault !== null) {
+      updateData.timeLockInDefault = formData.timeLockInDefault;
     }
 
     console.log("Submitting profile update with data:", updateData);
@@ -419,6 +424,20 @@ export function UserSettingsForm({ user }: { user: User }) {
                 This currency will be used as your default for transactions and
                 displays
               </p>
+            </div>
+
+            {/* Time Lock-In Default Toggle */}
+            <div className="flex items-center justify-between mt-4">
+              <span className="text-white text-base">Lock exchange rate by default</span>
+              <button
+                type="button"
+                onClick={() => setFormData((prev) => ({ ...prev, timeLockInDefault: !prev.timeLockInDefault }))}
+                className={`w-12 h-6 rounded-full p-1 transition-colors ${formData.timeLockInDefault ? "bg-blue-500" : "bg-white/10"}`}
+              >
+                <div
+                  className={`h-4 w-4 rounded-full bg-white transform transition-transform ${formData.timeLockInDefault ? "translate-x-6" : "translate-x-0"}`}
+                />
+              </button>
             </div>
 
             {/* Stellar Account */}
