@@ -31,6 +31,8 @@ import {
   useGetAllCurrencies,
 } from "@/features/currencies/hooks/use-currencies";
 import { CurrencyType } from "@/api-helpers/types";
+import ResolverSelector from "./ResolverSelector";
+import axios from "axios";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -54,6 +56,32 @@ interface ExpenseFormData {
 
 // Define an interface for the expense payload (matches CreateExpenseParams)
 type ExpensePayload = CreateExpenseParams;
+
+type Option = import("./ResolverSelector").Option;
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+function useAllChainsTokens() {
+  const [options, setOptions] = useState<Option[]>([]);
+  useEffect(() => {
+    fetch(`${API_URL}/api/multichain/all-chains-tokens`, { credentials: "include" })
+      .then(res => res.json())
+      .then((data: any) => {
+        const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
+        const opts: Option[] = [];
+        chains.forEach((chain: any) => {
+          (chain.tokens || []).forEach((token: any) => {
+            opts.push({
+              chainId: chain.chainId,
+              token: token.symbol,
+              label: `${chain.name} - ${token.symbol}`,
+            });
+          });
+        });
+        setOptions(opts);
+      });
+  }, []);
+  return options;
+}
 
 export function AddExpenseModal({
   isOpen,
@@ -86,6 +114,9 @@ export function AddExpenseModal({
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
   const expenseMutation = useCreateExpense(groupId);
+
+  const allChainTokenOptions = useAllChainsTokens();
+  const [resolver, setResolver] = useState<Option | undefined>(undefined);
 
   // Set default paid by user when the component loads
   useEffect(() => {
@@ -182,7 +213,7 @@ export function AddExpenseModal({
     return Math.abs(totalSplit - Number(formData.amount)) < 0.01;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (
       !formData.amount ||
@@ -235,7 +266,26 @@ export function AddExpenseModal({
     }
 
     expenseMutation.mutate(payload, {
-      onSuccess: () => {
+      onSuccess: async (data: any) => {
+        // If a resolver is selected, set accepted tokens for this expense
+        if (resolver && data?.expense?.id) {
+          if (!resolver.id || !resolver.chainId) {
+            toast.error("Please select a valid token resolver (not fiat)");
+            return;
+          }
+          try {
+            await axios.put(
+              `${API_URL}/api/expenses/${data.expense.id}/accepted-tokens`,
+              {
+                acceptedTokenIds: [resolver.id],
+              },
+              { withCredentials: true }
+            );
+          } catch (err) {
+            toast.error("Failed to set accepted token for this expense");
+          }
+        }
+
         toast.success("Expense added successfully");
 
         // refetch the specific group data
@@ -293,6 +343,16 @@ export function AddExpenseModal({
   const getPaidByUserName = (userId: string) => {
     const member = members.find((m) => m.id === userId);
     return member?.name || "You";
+  };
+
+  // Only allow tokens (with chainId) as resolver
+  const handleResolverChange = (option: Option | undefined) => {
+    if (option && !option.chainId) {
+      toast.error("Please select a blockchain token as resolver (not fiat)");
+      setResolver(undefined);
+      return;
+    }
+    setResolver(option);
   };
 
   return (
@@ -772,6 +832,15 @@ export function AddExpenseModal({
                   required
                 />
               </div>
+            </div>
+
+            {/* Resolver Selector */}
+            <div>
+              <label className="text-white mb-2 block text-base font-semibold">Choose a resolver for your expense</label>
+              <ResolverSelector
+                value={resolver}
+                onChange={handleResolverChange}
+              />
             </div>
 
             <Button
