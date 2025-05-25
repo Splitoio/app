@@ -22,6 +22,8 @@ import { signOut } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { ConnectWalletModal } from "./connect-wallet-modal";
+import ResolverSelector from "./ResolverSelector";
+import type { Option } from "./ResolverSelector";
 
 // Currency options
 const CURRENCIES = [
@@ -38,6 +40,11 @@ const isDiceBearImage = (url: string | null | undefined): boolean => {
   return url.includes("api.dicebear.com");
 };
 
+// Add a local type that extends UserDetails to include timeLockInDefault
+interface UserDetailsWithTimeLock extends UserDetails {
+  timeLockInDefault: boolean;
+}
+
 export function UserSettingsForm({ user }: { user: User }) {
   const { mutate: updateUser, isPending } = useUpdateUser();
   const {
@@ -52,8 +59,9 @@ export function UserSettingsForm({ user }: { user: User }) {
   const uploadFileMutation = useUploadFile();
   const [stellarError, setStellarError] = useState<string | null>(null);
   const [showConnectWalletModal, setShowConnectWalletModal] = useState(false);
+  const [resolver, setResolver] = useState<Option | undefined>(undefined);
 
-  const [formData, setFormData] = useState<UserDetails>({
+  const [formData, setFormData] = useState<UserDetailsWithTimeLock>({
     name: user.name || "",
     image: user.image || "",
     stellarAccount: user.stellarAccount || "",
@@ -107,7 +115,7 @@ export function UserSettingsForm({ user }: { user: User }) {
     const loadingToast = toast.loading("Saving profile changes...");
 
     // Filter out undefined values and ensure proper types
-    const updateData: UserDetails = {};
+    const updateData: any = {};
 
     if (
       formData.name !== undefined &&
@@ -141,6 +149,11 @@ export function UserSettingsForm({ user }: { user: User }) {
 
     if (formData.timeLockInDefault !== undefined && formData.timeLockInDefault !== null) {
       updateData.timeLockInDefault = formData.timeLockInDefault;
+    }
+
+    if (resolver) {
+      updateData.resolverId = resolver.id;
+      updateData.resolverChainId = resolver.chainId;
     }
 
     console.log("Submitting profile update with data:", updateData);
