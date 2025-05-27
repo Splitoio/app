@@ -283,8 +283,9 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
         {/* Modal content with normal brightness */}
         <div
-          className="relative z-10 bg-black rounded-3xl w-full max-w-md overflow-hidden border border-white/70"
+          className="relative z-10 bg-black rounded-3xl w-full max-w-md border border-white/70"
           onClick={(e) => e.stopPropagation()}
+          style={{ overflow: 'visible' }}
         >
           <div className="p-8">
             <h2 className="text-xl font-semibold text-white mb-6">
@@ -438,7 +439,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 )}
               </div>
 
-              <div>
+              <div style={{ overflow: 'visible' }}>
                 <label className="block text-base text-white mb-2">Choose your resolver</label>
                 <ResolverSelector value={resolver} onChange={handleResolverChange} />
               </div>
