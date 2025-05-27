@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddFriendsModal } from "@/components/add-friends-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
-import {
-  calculateBalances,
-  getTransactionsFromGroups,
-} from "@/utils/calculations";
+import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
+import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import { TransactionRequestList } from "@/components/transaction-request-list";
 import Image from "next/image";
+import { apiClient } from "@/api-helpers/client"; // <-- Use your apiClient here
 import {
   Loader2,
   Users2,
@@ -26,6 +26,7 @@ import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
+import { toast } from "sonner";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
@@ -33,32 +34,51 @@ export default function Page() {
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [isSettling, setIsSettling] = useState(false);
   const { isConnected, address } = useWallet();
-  const { data: groups, isLoading: isGroupsLoading } = useGetAllGroups();
+  const { data: groups = [], isLoading: isGroupsLoading } = useGetAllGroups();
   const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
-  const { data: friends, isLoading: isFriendsLoading } = useGetFriends();
+  const { data: friends = [], isLoading: isFriendsLoading } = useGetFriends();
+  const { data: analyticsData, isLoading: isAnalyticsLoading, error: analyticsError } = useAnalytics();
+  const {
+    reminders,
+    isLoading: isRemindersLoading,
+    acceptReminder,
+    rejectReminder,
+    isAccepting,
+    isRejecting,
+    sendReminder,
+    isSending
+  } = useReminders();
   const { user } = useAuthStore();
   const youOwe = balanceData?.youOwe || [];
   const youGet = balanceData?.youGet || [];
   const queryClient = useQueryClient();
 
-  // Mock data for the monthly stats
-  const monthlyStats = {
-    owed: "$500.00 USD",
-    lent: "$650.50 USD",
-    settled: "$100.29 USD",
-  };
+  // Add debug logging
+  useEffect(() => {
+    if (analyticsData) {
+      console.log("Analytics data in component:", analyticsData);
+    }
+    if (analyticsError) {
+      console.error("Analytics error in component:", analyticsError);
+      // Log the full error object for debugging
+      console.error("Full error object:", {
+        name: analyticsError.name,
+        message: analyticsError.message,
+        stack: analyticsError.stack,
+        cause: analyticsError.cause
+      });
+    }
+  }, [analyticsData, analyticsError]);
 
   const handleSettleAllClick = () => {
-    setSettleFriendId(null); // Clear any selected friend
+    setSettleFriendId(null);
     setIsSettling(true);
     setIsSettleModalOpen(true);
 
-    // Refetch data after settling debts
     setTimeout(() => {
-      // Refetch balances and groups data
       queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
       setIsSettling(false);
     }, 500);
   };
@@ -126,9 +146,7 @@ export default function Page() {
                   />
                 ) : (
                   <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                      user?.id || user?.email || "user"
-                    }`}
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
                     alt="Profile"
                     width={56}
                     height={56}
@@ -153,7 +171,19 @@ export default function Page() {
             <span className="text-white/60 text-xl">You owed this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {monthlyStats.owed}
+            {isAnalyticsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            ) : analyticsError ? (
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] })}
+                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
+              >
+                <span>Error loading data</span>
+                <span className="text-sm">(click to retry)</span>
+              </button>
+            ) : (
+              analyticsData?.owed || "$0.00 USD"
+            )}
           </p>
         </div>
 
@@ -162,24 +192,48 @@ export default function Page() {
             <span className="text-white/60 text-xl">You lent this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {monthlyStats.lent}
+            {isAnalyticsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            ) : analyticsError ? (
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] })}
+                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
+              >
+                <span>Error loading data</span>
+                <span className="text-sm">(click to retry)</span>
+              </button>
+            ) : (
+              analyticsData?.lent || "$0.00 USD"
+            )}
           </p>
         </div>
 
         <div className="rounded-3xl bg-[#101012] p-8">
           <div className="flex items-center mb-4">
-            <span className="text-white/60 text-xl">
-              You settled this month
-            </span>
+            <span className="text-white/60 text-xl">You settled this month</span>
           </div>
           <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {monthlyStats.settled}
+            {isAnalyticsLoading ? (
+              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
+            ) : analyticsError ? (
+              <button 
+                onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] })}
+                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
+              >
+                <span>Error loading data</span>
+                <span className="text-sm">(click to retry)</span>
+              </button>
+            ) : (
+              analyticsData?.settled || "$0.00 USD"
+            )}
           </p>
         </div>
       </div>
 
-      {/* Friends and Groups - Two blocks side by side */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+      {/* Transaction Requests and Groups/Friends section */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4 sm:gap-6">
+        {/* Friends and Groups section */}
+        <div className="space-y-4 sm:space-y-6">
         {/* Friends block (wider) */}
         <div className="lg:col-span-2 rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
           <div className="flex items-center justify-between mb-4 sm:mb-8">
@@ -281,7 +335,15 @@ export default function Page() {
 
                     {/* Show appropriate button based on debt direction */}
                     {hasPositiveBalance && (
-                      <button className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]">
+                      <button
+                        className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
+                        onClick={() => sendReminder({
+                          receiverId: friend.id,
+                          reminderType: "USER",
+                          content: "Please settle your balance."
+                        })}
+                        disabled={isSending}
+                      >
                         <Image
                           src="/clock-03.svg"
                           alt="Reminder"
@@ -289,7 +351,7 @@ export default function Page() {
                           height={20}
                           className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
                         />
-                        <span>Send a Reminder</span>
+                        <span>{isSending ? "Sending..." : "Send a Reminder"}</span>
                       </button>
                     )}
 
@@ -386,6 +448,38 @@ export default function Page() {
               </div>
             )}
           </div>
+          </div>
+        </div>
+
+        {/* Transaction Requests */}
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl text-white font-medium">Transaction Requests</h2>
+            <button
+              onClick={() => queryClient.invalidateQueries({ queryKey: [QueryKeys.REMINDERS] })}
+              className="p-2 rounded-full hover:bg-white/5 transition-colors"
+            >
+              <Bell className="h-5 w-5 text-white/70" />
+            </button>
+          </div>
+
+          {isRemindersLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+            </div>
+          ) : (
+            <TransactionRequestList
+              reminders={reminders || []}
+              onAccept={(reminderId) => {
+                acceptReminder(reminderId);
+              }}
+              onReject={(reminderId) => {
+                rejectReminder(reminderId);
+              }}
+              isAccepting={isAccepting}
+              isRejecting={isRejecting}
+            />
+          )}
         </div>
       </div>
 

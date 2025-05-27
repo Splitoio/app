@@ -49,6 +49,7 @@ export const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL + "/api",
   timeout: API_TIMEOUT,
   withCredentials: true,
+  headers: { "Cache-Control": "no-cache" }
 });
 
 // Request interceptor - only check if the route requires auth

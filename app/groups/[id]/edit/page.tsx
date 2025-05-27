@@ -34,6 +34,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     currency: "USD" as "USD" | "XLM",
     paidBy: "",
     imageUrl: "",
+    lockPrice: false,
   });
 
   useEffect(() => {
@@ -51,6 +52,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
           | "XLM",
         paidBy: "", // Not sure if this is stored in the API
         imageUrl: group.image || "",
+        lockPrice: false,
       });
       setImagePreview(group.image || null);
     }
@@ -121,10 +123,12 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
       description: string;
       currency: string;
       imageUrl?: string;
+      lockPrice: boolean;
     } = {
       name: formData.name,
       description: formData.description,
       currency: formData.currency,
+      lockPrice: formData.lockPrice,
     };
 
     // Only include imageUrl if it's not empty and not the placeholder
@@ -339,6 +343,20 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       <option value="XLM">XLM</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Time Lock-In Toggle */}
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-white text-base">Lock price at time of split</span>
+                  <button
+                    type="button"
+                    onClick={() => setFormData((prev) => ({ ...prev, lockPrice: !prev.lockPrice }))}
+                    className={`w-12 h-6 rounded-full p-1 transition-colors ${formData.lockPrice ? "bg-blue-500" : "bg-white/10"}`}
+                  >
+                    <div
+                      className={`h-4 w-4 rounded-full bg-white transform transition-transform ${formData.lockPrice ? "translate-x-6" : "translate-x-0"}`}
+                    />
+                  </button>
                 </div>
 
                 <div>
