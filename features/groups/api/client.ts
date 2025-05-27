@@ -103,11 +103,7 @@ export const addOrEditExpense = async (
   groupId: string,
   payload: ExpensePayload
 ) => {
-  // Use the enhanced-expenses endpoint for multi-currency support
-  const response = await apiClient.post(`/enhanced-expenses`, {
-    ...payload,
-    groupId,
-  });
+  const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
   return response;
 };
 
@@ -127,4 +123,12 @@ export const updateGroup = async (
 ) => {
   const response = await apiClient.put(`/groups/${groupId}`, payload);
   return GroupSchema.parse(response);
+};
+
+export const markAsPaid = async (
+  groupId: string,
+  payload: { payerId: string; payeeId: string; amount: number; currency?: string; currencyType?: string }
+) => {
+  const response = await apiClient.post(`/groups/${groupId}/mark-paid`, payload);
+  return response;
 };

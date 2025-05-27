@@ -37,15 +37,12 @@ export const createExpense = async (
   groupId: string,
   payload: EnhancedExpensePayload
 ): Promise<any> => {
-  const response = await apiClient.post(`/enhanced-expenses`, {
-    ...payload,
-    groupId,
-  });
+  const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
   return response.data;
 };
 
 export const getExpenses = async (groupId: string) => {
-  const response = await apiClient.get(`/enhanced-expenses/${groupId}`);
+  const response = await apiClient.get(`/groups/${groupId}/expenses`);
   return response.data;
 };
 

@@ -59,7 +59,9 @@ export const getAllCurrencies = async (): Promise<CurrencyResponse> => {
       throw new Error("Failed to fetch currencies");
     }
 
-    return await response.json();
+    // Extract the 'currencies' array from the response object
+    const data = await response.json();
+    return { currencies: data.currencies || [] };
   } catch (error) {
     console.error("Error fetching currencies:", error);
     toast.error("Failed to fetch currencies");
@@ -82,7 +84,9 @@ export const getFiatCurrencies = async (): Promise<FiatCurrency[]> => {
       throw new Error("Failed to fetch fiat currencies");
     }
 
-    return await response.json();
+    // Extract the 'currencies' array from the response object
+    const data = await response.json();
+    return data.currencies || [];
   } catch (error) {
     console.error("Error fetching fiat currencies:", error);
     toast.error("Failed to fetch currencies");

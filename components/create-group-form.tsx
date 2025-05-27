@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { ChevronDown, Plus, Check, X } from "lucide-react";
 import {
@@ -15,6 +15,7 @@ import { fadeIn } from "@/utils/animations";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
+import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
 
 interface CreateGroupFormProps {
   isOpen: boolean;
@@ -29,12 +30,38 @@ interface Member {
   exists: boolean;
 }
 
+type Option = import("./ResolverSelector").Option;
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+function useAllChainsTokens() {
+  const [options, setOptions] = useState<Option[]>([]);
+  useEffect(() => {
+    fetch(`${API_URL}/api/multichain/all-chains-tokens`, { credentials: "include" })
+      .then(res => res.json())
+      .then((data: any) => {
+        const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
+        const opts: Option[] = [];
+        chains.forEach((chain: any) => {
+          (chain.tokens || []).forEach((token: any) => {
+            opts.push({
+              chainId: chain.chainId,
+              label: `${chain.name} - ${token.symbol}`,
+              id: token.id || token.symbol,
+              symbol: token.symbol,
+              name: token.name,
+              type: token.type,
+            });
+          });
+        });
+        setOptions(opts);
+      });
+  }, []);
+  return options;
+}
+
 export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const { address } = useWallet();
   const { user } = useAuthStore();
-  const [selectedToken, setSelectedToken] = useState("USDT");
-  const [lockPrice, setLockPrice] = useState(false);
-  const [showTokenDropdown, setShowTokenDropdown] = useState(false);
   const createGroupMutation = useCreateGroup();
   const addMembersMutation = useAddMembersToGroup();
   const uploadFileMutation = useUploadFile();
@@ -49,14 +76,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   // State for tracking added members
   const [members, setMembers] = useState<Member[]>([]);
 
-  // Updated token structure to group by chain
-  const tokensByChain = {
-    Base: ["ETH", "USDC", "USDT"],
-    Stellar: ["XLM"],
-  };
-
-  // Flattened list of all tokens for selection
-  const allTokens = Object.values(tokensByChain).flat();
+  const allChainTokenOptions = useAllChainsTokens();
+  const [resolver, setResolver] = useState<ResolverOption | undefined>(undefined);
 
   // Check if user exists by email
   const checkUserExists = async (email: string): Promise<Member | null> => {
@@ -123,43 +144,59 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // // Check if user has a connected wallet in their profile
-    // if (!user?.stellarAccount) {
-    //   toast.error("You need to connect a wallet before creating a group", {
-    //     description: "Add a wallet in your settings to continue",
-    //     action: {
-    //       label: "Add Wallet",
-    //       onClick: () => router.push("/settings"),
-    //     },
-    //     duration: 8000,
-    //   });
-    //   return;
-    // }
+    // Debug: Log the selected resolver before any API call
+    console.log("[DEBUG] Selected resolver:", resolver);
 
     if (!formData.name.trim()) {
       toast.error("Please enter a group name");
       return;
     }
-
+    const payload: any = {
+      name: formData.name,
+    };
+    if (resolver) {
+      if (resolver.chainId) {
+        payload.tokenId = resolver.id;
+        payload.chainId = resolver.chainId;
+      } else {
+        payload.tokenId = resolver.id;
+      }
+    }
+    // Debug: Log the group creation payload
+    console.log("[DEBUG] Group creation payload:", payload);
     createGroupMutation.mutate(
-      {
-        name: formData.name,
-        currency: selectedToken,
-      },
+      payload,
       {
         onSuccess: async (data) => {
-          // If we have members to invite, do that after group creation
+          // Debug: Log the group creation response
+          console.log("[DEBUG] Group created, response:", data);
+          if (resolver && data?.id) {
+            if (!resolver.id || !resolver.chainId) {
+              toast.error("Please select a valid token resolver (not fiat)");
+              return;
+            }
+            const acceptedTokenPayload = {
+              tokenId: resolver.id,
+              chainId: resolver.chainId,
+              isDefault: true,
+            };
+            console.log("[DEBUG] Accepted token payload:", acceptedTokenPayload);
+            try {
+              const resp = await apiClient.post(`/groups/${data.id}/accepted-tokens`, acceptedTokenPayload);
+              console.log("[DEBUG] Accepted token API response:", resp);
+            } catch (err) {
+              toast.error("Failed to set accepted token for this group");
+              console.error("[DEBUG] Error setting accepted token:", err);
+            }
+          }
           if (members.length > 0) {
             await inviteMembers(data.id);
           }
-
-          // Reset form state
           setFormData({
             name: "",
             memberEmail: "",
           });
           setMembers([]);
-
           toast.success("Group created successfully!");
           onClose();
           router.push(`/groups/${data.id}`);
@@ -220,6 +257,16 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     setMembers(members.filter((member) => member.id !== memberId));
   };
 
+  // Only allow tokens (with chainId) as resolver
+  const handleResolverChange = (option: ResolverOption | undefined) => {
+    if (option && !option.chainId) {
+      toast.error("Please select a blockchain token as resolver (not fiat)");
+      setResolver(undefined);
+      return;
+    }
+    setResolver(option);
+  };
+
   if (!isOpen) return null;
 
   return (
@@ -259,87 +306,6 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   placeholder="New Split Group"
                 />
               </div>
-
-              {/* Token Selection */}
-              <div className="space-y-2">
-                <label className="block text-base text-white">
-                  Choose Payment Token
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setShowTokenDropdown(!showTokenDropdown)}
-                    className="w-full h-12 bg-transparent rounded-lg px-4 
-                      text-base text-white border border-white/10 flex items-center justify-between"
-                  >
-                    <span>{selectedToken}</span>
-                    <ChevronDown className="h-5 w-5 text-white/70" />
-                  </button>
-
-                  {showTokenDropdown && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto">
-                      {Object.entries(tokensByChain).map(([chain, tokens]) => (
-                        <div key={chain} className="mb-2 last:mb-0">
-                          <div className="px-4 py-1 text-sm text-white/50 font-medium">
-                            {chain}
-                          </div>
-                          <div>
-                            {tokens.map((token) => (
-                              <button
-                                key={token}
-                                type="button"
-                                className={`w-full px-4 py-2.5 text-left text-white hover:bg-white/5 flex items-center ${
-                                  token === selectedToken ? "bg-white/5" : ""
-                                }`}
-                                onClick={() => {
-                                  setSelectedToken(token);
-                                  setShowTokenDropdown(false);
-                                }}
-                              >
-                                <div
-                                  className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                                    token === selectedToken
-                                      ? "border-white bg-white"
-                                      : "border-white/30 bg-transparent"
-                                  } mr-3`}
-                                >
-                                  {token === selectedToken && (
-                                    <Check className="h-3.5 w-3.5 text-black" />
-                                  )}
-                                </div>
-                                <span className="font-medium">{token}</span>
-                              </button>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Lock Price Toggle */}
-              <div className="flex items-center justify-between">
-                <span className="text-white text-sm">
-                  Lock price at $1 = 1 USDT
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setLockPrice(!lockPrice)}
-                  className={`w-12 h-6 rounded-full p-1 transition-colors ${
-                    lockPrice ? "bg-blue-500" : "bg-white/10"
-                  }`}
-                >
-                  <div
-                    className={`h-4 w-4 rounded-full bg-white transform transition-transform ${
-                      lockPrice ? "translate-x-6" : "translate-x-0"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Divider */}
-              <div className="h-px bg-white/10 my-4"></div>
 
               {/* Invite Members */}
               <div className="space-y-2">
@@ -470,6 +436,11 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     </div>
                   </div>
                 )}
+              </div>
+
+              <div>
+                <label className="block text-base text-white mb-2">Choose your resolver</label>
+                <ResolverSelector value={resolver} onChange={handleResolverChange} />
               </div>
 
               {/* Submit Button */}
