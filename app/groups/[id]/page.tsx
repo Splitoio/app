@@ -339,15 +339,18 @@ export default function GroupDetailsPage({
                         </button>
                             </>
                           )}
-                      </div>
-                    )}
+                        </div>
+                      )}
 
-                      <button
-                        className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                        onClick={() => handleRemoveMember(member.user.id)}
-                      >
-                        <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
-                      </button>
+                      {/* Only show delete button if not current user and current user is group creator */}
+                      {!isCurrentUser && group.createdBy.id === user.id && (
+                        <button
+                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
+                          onClick={() => handleRemoveMember(member.user.id)}
+                        >
+                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -548,12 +551,15 @@ export default function GroupDetailsPage({
                         </div>
                       )}
 
-                      <button
-                        className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                        onClick={() => handleRemoveMember(member.user.id)}
-                      >
-                        <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
-                      </button>
+                      {/* Only show delete button if not current user and current user is group creator */}
+                      {!isCurrentUser && group.createdBy.id === user.id && (
+                        <button
+                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
+                          onClick={() => handleRemoveMember(member.user.id)}
+                        >
+                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
