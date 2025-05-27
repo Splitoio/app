@@ -25,6 +25,7 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
+import { useAuthStore } from "@/stores/authStore";
 
 type APIGroup = {
   id: string;
@@ -52,6 +53,7 @@ export function GroupsList() {
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
+  const { user } = useAuthStore();
 
   useEffect(() => {
     if (error) {
@@ -194,53 +196,82 @@ export function GroupsList() {
         initial="initial"
         animate="animate"
       >
-        {groupsData.map((group) => (
-          <motion.div
-            key={group.id}
-            variants={slideUp}
-            className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0"
-          >
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
-                  <Image
-                    src={group.image || "/group_icon_placeholder.png"}
-                    alt={group.name}
-                    className="h-full w-full object-cover"
-                    width={48}
-                    height={48}
-                    onError={(e) => {
-                      console.error(
-                        `Error loading image for group ${group.name}:`,
-                        group.image
-                      );
-                      const target = e.target as HTMLImageElement;
-                      target.src = "/group_icon_placeholder.png";
-                    }}
-                  />
+        {groupsData.map((group) => {
+          // Find the current user's balance in this group
+          let balanceDisplay = null;
+          let balanceAmount = 0;
+          let currency = group.defaultCurrency || "USD";
+          if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
+            const userBalance = group.groupBalances.find(
+              (b) => b.userId === user.id
+            );
+            if (userBalance) {
+              balanceAmount = userBalance.amount;
+              currency = userBalance.currency || currency;
+              if (balanceAmount > 0) {
+                balanceDisplay = (
+                  <span>
+                    Owes you <span className="text-[#53e45d]">{currency} {balanceAmount}</span>
+                  </span>
+                );
+              } else if (balanceAmount < 0) {
+                balanceDisplay = (
+                  <span>
+                    You owe <span className="text-red-400">{currency} {Math.abs(balanceAmount)}</span>
+                  </span>
+                );
+              } else {
+                balanceDisplay = <span className="text-white/60">Settled</span>;
+              }
+            } else {
+              balanceDisplay = <span className="text-white/60">No balance</span>;
+            }
+          }
+          return (
+            <motion.div
+              key={group.id}
+              variants={slideUp}
+              className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
+                    <Image
+                      src={group.image || "/group_icon_placeholder.png"}
+                      alt={group.name}
+                      className="h-full w-full object-cover"
+                      width={48}
+                      height={48}
+                      onError={(e) => {
+                        console.error(
+                          `Error loading image for group ${group.name}:`,
+                          group.image
+                        );
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/group_icon_placeholder.png";
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-mobile-base sm:text-xl font-medium text-white">
+                      {group.name}
+                    </p>
+                    <p className="text-mobile-sm sm:text-sm text-white/60">
+                      {balanceDisplay}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-mobile-base sm:text-xl font-medium text-white">
-                    {group.name}
-                  </p>
-                  <p className="text-mobile-sm sm:text-sm text-white/60">
-                    {/* Show balance status - this would need to be calculated from actual balance data */}
-                    <span>
-                      Owes you <span className="text-[#53e45d]">$60</span>
-                    </span>
-                  </p>
-                </div>
-              </div>
 
-              <Link
-                href={`/groups/${group.id}`}
-                className="text-white text-mobile-sm sm:text-base rounded-full border border-white px-3 sm:px-5 py-1.5 sm:py-2.5 hover:bg-white/5 transition-colors font-medium"
-              >
-                View Group
-              </Link>
-            </div>
-          </motion.div>
-        ))}
+                <Link
+                  href={`/groups/${group.id}`}
+                  className="text-white text-mobile-sm sm:text-base rounded-full border border-white px-3 sm:px-5 py-1.5 sm:py-2.5 hover:bg-white/5 transition-colors font-medium"
+                >
+                  View Group
+                </Link>
+              </div>
+            </motion.div>
+          );
+        })}
       </motion.div>
 
       {/* Delete Confirmation Modal */}
