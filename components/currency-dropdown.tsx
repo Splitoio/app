@@ -61,11 +61,9 @@ export default function CurrencyDropdown({
   };
 
   const toggleCurrencySelection = (currencyId: string) => {
-    const newCurrencies = selectedCurrencies.includes(currencyId)
-      ? selectedCurrencies.filter((id) => id !== currencyId)
-      : [...selectedCurrencies, currencyId];
-
-    setSelectedCurrencies(newCurrencies);
+    // Single select: always set to the selected currency
+    setSelectedCurrencies([currencyId]);
+    setActiveDropdown(null); // Close dropdown after selection
   };
 
   const removeCurrency = (currencyId: string, e: React.MouseEvent) => {
