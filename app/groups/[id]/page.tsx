@@ -22,6 +22,8 @@ import {
 } from "@/components/ui/select";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
 import axios from "axios";
+import CurrencyDropdown from "@/components/currency-dropdown";
+import TimeLockToggle from "@/components/ui/TimeLockToggle";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -188,8 +190,9 @@ export default function GroupDetailsPage({
           {activeTab === "members" && (
             <div className="space-y-3 sm:space-y-4">
               {group.groupUsers.map((member) => {
+                // Filter out self-balances
                 const balances = group?.groupBalances.filter(
-                  (balance) => balance.userId === member.user.id
+                  (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
                 );
                 const owedBalance = balances?.filter(
                   (balance) => balance.amount > 0
@@ -361,8 +364,9 @@ export default function GroupDetailsPage({
           {activeTab === "splits" && (
             <div className="space-y-3 sm:space-y-4">
               {group.groupUsers.map((member) => {
+                // Filter out self-balances
                 const balances = group?.groupBalances.filter(
-                  (balance) => balance.userId === member.user.id
+                  (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
                 );
                 const owedBalance = balances?.filter(
                   (balance) => balance.amount > 0
@@ -729,44 +733,23 @@ export default function GroupDetailsPage({
                   >
                     Default Currency
                   </label>
-                  <Select
-                    value={groupSettings.currency}
-                    onValueChange={(value) =>
+                  <CurrencyDropdown
+                    selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []}
+                    setSelectedCurrencies={(currencies) => {
                       setGroupSettings((prev) => ({
                         ...prev,
-                        currency: value,
-                      }))
-                    }
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select currency" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="ETH">ETH</SelectItem>
-                      <SelectItem value="USDC">USDC</SelectItem>
-                      <SelectItem value="USDT">USDT</SelectItem>
-                    </SelectContent>
-                  </Select>
+                        currency: currencies[0] || "",
+                      }));
+                    }}
+                    showFiatCurrencies={false}
+                  />
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="lockPrice"
-                    className="text-mobile-base sm:text-base text-white/80"
-                  >
-                    Lock Price at Time of Split
-                  </label>
-                    <input
-                    type="checkbox"
-                    id="lockPrice"
-                    checked={groupSettings.lockPrice}
-                      onChange={(e) =>
-                        setGroupSettings((prev) => ({
-                          ...prev,
-                        lockPrice: e.target.checked,
-                      }))
-                    }
-                    className="h-4 w-4 rounded border-gray-300"
+                  <TimeLockToggle
+                    value={groupSettings.lockPrice}
+                    onChange={(val) => setGroupSettings((prev) => ({ ...prev, lockPrice: val }))}
+                    label="Lock Price at Time of Split"
                   />
                 </div>
 
