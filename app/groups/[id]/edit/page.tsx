@@ -13,6 +13,7 @@ import {
 } from "@/features/groups/hooks/use-create-group";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { toast } from "sonner";
+import TimeLockToggle from "@/components/ui/TimeLockToggle";
 
 export default function EditGroupPage({ params }: { params: { id: string } }) {
   const router = useRouter();
@@ -345,19 +346,13 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
 
-                {/* Time Lock-In Toggle */}
-                <div className="flex items-center justify-between mt-4">
-                  <span className="text-white text-base">Lock price at time of split</span>
-                  <button
-                    type="button"
-                    onClick={() => setFormData((prev) => ({ ...prev, lockPrice: !prev.lockPrice }))}
-                    className={`w-12 h-6 rounded-full p-1 transition-colors ${formData.lockPrice ? "bg-blue-500" : "bg-white/10"}`}
-                  >
-                    <div
-                      className={`h-4 w-4 rounded-full bg-white transform transition-transform ${formData.lockPrice ? "translate-x-6" : "translate-x-0"}`}
-                    />
-                  </button>
-                </div>
+                {/* Lock Price Toggle */}
+                <TimeLockToggle
+                  value={formData.lockPrice}
+                  onChange={(val) => setFormData((prev) => ({ ...prev, lockPrice: val }))}
+                  label="Lock Price at Time of Split"
+                  className="mb-4"
+                />
 
                 <div>
                   <label

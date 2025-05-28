@@ -45,7 +45,6 @@ function useAllChainsTokens() {
           (chain.tokens || []).forEach((token: any) => {
             opts.push({
               chainId: chain.chainId,
-              label: `${chain.name} - ${token.symbol}`,
               id: token.id || token.symbol,
               symbol: token.symbol,
               name: token.name,
@@ -283,8 +282,9 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
         {/* Modal content with normal brightness */}
         <div
-          className="relative z-10 bg-black rounded-3xl w-full max-w-md overflow-hidden border border-white/70"
+          className="relative z-10 bg-black rounded-3xl w-full max-w-md border border-white/70"
           onClick={(e) => e.stopPropagation()}
+          style={{ overflow: 'visible' }}
         >
           <div className="p-8">
             <h2 className="text-xl font-semibold text-white mb-6">
@@ -307,11 +307,15 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 />
               </div>
 
-              {/* Invite Members */}
+              {/* Choose Payment Token (Resolver) */}
+              <div style={{ overflow: 'visible' }}>
+                <label className="block text-base text-white mb-2">Choose Payment Token</label>
+                <ResolverSelector value={resolver} onChange={handleResolverChange} />
+              </div>
+
+              {/* Invite Members (moved to bottom) */}
               <div className="space-y-2">
-                <label className="block text-base text-white">
-                  Invite members
-                </label>
+                <label className="block text-base text-white">Invite members</label>
                 <div className="flex gap-2">
                   <input
                     type="email"
@@ -436,11 +440,6 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     </div>
                   </div>
                 )}
-              </div>
-
-              <div>
-                <label className="block text-base text-white mb-2">Choose your resolver</label>
-                <ResolverSelector value={resolver} onChange={handleResolverChange} />
               </div>
 
               {/* Submit Button */}
