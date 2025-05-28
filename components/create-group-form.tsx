@@ -16,6 +16,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
 import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
+import CurrencyDropdown from "./currency-dropdown";
 
 interface CreateGroupFormProps {
   isOpen: boolean;
@@ -70,6 +71,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const [formData, setFormData] = useState({
     name: "",
     memberEmail: "",
+    currency: "",
   });
 
   // State for tracking added members
@@ -194,6 +196,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
           setFormData({
             name: "",
             memberEmail: "",
+            currency: "",
           });
           setMembers([]);
           toast.success("Group created successfully!");
@@ -311,6 +314,21 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               <div style={{ overflow: 'visible' }}>
                 <label className="block text-base text-white mb-2">Choose Payment Token</label>
                 <ResolverSelector value={resolver} onChange={handleResolverChange} />
+              </div>
+
+              {/* Currency Dropdown */}
+              <div style={{ overflow: 'visible' }}>
+                <label className="block text-base text-white mb-2">Choose Currency</label>
+                <CurrencyDropdown
+                  selectedCurrencies={formData.currency ? [formData.currency] : []}
+                  setSelectedCurrencies={(currencies) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      currency: currencies[0] || "",
+                    }));
+                  }}
+                  showFiatCurrencies={true}
+                />
               </div>
 
               {/* Invite Members (moved to bottom) */}

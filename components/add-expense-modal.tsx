@@ -33,6 +33,7 @@ import {
 import { CurrencyType } from "@/api-helpers/types";
 import ResolverSelector from "./ResolverSelector";
 import axios from "axios";
+import CurrencyDropdown from "./currency-dropdown";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -387,35 +388,32 @@ export function AddExpenseModal({
 
             <div>
               <label className="text-white mb-2 block">Choose Payment Token</label>
-              <Select
-                value={formData.currency}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    currency: value,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select currency" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#17171A] border-white/10">
-                  {formData.currencyType === "FIAT" ? (
-                    isLoadingFiat ? (
-                      <SelectItem value="USD">Loading...</SelectItem>
-                    ) : (fiatCurrencies?.length ?? 0) > 0 ? (
-                      fiatCurrencies!.map((currency) => (
-                        <SelectItem key={currency.id} value={currency.symbol}>
-                          {currency.symbol} - {currency.name}
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <span className="block px-4 py-2 text-white/60">
-                        No fiat currencies found
-                      </span>
-                    )
-                  ) : formData.currencyType === "TOKEN" ? (
-                    isLoadingAll ? (
+              {formData.currencyType === "FIAT" ? (
+                <CurrencyDropdown
+                  selectedCurrencies={formData.currency ? [formData.currency] : []}
+                  setSelectedCurrencies={(currencies) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      currency: currencies[0] || "",
+                    }));
+                  }}
+                  showFiatCurrencies={true}
+                />
+              ) : (
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      currency: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#17171A] border-white/10">
+                    {isLoadingAll ? (
                       <SelectItem value="loading">Loading...</SelectItem>
                     ) : (() => {
                       const tokens =
@@ -433,107 +431,11 @@ export function AddExpenseModal({
                           No tokens found
                         </span>
                       );
-                    })()
-                  ) : null}
-                </SelectContent>
-              </Select>
+                    })()}
+                  </SelectContent>
+                </Select>
+              )}
             </div>
-
-            <div>
-              <label className="text-white mb-2 block">Currency Type</label>
-              <Select
-                value={formData.currencyType}
-                onValueChange={(value) => {
-                  setFormData((prev) => ({
-                    ...prev,
-                    currencyType: value as CurrencyType,
-                    chainId: value === "TOKEN" ? prev.chainId : undefined,
-                    tokenId: value === "TOKEN" ? prev.tokenId : undefined,
-                  }));
-                }}
-              >
-                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select currency type" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#17171A] border-white/10">
-                  <SelectItem value="FIAT">Fiat Currency</SelectItem>
-                  <SelectItem value="TOKEN">Blockchain Token</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {formData.currencyType === "TOKEN" && (
-              <>
-                <div>
-                  <label className="text-white mb-2 block">Blockchain</label>
-                  <Select
-                    value={formData.chainId || ""}
-                    onValueChange={(value) => {
-                      setFormData((prev) => ({
-                        ...prev,
-                        chainId: value,
-                        tokenId: undefined,
-                      }));
-                    }}
-                  >
-                    <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                      <SelectValue placeholder="Select blockchain" />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#17171A] border-white/10">
-                      {isLoadingAll ? (
-                        <SelectItem value="">Loading...</SelectItem>
-                      ) : (
-                        allCurrencies?.currencies
-                          ?.filter((c) => c.type === "native")
-                          .map((chain) => (
-                            <SelectItem
-                              key={chain.id}
-                              value={chain.chainId || chain.id}
-                            >
-                              {chain.name}
-                            </SelectItem>
-                          ))
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {formData.chainId && (
-                  <div>
-                    <label className="text-white mb-2 block">Token</label>
-                    <Select
-                      value={formData.tokenId || ""}
-                      onValueChange={(value) => {
-                        const selectedToken = allCurrencies?.currencies?.find(
-                          (token) =>
-                            token.type === "token" &&
-                            token.id === value &&
-                            token.chainId === formData.chainId
-                        );
-                        setFormData((prev) => ({
-                          ...prev,
-                          tokenId: value,
-                          currency: value,
-                        }));
-                      }}
-                    >
-                      <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                        <SelectValue placeholder="Select token" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-[#17171A] border-white/10">
-                        {allCurrencies?.currencies
-                          ?.filter((c) => c.type === "token" && c.chainId === formData.chainId)
-                          .map((token) => (
-                            <SelectItem key={token.id} value={token.id}>
-                              {token.symbol} - {token.name}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-              </>
-            )}
 
             {/* Time Lock-In toggle */}
             <div className="flex items-center justify-between mt-2">

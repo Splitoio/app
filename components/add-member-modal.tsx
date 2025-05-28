@@ -9,6 +9,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
+import { Button } from "@/components/ui/button";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -86,16 +87,16 @@ export function AddMemberModal({
   return (
     <div className="fixed inset-0 z-50 h-screen w-screen">
       <div
-        className="fixed inset-0 bg-black/70 brightness-50"
+        className="fixed inset-0 bg-black/70 brightness-100"
         onClick={onClose}
       />
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px]">
         <div className="animate-border-light relative z-10">
           <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
             <div className="flex items-center justify-between mb-6 lg:mb-8">
-              <h2 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em] font-instrument-sans">
+              <h3 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em] font-instrument-sans">
                 Add Member
-              </h2>
+              </h3>
               <button
                 onClick={onClose}
                 className="rounded-full p-1.5 lg:p-2 hover:bg-white/10 transition-colors"
@@ -105,13 +106,14 @@ export function AddMemberModal({
             </div>
 
             <div className="space-y-4 lg:space-y-6">
+              <label className="block text-lg font-medium text-white mb-2 mt-2">Invite member</label>
               <div className="relative">
                 <input
                   type="text"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="Enter name or email address"
+                  placeholder="me@email.com"
                   className="w-full h-12 lg:h-14 bg-[#1F1F23] rounded-2xl pl-4 pr-4 
                   text-base lg:text-lg font-normal text-white 
                   border border-white/10 
@@ -122,29 +124,21 @@ export function AddMemberModal({
                 />
               </div>
 
-              <div className="flex justify-end">
-                <button
-                  onClick={handleAddMember}
-                  disabled={isPending || !email.trim()}
-                  className="h-11 lg:h-12 px-6 lg:px-8
-                  rounded-2xl bg-white/10 
-                  text-sm lg:text-base font-medium text-white 
-                  border border-white/10
-                  transition-all duration-300
-                  hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]
-                  disabled:opacity-70 disabled:cursor-not-allowed
-                  flex items-center justify-center gap-2"
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      Adding...
-                    </>
-                  ) : (
-                    "Add Member"
-                  )}
-                </button>
-              </div>
+              <Button
+                onClick={handleAddMember}
+                disabled={isPending || !email.trim()}
+                className="w-full h-14 rounded-full bg-[#fff] text-black text-base font-bold mt-8 shadow-none border-none"
+                style={{ backgroundColor: '#fff', color: '#000' }}
+              >
+                {isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Adding...
+                  </>
+                ) : (
+                  "Add Member"
+                )}
+              </Button>
             </div>
           </div>
         </div>
