@@ -190,31 +190,7 @@ export default function GroupDetailsPage({
           {activeTab === "members" && (
             <div className="space-y-3 sm:space-y-4">
               {group.groupUsers.map((member) => {
-                // Filter out self-balances
-                const balances = group?.groupBalances.filter(
-                  (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
-                );
-                const owedBalance = balances?.filter(
-                  (balance) => balance.amount > 0
-                );
-                const oweBalance = balances?.filter(
-                  (balance) => balance.amount < 0
-                );
-                const owed = Math.abs(
-                  owedBalance?.reduce(
-                    (sum, balance) => sum + balance.amount,
-                    0
-                  ) || 0
-                );
-                const owe = Math.abs(
-                  oweBalance?.reduce(
-                    (sum, balance) => sum + balance.amount,
-                    0
-                  ) || 0
-                );
-
                 const isCurrentUser = member.user.id === user.id;
-
                 return (
                   <div
                     key={member.user.id}
@@ -244,117 +220,20 @@ export default function GroupDetailsPage({
                         <p className="text-mobile-base sm:text-base text-white font-medium">
                           {isCurrentUser ? "You" : member.user.name}
                         </p>
-                        <div className="flex items-center gap-2">
-                          {owed > 0 && (
-                            <p className="text-mobile-sm sm:text-base text-white/70">
-                              Owes you <span className="text-green-500">${owed.toFixed(2)}</span>
-                            </p>
-                          )}
-                          {owe > 0 && (
-                            <p className="text-mobile-sm sm:text-base">
-                              You owe <span className="text-red-500">${owe.toFixed(2)}</span>
-                            </p>
-                          )}
-                          {owed === 0 && owe === 0 && (
-                            <p className="text-mobile-sm sm:text-base text-white/70">
-                              No Payment Requirement
-                            </p>
-                          )}
-                        </div>
+                        <p className="text-mobile-sm sm:text-base text-white/70">
+                          {member.user.email}
+                        </p>
                       </div>
                     </div>
-
-                    <div className="flex items-center gap-2">
-                      {!isCurrentUser && (
-                        <div className="flex items-center gap-2">
-                          {owed > 0 && (
-                            <button 
-                              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                              onClick={() => handleSendReminder(member.user.id)}
-                              disabled={isSending}
-                            >
-                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span className="hidden sm:inline">
-                                {isSending ? "Sending..." : "Send a Reminder"}
-                              </span>
-                            </button>
-                          )}
-
-                          {owe > 0 && (
-                            <>
-                              <button
-                                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => {
-                                  // Set the friend to settle with
-                                  setIsSettleModalOpen(true);
-                                }}
-                              >
-                                <Image
-                                  src="/coins-dollar.svg"
-                                  alt="Settle Debts"
-                                  width={16}
-                                  height={16}
-                                  className="h-3 w-3 sm:h-4 sm:w-4"
-                                />
-                                <span className="hidden sm:inline">
-                                  Settle Debts
-                                </span>
-                              </button>
-
-                        <button
-                                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={async () => {
-                                  markAsPaidMutation.mutate(
-                                    {
-                                      groupId,
-                                      payload: {
-                                        payerId: user.id,
-                                        payeeId: member.user.id,
-                                        amount: owe,
-                                        currency: group.defaultCurrency || "USD",
-                                        currencyType: "FIAT",
-                                      },
-                                    },
-                                    {
-                                      onSuccess: () => {
-                                        toast.success(`Marked payment to ${member.user.name} as paid`, {
-                                          description: "This will be recorded in your activity.",
-                                        });
-                                      },
-                                      onError: (error) => {
-                                        toast.error("Failed to mark as paid");
-                                      },
-                                    }
-                                  );
-                                }}
-                                disabled={markAsPaidMutation.isPending}
-                              >
-                                <Image
-                                  src="/checkmark-circle.svg"
-                                  alt="Mark as Paid"
-                                  width={16}
-                                  height={16}
-                                  className="h-3 w-3 sm:h-4 sm:w-4"
-                                />
-                                <span className="hidden sm:inline">
-                                  Mark as Paid
-                                </span>
-                        </button>
-                            </>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Only show delete button if not current user and current user is group creator */}
-                      {!isCurrentUser && group.createdBy.id === user.id && (
-                        <button
-                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                          onClick={() => handleRemoveMember(member.user.id)}
-                        >
-                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
-                        </button>
-                      )}
-                    </div>
+                    {/* Only show delete button if not current user and current user is group creator */}
+                    {!isCurrentUser && group.createdBy.id === user.id && (
+                      <button
+                        className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
+                        onClick={() => handleRemoveMember(member.user.id)}
+                      >
+                        <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
+                      </button>
+                    )}
                   </div>
                 );
               })}
