@@ -9,9 +9,9 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        sans: ["var(--font-instrument-sans)"],
-      },
+      // fontFamily: {
+      //   sans: ["var(--font-instrument-sans)"],
+      // },
       fontSize: {
         xs: ["0.75rem", { lineHeight: "1rem" }],
         sm: ["0.875rem", { lineHeight: "1.25rem" }],

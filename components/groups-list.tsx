@@ -17,7 +17,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useRouter } from "next/navigation";
-import { getAllGroups } from "@/features/groups/api/client";
+import { getAllGroupsWithBalances } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import dayjs from "dayjs";
@@ -49,7 +49,7 @@ export function GroupsList() {
     error,
   } = useQuery({
     queryKey: [QueryKeys.GROUPS],
-    queryFn: getAllGroups,
+    queryFn: getAllGroupsWithBalances,
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
@@ -103,8 +103,6 @@ export function GroupsList() {
   ) => {
     e.preventDefault();
     e.stopPropagation();
-
-    // Show delete modal
     setGroupToDelete({ id: groupId, name: groupName });
     setShowDeleteModal(true);
     setIsDeleting(false);
@@ -114,16 +112,13 @@ export function GroupsList() {
 
   const confirmDelete = () => {
     if (!groupToDelete) return;
-
     setIsDeleting(true);
     setDeleteError(null);
-
     deleteGroupMutation.mutate(groupToDelete.id, {
       onSuccess: () => {
         setIsDeleting(false);
         setDeleteSuccess(true);
         setEditingId(null);
-        // We'll close the modal after a short delay
         setTimeout(() => {
           setShowDeleteModal(false);
           setGroupToDelete(null);
@@ -132,16 +127,12 @@ export function GroupsList() {
       },
       onError: (error: unknown) => {
         setIsDeleting(false);
-
-        // Cast to a modified error type to handle the API error format
         type ExtendedApiError = ApiError & {
           data?: {
             error?: string;
           };
         };
-
         const apiError = error as ExtendedApiError;
-
         if (
           apiError?.message?.includes("non-zero balance") ||
           apiError?.data?.error?.includes("non-zero balance")
@@ -211,13 +202,13 @@ export function GroupsList() {
               if (balanceAmount > 0) {
                 balanceDisplay = (
                   <span>
-                    Owes you <span className="text-[#53e45d]">{currency} {balanceAmount}</span>
+                    You owe <span className="text-[#FF4444]">${balanceAmount}</span>
                   </span>
                 );
               } else if (balanceAmount < 0) {
                 balanceDisplay = (
                   <span>
-                    You owe <span className="text-red-400">{currency} {Math.abs(balanceAmount)}</span>
+                    Owes you <span className="text-[#53e45d]">${Math.abs(balanceAmount)}</span>
                   </span>
                 );
               } else {
