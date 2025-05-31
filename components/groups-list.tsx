@@ -103,6 +103,8 @@ export function GroupsList() {
   ) => {
     e.preventDefault();
     e.stopPropagation();
+
+    // Show delete modal
     setGroupToDelete({ id: groupId, name: groupName });
     setShowDeleteModal(true);
     setIsDeleting(false);
@@ -112,13 +114,16 @@ export function GroupsList() {
 
   const confirmDelete = () => {
     if (!groupToDelete) return;
+
     setIsDeleting(true);
     setDeleteError(null);
+
     deleteGroupMutation.mutate(groupToDelete.id, {
       onSuccess: () => {
         setIsDeleting(false);
         setDeleteSuccess(true);
         setEditingId(null);
+        // We'll close the modal after a short delay
         setTimeout(() => {
           setShowDeleteModal(false);
           setGroupToDelete(null);
@@ -127,12 +132,16 @@ export function GroupsList() {
       },
       onError: (error: unknown) => {
         setIsDeleting(false);
+
+        // Cast to a modified error type to handle the API error format
         type ExtendedApiError = ApiError & {
           data?: {
             error?: string;
           };
         };
+
         const apiError = error as ExtendedApiError;
+
         if (
           apiError?.message?.includes("non-zero balance") ||
           apiError?.data?.error?.includes("non-zero balance")
