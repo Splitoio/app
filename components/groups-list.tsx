@@ -17,7 +17,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useRouter } from "next/navigation";
-import { getAllGroups } from "@/features/groups/api/client";
+import { getAllGroupsWithBalances } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import dayjs from "dayjs";
@@ -49,7 +49,7 @@ export function GroupsList() {
     error,
   } = useQuery({
     queryKey: [QueryKeys.GROUPS],
-    queryFn: getAllGroups,
+    queryFn: getAllGroupsWithBalances,
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
@@ -211,13 +211,13 @@ export function GroupsList() {
               if (balanceAmount > 0) {
                 balanceDisplay = (
                   <span>
-                    Owes you <span className="text-[#53e45d]">{currency} {balanceAmount}</span>
+                    You owe <span className="text-[#FF4444]">${balanceAmount}</span>
                   </span>
                 );
               } else if (balanceAmount < 0) {
                 balanceDisplay = (
                   <span>
-                    You owe <span className="text-red-400">{currency} {Math.abs(balanceAmount)}</span>
+                    Owes you <span className="text-[#53e45d]">${Math.abs(balanceAmount)}</span>
                   </span>
                 );
               } else {
