@@ -246,13 +246,13 @@ export default function GroupDetailsPage({
                         </p>
                         <div className="flex items-center gap-2">
                           {owed > 0 && (
-                            <p className="text-mobile-sm sm:text-base text-green-500">
-                              Owes you ${owed.toFixed(2)}
+                            <p className="text-mobile-sm sm:text-base text-white/70">
+                              Owes you <span className="text-green-500">${owed.toFixed(2)}</span>
                             </p>
                           )}
                           {owe > 0 && (
-                            <p className="text-mobile-sm sm:text-base text-red-500">
-                              You owe ${owe.toFixed(2)}
+                            <p className="text-mobile-sm sm:text-base">
+                              You owe <span className="text-red-500">${owe.toFixed(2)}</span>
                             </p>
                           )}
                           {owed === 0 && owe === 0 && (
@@ -432,40 +432,14 @@ export default function GroupDetailsPage({
                         {/* Only one of these will show based on the balance direction */}
                         {owed > 0 && !isCurrentUser && (
                           <p className="text-mobile-sm sm:text-base text-white/70">
-                            Owes you{" "}
-                            <span className="text-[#53e45d]">
-                              ${owed.toFixed(2)}
-                            </span>
+                            Owes you <span className="text-green-500">${owed.toFixed(2)}</span>
                           </p>
                         )}
-
-                        {owe > 0 && !isCurrentUser && (
+                        {!isCurrentUser && owe > 0 && (
                           <p className="text-mobile-sm sm:text-base text-white/70">
-                            You owe{" "}
-                            <span className="text-[#FF4444]">
-                              ${owe.toFixed(2)}
-                            </span>
+                            You owe <span className="text-red-500">${owe.toFixed(2)}</span>
                           </p>
                         )}
-
-                        {isCurrentUser && owed > 0 && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            Owes you{" "}
-                            <span className="text-[#53e45d]">
-                              ${owed.toFixed(2)}
-                            </span>
-                          </p>
-                        )}
-
-                        {isCurrentUser && owe > 0 && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            You owe{" "}
-                            <span className="text-[#FF4444]">
-                              ${owe.toFixed(2)}
-                            </span>
-                          </p>
-                        )}
-
                         {owed === 0 && owe === 0 && (
                           <p className="text-mobile-sm sm:text-base text-white/70">
                             No Payment Requirement
