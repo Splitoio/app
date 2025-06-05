@@ -81,10 +81,11 @@ export default function GroupDetailsPage({
     });
   };
 
-  const handleSendReminder = (receiverId: string) => {
+  const handleSendReminder = (receiverId: string, splitId: string) => {
     sendReminder({
       receiverId,
-      reminderType: "USER",
+      reminderType: "SPLIT",
+      splitId,
       content: "Please settle your balance in the group."
     });
   };
@@ -331,9 +332,14 @@ export default function GroupDetailsPage({
                       {!isCurrentUser && (
                         <div className="flex items-center gap-2">
                           {owed > 0 && (
-                            <button 
+                            <button
                               className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                              onClick={() => handleSendReminder(member.user.id)}
+                              onClick={() => {
+                                const latestExpense = expenses && expenses.length > 0 ? expenses[0] : null;
+                                if (latestExpense) {
+                                  handleSendReminder(member.user.id, latestExpense.id);
+                                }
+                              }}
                               disabled={isSending}
                             >
                               <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
