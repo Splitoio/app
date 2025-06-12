@@ -7,29 +7,28 @@ interface TimeLockToggleProps {
   className?: string;
 }
 
-export default function TimeLockToggle({ value, onChange, label = "Lock Price at Time of Split", className = "" }: TimeLockToggleProps) {
+export default function TimeLockToggle({ value, onChange, label = "Lock exchange rate (Fix the value at current exchange rate)", className = "" }: TimeLockToggleProps) {
   return (
-    <div className={`flex items-center gap-2 ${className}`}>
+    <div className={`flex items-center justify-between mt-2 ${className}`}>
       {label && (
-        <label htmlFor="time-lock-toggle" className="text-base text-white select-none cursor-pointer">
-          {label}
-        </label>
+        <span className="text-sm text-white/70">{label}</span>
       )}
-      <button
-        id="time-lock-toggle"
-        type="button"
-        aria-pressed={value}
-        onClick={() => onChange(!value)}
-        className={`w-12 h-6 rounded-full p-1 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-400 ${
-          value ? "bg-blue-500" : "bg-white/10"
+      <div
+        className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${
+          value ? "bg-white/30" : "bg-[#333]"
         }`}
+        onClick={() => onChange(!value)}
+        role="switch"
+        aria-checked={value}
+        tabIndex={0}
+        onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') onChange(!value); }}
       >
-        <span
-          className={`h-4 w-4 rounded-full bg-white block transition-transform ${
+        <div
+          className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
             value ? "translate-x-6" : "translate-x-0"
           }`}
         />
-      </button>
+      </div>
     </div>
   );
 }

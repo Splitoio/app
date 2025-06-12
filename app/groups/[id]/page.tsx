@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
-import { useGetGroupById, useMarkAsPaid, useDeleteGroup } from "@/features/groups/hooks/use-create-group";
+import { useGetGroupById, useMarkAsPaid, useDeleteGroup, useUpdateGroup } from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
 
 import { useAuthStore } from "@/stores/authStore";
@@ -67,6 +67,7 @@ export default function GroupDetailsPage({
   }, [group]);
 
   const deleteGroupMutation = useDeleteGroup();
+  const updateGroupMutation = useUpdateGroup();
 
   // Handle delete group action
   const handleDeleteGroup = () => {
@@ -100,6 +101,30 @@ export default function GroupDetailsPage({
     } catch (error: any) {
       toast.error(error.response?.data?.error || "Failed to remove member");
     }
+  };
+
+  // Add this handler for the settings form
+  const handleSettingsSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    updateGroupMutation.mutate(
+      {
+        groupId,
+        payload: {
+          name: groupSettings.name,
+          currency: groupSettings.currency,
+          lockPrice: groupSettings.lockPrice,
+        },
+      },
+      {
+        onSuccess: () => {
+          toast.success("Group settings updated successfully");
+          setIsSettingsModalOpen(false);
+        },
+        onError: () => {
+          toast.error("Failed to update group");
+        },
+      }
+    );
   };
 
   if (isLoading) {
@@ -563,7 +588,7 @@ export default function GroupDetailsPage({
                 Group settings
               </h2>
 
-              <form className="space-y-4 sm:space-y-6">
+              <form className="space-y-4 sm:space-y-6" onSubmit={handleSettingsSubmit}>
                 <div>
                   <label
                     htmlFor="groupName"
@@ -605,10 +630,10 @@ export default function GroupDetailsPage({
                 </div>
 
                 <div className="flex items-center justify-between">
+                  <span className="text-white/80 text-mobile-base sm:text-base">Lock Price at Time of Split</span>
                   <TimeLockToggle
                     value={groupSettings.lockPrice}
                     onChange={(val) => setGroupSettings((prev) => ({ ...prev, lockPrice: val }))}
-                    label="Lock Price at Time of Split"
                   />
                 </div>
 

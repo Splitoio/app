@@ -328,7 +328,7 @@ export default function Page() {
                     </div>
 
                     {/* Show appropriate button based on debt direction */}
-                    {hasPositiveBalance && (
+                    {hasNegativeBalance && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => sendReminder({
@@ -349,7 +349,7 @@ export default function Page() {
                       </button>
                     )}
 
-                    {hasNegativeBalance && (
+                    {hasPositiveBalance && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => handleSettleFriendClick(friend.id)}
