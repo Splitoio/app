@@ -32,7 +32,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     amount: "",
     members: "",
     splitType: "equal" as "equal" | "percentage" | "custom",
-    currency: "USD" as "USD" | "XLM",
+    currency: "USD",
     paidBy: "",
     imageUrl: "",
     lockPrice: false,
@@ -48,12 +48,10 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
         amount: "0", // Amount is not stored in the group anymore
         members: "", // Members are now in a different format
         splitType: "equal", // Not sure if this is stored in the API
-        currency: (group.defaultCurrency === "XLM" ? "XLM" : "USD") as
-          | "USD"
-          | "XLM",
+        currency: group.defaultCurrency || "USD",
         paidBy: "", // Not sure if this is stored in the API
         imageUrl: group.image || "",
-        lockPrice: false,
+        lockPrice: group.lockPrice ?? false,
       });
       setImagePreview(group.image || null);
     }
@@ -150,7 +148,9 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
       },
       {
         onSuccess: (data) => {
-          router.push(`/groups/${params.id}`);
+          toast.success("Group settings updated successfully");
+          // Optionally, redirect after a short delay
+          setTimeout(() => router.push(`/groups/${params.id}`), 1200);
         },
         onError: (error) => {
           toast.error("Failed to update group");
@@ -335,7 +335,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          currency: e.target.value as "USD" | "XLM",
+                          currency: e.target.value,
                         }))
                       }
                       className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
@@ -347,12 +347,13 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                 </div>
 
                 {/* Lock Price Toggle */}
-                <TimeLockToggle
-                  value={formData.lockPrice}
-                  onChange={(val) => setFormData((prev) => ({ ...prev, lockPrice: val }))}
-                  label="Lock Price at Time of Split"
-                  className="mb-4"
-                />
+                <div className="mb-4 flex items-center gap-4">
+                  <TimeLockToggle
+                    value={formData.lockPrice}
+                    onChange={(val) => setFormData((prev) => ({ ...prev, lockPrice: val }))}
+                    label="Lock exchange rate (Fix the value at current exchange rate)"
+                  />
+                </div>
 
                 <div>
                   <label

@@ -34,6 +34,7 @@ import { CurrencyType } from "@/api-helpers/types";
 import ResolverSelector from "./ResolverSelector";
 import axios from "axios";
 import CurrencyDropdown from "./currency-dropdown";
+import TimeLockToggle from "./ui/TimeLockToggle";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -438,28 +439,11 @@ export function AddExpenseModal({
             </div>
 
             {/* Time Lock-In toggle */}
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-sm text-white/70">
-                Lock exchange rate (Fix the value at current exchange rate)
-              </span>
-              <div
-                className={`w-12 h-6 rounded-full p-1 cursor-pointer transition-colors ${
-                  formData.timeLockIn ? "bg-white/30" : "bg-[#333]"
-                }`}
-                onClick={() =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    timeLockIn: !prev.timeLockIn,
-                  }))
-                }
-              >
-                <div
-                  className={`w-4 h-4 rounded-full bg-white transform transition-transform ${
-                    formData.timeLockIn ? "translate-x-6" : "translate-x-0"
-                  }`}
-                />
-              </div>
-            </div>
+            <TimeLockToggle
+              value={formData.timeLockIn}
+              onChange={val => setFormData(prev => ({ ...prev, timeLockIn: val }))}
+              label="Lock exchange rate (Fix the value at current exchange rate)"
+            />
 
             <div>
               <label className="text-white mb-2 block">Who Paid</label>
