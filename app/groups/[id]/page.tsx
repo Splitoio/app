@@ -630,7 +630,7 @@ export default function GroupDetailsPage({
                 </div>
 
                 <div className="flex items-center justify-between">
-                  <span className="text-white/80 text-mobile-base sm:text-base">Lock Price at Time of Split</span>
+                  
                   <TimeLockToggle
                     value={groupSettings.lockPrice}
                     onChange={(val) => setGroupSettings((prev) => ({ ...prev, lockPrice: val }))}
