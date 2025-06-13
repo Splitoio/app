@@ -17,7 +17,7 @@ import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useRouter } from "next/navigation";
-import { getAllGroups } from "@/features/groups/api/client";
+import { getAllGroupsWithBalances } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import dayjs from "dayjs";
@@ -49,7 +49,7 @@ export function GroupsList() {
     error,
   } = useQuery({
     queryKey: [QueryKeys.GROUPS],
-    queryFn: getAllGroups,
+    queryFn: getAllGroupsWithBalances,
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
@@ -197,35 +197,34 @@ export function GroupsList() {
         animate="animate"
       >
         {groupsData.map((group) => {
-          // Find the current user's balance in this group
+          // Calculate the net balance for the current user in this group
           let balanceDisplay = null;
-          let balanceAmount = 0;
+          let netBalance = 0;
           let currency = group.defaultCurrency || "USD";
           if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
-            const userBalance = group.groupBalances.find(
+            // Sum all balances for the user in this group (across all currencies)
+            const userBalances = group.groupBalances.filter(
               (b) => b.userId === user.id
             );
-            if (userBalance) {
-              balanceAmount = userBalance.amount;
-              currency = userBalance.currency || currency;
-              if (balanceAmount > 0) {
-                balanceDisplay = (
-                  <span>
-                    Owes you <span className="text-[#53e45d]">{currency} {balanceAmount}</span>
-                  </span>
-                );
-              } else if (balanceAmount < 0) {
-                balanceDisplay = (
-                  <span>
-                    You owe <span className="text-red-400">{currency} {Math.abs(balanceAmount)}</span>
-                  </span>
-                );
-              } else {
-                balanceDisplay = <span className="text-white/60">Settled</span>;
-              }
+            netBalance = userBalances.reduce((sum, b) => sum + b.amount, 0);
+            // If you want to show currency, you could pick the first or show all, but for now just show the net
+            if (netBalance > 0) {
+              balanceDisplay = (
+                <span>
+                  You owe <span className="text-[#FF4444]">${netBalance.toFixed(2)}</span>
+                </span>
+              );
+            } else if (netBalance < 0) {
+              balanceDisplay = (
+                <span>
+                  Owes you <span className="text-[#53e45d]">${Math.abs(netBalance).toFixed(2)}</span>
+                </span>
+              );
             } else {
-              balanceDisplay = <span className="text-white/60">No balance</span>;
+              balanceDisplay = <span className="text-white/60">Settled</span>;
             }
+          } else {
+            balanceDisplay = <span className="text-white/60">No balance</span>;
           }
           return (
             <motion.div

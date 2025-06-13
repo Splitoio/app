@@ -51,6 +51,7 @@ export const GroupSchema = z.object({
   description: z.string().nullable(),
   image: z.string().nullable(),
   defaultCurrency: z.string(),
+  lockPrice: z.boolean(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   createdBy: UserSchema, // Included the createdBy relation

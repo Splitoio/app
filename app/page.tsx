@@ -309,17 +309,11 @@ export default function Page() {
                           <p className="text-mobile-sm sm:text-base text-white/60">
                             {friendBalance.amount > 0 ? (
                               <>
-                                Owes you{" "}
-                                <span className="text-[#53e45d] font-medium">
-                                  ${Math.abs(friendBalance.amount).toFixed(2)}
-                                </span>
+                                You owe <span className="text-[#FF4444] font-medium">${Math.abs(friendBalance.amount).toFixed(2)}</span>
                               </>
                             ) : friendBalance.amount < 0 ? (
                               <>
-                                You owe{" "}
-                                <span className="text-[#FF4444] font-medium">
-                                  ${Math.abs(friendBalance.amount).toFixed(2)}
-                                </span>
+                                Owes you <span className="text-[#53e45d] font-medium">${Math.abs(friendBalance.amount).toFixed(2)}</span>
                               </>
                             ) : (
                               "All settled up"
@@ -334,7 +328,7 @@ export default function Page() {
                     </div>
 
                     {/* Show appropriate button based on debt direction */}
-                    {hasPositiveBalance && (
+                    {hasNegativeBalance && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => sendReminder({
@@ -355,7 +349,7 @@ export default function Page() {
                       </button>
                     )}
 
-                    {hasNegativeBalance && (
+                    {hasPositiveBalance && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => handleSettleFriendClick(friend.id)}
@@ -433,9 +427,26 @@ export default function Page() {
                           {group.name}
                         </p>
                         <p className="text-mobile-sm sm:text-base text-white/60">
-                          {/* We'll need to calculate the actual balances here */}
-                          {/* For now just display default text */}
-                          View group details
+                          {(() => {
+                            if (!user || !group.groupBalances) return "No balance";
+                            const currency = group.defaultCurrency || "USD";
+                            const userBalances = group.groupBalances.filter(
+                              (b) => b.userId === user.id && b.currency === currency
+                            );
+                            const netBalance = userBalances.reduce((sum, b) => sum + b.amount, 0);
+                            if (userBalances.length === 0) return "No balance";
+                            if (netBalance > 0) {
+                              return (
+                                <>You owe <span className="text-[#FF4444]">${netBalance.toFixed(2)}</span></>
+                              );
+                            } else if (netBalance < 0) {
+                              return (
+                                <>Owes you <span className="text-[#53e45d]">${Math.abs(netBalance).toFixed(2)}</span></>
+                              );
+                            } else {
+                              return "Settled";
+                            }
+                          })()}
                         </p>
                       </div>
                     </div>

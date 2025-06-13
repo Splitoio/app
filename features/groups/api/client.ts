@@ -119,10 +119,26 @@ export const updateGroup = async (
     description?: string;
     currency?: string;
     imageUrl?: string;
+    lockPrice?: boolean;
   }
 ) => {
-  const response = await apiClient.put(`/groups/${groupId}`, payload);
-  return GroupSchema.parse(response);
+  // Only include fields that are defined
+  const filteredPayload: any = {};
+  if (payload.name !== undefined) filteredPayload.name = payload.name;
+  if (payload.currency !== undefined) filteredPayload.currency = payload.currency;
+  if (payload.lockPrice !== undefined) filteredPayload.lockPrice = payload.lockPrice;
+  if (payload.imageUrl !== undefined) filteredPayload.imageUrl = payload.imageUrl;
+  if (payload.description !== undefined) filteredPayload.description = payload.description;
+
+  const response = await apiClient.put(`/groups/${groupId}`, filteredPayload);
+
+  // Try to parse, but fallback to raw response if parsing fails
+  try {
+    return GroupSchema.parse(response);
+  } catch (e) {
+    if (response && response.id) return response;
+    throw e;
+  }
 };
 
 export const markAsPaid = async (

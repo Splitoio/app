@@ -47,7 +47,7 @@ export function GroupInfoHeader({
 
     return {
       amount: Math.abs(totalBalance),
-      type: totalBalance >= 0 ? "owed" : "owe",
+      type: totalBalance > 0 ? "owe" : "owed",
     };
   };
 
