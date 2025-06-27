@@ -88,7 +88,6 @@ apiClient.interceptors.response.use(
       name: error.response?.data?.name || "ApiError",
     };
     console.log("error", normalizedError);
-
     // Handle 401 (Unauthorized) responses - this is the only place we redirect
     if (normalizedError.code === 401) {
       redirectToLogin();

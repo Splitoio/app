@@ -24,7 +24,7 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={instrumentSans.className}>
+      <body>
         <MobileMenuProvider>
           <Providers>
             {isAuthPage ? (

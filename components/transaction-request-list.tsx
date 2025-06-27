@@ -70,11 +70,10 @@ export function TransactionRequestList({
         const amount = reminder.split?.amount || reminder.amount || 0;
         let requestText = "Request pending";
         if (reminder.split) {
-          requestText = `$${amount.toFixed(2)}`;
+          requestText = `Requested $${amount.toFixed(2)}`;
         } else if (reminder.reminderType === "USER") {
-          // Try to extract amount from content or use a default
           if (amount > 0) {
-            requestText = `$${amount.toFixed(2)}`;
+            requestText = `Requested $${amount.toFixed(2)}`;
           } else if (reminder.content) {
             requestText = reminder.content;
           } else {
@@ -101,11 +100,19 @@ export function TransactionRequestList({
                       />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-mobile-base sm:text-lg text-white font-medium truncate">
+                      <p className="text-mobile-base sm:text-base text-white font-medium whitespace-nowrap">
                         {reminder.sender.name} is Requesting
                       </p>
-                      <p className="text-mobile-sm sm:text-base text-white/60 truncate">
-                        {requestText}
+                      <p className="text-mobile-sm sm:text-base text-white/60">
+                        {reminder.reminderType === "USER"
+                          ? (reminder.amount && reminder.amount > 0
+                              ? `$${reminder.amount.toFixed(2)}`
+                              : reminder.content || "Requested payment")
+                          : reminder.split && reminder.split.expenseParticipants && reminder.split.expenseParticipants.length > 0
+                            ? `$${reminder.split.expenseParticipants[0].amount.toFixed(2)}`
+                            : reminder.split
+                              ? `$${reminder.split.amount.toFixed(2)}`
+                              : "$0.00"}
                       </p>
                       <p className="text-xs sm:text-sm text-white/60">
                         {getTimeAgo(reminder.createdAt)}

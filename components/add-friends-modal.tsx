@@ -73,7 +73,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
         <div className="animate-border-light relative z-10">
           <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
             <div className="flex items-center justify-between mb-6 lg:mb-8">
-              <h3 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em] font-instrument-sans">
+              <h3 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em]">
                 Add Friend
               </h3>
               <button
