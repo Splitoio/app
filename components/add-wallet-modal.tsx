@@ -5,10 +5,10 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-import {
-  getAvailableChains,
-  addMultichainAccount,
-} from "@/services/walletService";
+// import {
+//   getAvailableChains,
+//   addMultichainAccount,
+// } from "@/services/walletService";
 import {
   StellarWalletsKit,
   WalletNetwork,
@@ -21,10 +21,14 @@ import {
   useUserWallets,
   useSetWalletAsPrimary,
 } from "@/features/wallets/hooks/use-wallets";
-import {
-  Wallet as WalletType,
-  ChainResponse as ChainResponseType,
-} from "@/features/wallets/api/client";
+// import {
+//   Wallet as WalletType,
+//   ChainResponse as ChainResponseType,
+// } from "@/features/wallets/api/client";
+import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react";
+import { WalletSelector } from "@aptos-labs/wallet-adapter-ant-design";
+import "@aptos-labs/wallet-adapter-ant-design/dist/index.css";
+import { log } from "console";
 
 // Define wallet interface
 interface Wallet {
@@ -53,6 +57,7 @@ interface AddWalletModalProps {
 const FALLBACK_CHAINS = [
   { id: "ethereum", name: "Ethereum", enabled: true },
   { id: "stellar", name: "Stellar", enabled: true },
+  { id: "aptos", name: "Aptos", enabled: true },
   { id: "solana", name: "Solana", enabled: true },
   { id: "polygon", name: "Polygon", enabled: true },
   { id: "binance", name: "Binance", enabled: true },
@@ -70,12 +75,13 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const walletKitRef = useRef<StellarWalletsKit | null>(null);
+  const [aptosAddress, setAptosAddress] = useState<string>("");
 
   // Fetch user's wallets and available chains
-  const { data: walletsData } = useUserWallets();
+  const { data: walletData } = useUserWallets();
+  const userWallets = walletData?.accounts || [];
   const { data: availableChains, isLoading: chainsLoading } =
     useAvailableChains();
-  const wallets = walletsData?.accounts || [];
 
   // Add wallet mutation
   const { mutate: addWalletMutation, isPending: isAddingWallet } =
@@ -281,6 +287,58 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
     }
   };
 
+  // Handler for Aptos wallet connect using Wallet Adapter SDK
+  const handleAptosWalletConnect = async () => {
+    try {
+      if (!connect) return;
+      if (!wallets || wallets.length === 0) {
+        toast.error("No Aptos wallets available to connect.");
+        return;
+      }
+      const walletName = wallets[0].name;
+      if (!walletName) {
+        toast.error("Could not determine Aptos wallet name.");
+        return;
+      }
+      await connect(walletName);
+      if (!account?.address) {
+        toast.error("No Aptos wallet connected.");
+        return;
+      }
+      setAptosAddress(account.address.toString());
+      addWalletMutation(
+        {
+          chainId: "aptos",
+          address: account.address.toString(),
+          isPrimary: true,
+        },
+        {
+          onSuccess: () => {
+            toast.success("Aptos wallet connected successfully!");
+            setAptosAddress("");
+            onClose();
+          },
+        }
+      );
+    } catch (error) {
+      console.error("Aptos Wallet Connect Error:", error);
+      toast.error("Failed to connect Aptos wallet.");
+    }
+  };
+
+  const { account, connected, connect, wallets } = useWallet();
+
+  useEffect(() => {
+    console.log("Aptos useEffect triggered", { connected, account });
+    if (connected && account?.address) {
+      setAptosAddress(account.address.toString());
+      console.log("Aptos address set:", account.address.toString());
+    } else {
+      setAptosAddress("");
+      console.log("Aptos address cleared");
+    }
+  }, [connected, account]);
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -430,33 +488,53 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                     <span className="text-white/50 text-sm">OR</span>
                     <div className="h-px bg-white/20 flex-grow"></div>
                   </div>
-                  <button
-                    type="button"
-                    className={`text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 ${
-                      selectedChain?.id === "stellar"
-                        ? "border-white/40 hover:bg-white/10"
-                        : "border-white/10 cursor-not-allowed opacity-50"
-                    }`}
-                    onClick={handleConnectWallet}
-                    disabled={isConnectingWallet}
-                  >
-                    {isConnectingWallet ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Connecting...</span>
-                      </>
-                    ) : (
-                      <span>Connect Stellar Wallet</span>
-                    )}
-                  </button>
-                  {selectedChain?.id !== "stellar" ? (
+                  {selectedChain?.id === "stellar" && (
+                    <button
+                      type="button"
+                      className={`text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 ${
+                        selectedChain?.id === "stellar"
+                          ? "border-white/40 hover:bg-white/10"
+                          : "border-white/10 cursor-not-allowed opacity-50"
+                      }`}
+                      onClick={handleConnectWallet}
+                      disabled={isConnectingWallet}
+                    >
+                      {isConnectingWallet ? (
+                        <>
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          <span>Connecting...</span>
+                        </>
+                      ) : (
+                        <span>Connect Stellar Wallet</span>
+                      )}
+                    </button>
+                  )}
+                  {selectedChain?.id === "aptos" && (
+                    <div className="w-full flex flex-col items-center mt-2">
+                      
+                        <WalletSelector />
+    
+                      {connected && account?.address && (
+                        <>
+                          <div className="text-xs text-white/60 mt-1">
+                            Connected Aptos address: {aptosAddress || (account.address.toString ? account.address.toString() : String(account.address))}
+                          </div>
+                          <button
+                            className="mt-3 w-full bg-blue-600 text-white rounded-full py-2 font-semibold hover:bg-blue-700 transition"
+                            onClick={handleAptosWalletConnect}
+                          >
+                            {userWallets.some(w => w.chainId === "aptos" && w.address === (account.address.toString ? account.address.toString() : String(account.address))) ? 'Update Wallet' : 'Save Wallet'}
+                          </button>
+                        </>
+                      )}
+                      <p className="text-white/70 text-xs mt-2">
+                        Connect with Petra, Martian, and other Aptos wallets
+                      </p>
+                    </div>
+                  )}
+                  {selectedChain?.id !== "stellar" && selectedChain?.id !== "aptos" && (
                     <p className="text-white/50 text-xs mt-2">
-                      Web wallet connection only works with Stellar blockchain
-                    </p>
-                  ) : (
-                    <p className="text-white/70 text-xs mt-2">
-                      Connect with xBull, Lobstr, Freighter, and other Stellar
-                      wallets
+                      Web wallet connection only works with Stellar or Aptos blockchain
                     </p>
                   )}
                 </div>

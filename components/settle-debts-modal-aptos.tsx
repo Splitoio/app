@@ -1,4 +1,4 @@
-"use client";
+// Modal for settling debts on the Aptos chain only.
 
 import { X, Loader2, ChevronDown, MinusCircle } from "lucide-react";
 import { useState, useEffect } from "react";
@@ -17,10 +17,8 @@ import { useBalances } from "@/features/balances/hooks/use-balances";
 import ResolverSelector, { Option as TokenOption } from "./ResolverSelector";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 
-// Define a type for friend data coming from the API
 interface FriendWithBalances {
   id: string;
   name: string;
@@ -38,10 +36,9 @@ interface SettleDebtsModalProps {
   members?: User[];
   showIndividualView?: boolean;
   selectedFriendId?: string | null;
-  defaultCurrency?: string; // <-- add this
 }
 
-export function SettleDebtsModal({
+const SettleDebtsModalAptos = ({
   isOpen,
   onClose,
   balances = [],
@@ -49,22 +46,14 @@ export function SettleDebtsModal({
   members = [],
   showIndividualView = false,
   selectedFriendId = null,
-  defaultCurrency,
-}: SettleDebtsModalProps) {
+}: SettleDebtsModalProps) => {
   const user = useAuthStore((state) => state.user);
-  const {
-    isConnected: walletConnected,
-    isConnecting,
-    connectWallet,
-    wallet,
-  } = useWallet();
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [excludedFriendIds, setExcludedFriendIds] = useState<string[]>([]);
   const [totalAmount, setTotalAmount] = useState("0");
   const [individualAmount, setIndividualAmount] = useState("0");
-  const [selectedChain, setSelectedChain] = useState<string | null>(null);
-  const [availableChainsForToken, setAvailableChainsForToken] = useState<string[]>([]);
+  const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
 
   const settleDebtMutation = useSettleDebt(groupId);
   const queryClient = useQueryClient();
@@ -74,46 +63,42 @@ export function SettleDebtsModal({
   const { data: organizedCurrencies } = useOrganizedCurrencies();
   const { data: walletData } = useUserWallets();
   const wallets = walletData?.accounts || [];
-  const stellarWallet = wallets.find(w => w.chainId === "stellar");
-  const userStellarAddress = stellarWallet?.address || null;
+  const aptosWallets = wallets.filter(w => w.chainId === "aptos");
   useHandleEscapeToCloseModal(isOpen, onClose);
 
-  // Debug: Log user data
-  useEffect(() => {
-    console.log("[SettleDebtsModal] User data debug:", {
-      user: user ? {
-        id: user.id,
-        name: user.name,
-        stellarAccount: user.stellarAccount,
-        hasStellarAccount: !!user.stellarAccount
-      } : null,
-      userStellarAddress,
-      userFromStore: user
-    });
-  }, [user, userStellarAddress]);
+  // Filter tokens to only Aptos chain
+  const aptosTokens = Object.values(organizedCurrencies?.chainGroups?.aptos || {});
 
-  // Reset excluded friends when modal opens/closes
+  // Set default token to first Aptos token
   useEffect(() => {
-    if (isOpen) {
-      console.log("[SettleDebtsModal] Modal opened", { 
-        groupId, 
-        showIndividualView, 
-        selectedFriendId,
-        userStellarAddress
+    if (isOpen && aptosTokens.length > 0) {
+      setSelectedToken({
+        id: aptosTokens[0].id,
+        symbol: aptosTokens[0].symbol,
+        name: aptosTokens[0].name,
+        chainId: aptosTokens[0].chainId || undefined,
+        type: aptosTokens[0].type,
       });
-      setExcludedFriendIds([]);
     }
-  }, [isOpen, groupId, showIndividualView, selectedFriendId, userStellarAddress]);
+  }, [isOpen, organizedCurrencies]);
 
-  // Set the selected user based on selectedFriendId prop
+  // Filter friends with positive Aptos token balances
+  const filteredFriendsWithDebts = selectedToken
+    ? (friends?.filter(friend =>
+        friend.balances.some(
+          (balance) => balance.amount > 0 &&
+            (balance.currency === selectedToken.symbol || balance.currency === selectedToken.id)
+        )
+      ) ?? [])
+    : (friends ?? []);
+
+  // Set selected user if selectedFriendId is provided
   useEffect(() => {
     if (selectedFriendId && friends) {
       const friend = friends.find((friend) => friend.id === selectedFriendId);
       if (friend) {
         setSelectedUser(friend as unknown as User);
-
-        // Calculate amount owed to this specific friend
-        const positiveBalance = friend.balances.find((b) => b.amount > 0);
+        const positiveBalance = friend.balances.find((b) => b.amount > 0 && (selectedToken ? (b.currency === selectedToken.symbol || b.currency === selectedToken.id) : true));
         if (positiveBalance) {
           setIndividualAmount(positiveBalance.amount.toFixed(2));
         } else {
@@ -123,117 +108,59 @@ export function SettleDebtsModal({
     } else if (!showIndividualView) {
       setSelectedUser(null);
     }
-  }, [selectedFriendId, friends, showIndividualView]);
+  }, [selectedFriendId, friends, showIndividualView, selectedToken]);
 
-  // Calculate total debts across all groups on mount and when data changes
+  // Set default wallet if only one exists
   useEffect(() => {
-    if (friends) {
-      const totalOwed = calculateTotalDebts(friends as FriendWithBalances[]);
+    if (aptosWallets.length === 1) {
+      setSelectedWalletAddress(aptosWallets[0].address);
+    } else {
+      setSelectedWalletAddress(null);
+    }
+  }, [aptosWallets]);
+
+  // Calculate total debts for selected token
+  const calculateTotalDebtsForToken = (friendsList: FriendWithBalances[], token: TokenOption | null) => {
+    if (!token) return 0;
+    return friendsList.reduce((total, friend) => {
+      const positiveBalances = friend.balances.filter(
+        (b) => b.amount > 0 && (b.currency === token.symbol || b.currency === token.id)
+      );
+      const friendTotal = positiveBalances.reduce((sum: number, balance) => sum + balance.amount, 0);
+      return total + friendTotal;
+    }, 0);
+  };
+
+  // Calculate remaining total after excluding friends
+  const calculateRemainingTotalForToken = () => {
+    if (!friends || !selectedToken) return 0;
+    const includedFriends = friends.filter(
+      (friend) => !excludedFriendIds.includes(friend.id)
+    );
+    return calculateTotalDebtsForToken(includedFriends as FriendWithBalances[], selectedToken);
+  };
+
+  // Update totalAmount when selectedToken or friends change
+  useEffect(() => {
+    if (friends && selectedToken) {
+      const totalOwed = calculateTotalDebtsForToken(friends as FriendWithBalances[], selectedToken);
       setTotalAmount(totalOwed.toFixed(2));
     }
-  }, [friends, balanceData]);
+  }, [friends, selectedToken, balanceData]);
 
-  // Fetch available tokens
+  // Update individualAmount when selectedUser or selectedToken changes
   useEffect(() => {
-    if (isOpen && organizedCurrencies) {
-      const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
-      let tokenToSelect = chainCurrencies[0];
-      if (defaultCurrency) {
-        const match = chainCurrencies.find(
-          (t) => t.symbol === defaultCurrency
-        );
-        if (match) tokenToSelect = match;
-      }
-      if (tokenToSelect) {
-        setSelectedToken({
-          id: tokenToSelect.id,
-          symbol: tokenToSelect.symbol,
-          name: tokenToSelect.name,
-          chainId: tokenToSelect.chainId || undefined,
-          type: tokenToSelect.type,
-        });
-      }
-    }
-  }, [isOpen, organizedCurrencies, defaultCurrency]);
-
-  // Update individualAmount when selectedUser changes
-  useEffect(() => {
-    if (selectedUser) {
-      const positiveBalance = (selectedUser as any).balances?.find((b: any) => b.amount > 0);
+    if (selectedUser && selectedToken) {
+      const positiveBalance = (selectedUser as any).balances?.find(
+        (b: any) => b.amount > 0 && (b.currency === selectedToken.symbol || b.currency === selectedToken.id)
+      );
       if (positiveBalance) {
         setIndividualAmount(positiveBalance.amount.toFixed(2));
       } else {
         setIndividualAmount("0");
       }
     }
-  }, [selectedUser]);
-
-  // Update available chains when selectedToken changes
-  useEffect(() => {
-    if (selectedToken && organizedCurrencies) {
-      // Find all tokens with the same symbol (across chains)
-      const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
-      const matchingTokens = chainCurrencies.filter(
-        (t) => t.symbol === selectedToken.symbol
-      );
-      const chains = matchingTokens.map((t) => t.chainId).filter(Boolean) as string[];
-      setAvailableChainsForToken(chains);
-      // Auto-select if only one chain
-      if (chains.length === 1) {
-        setSelectedChain(chains[0]);
-      } else {
-        setSelectedChain(selectedToken.chainId || null);
-      }
-    } else {
-      setAvailableChainsForToken([]);
-      setSelectedChain(null);
-    }
-  }, [selectedToken, organizedCurrencies]);
-
-  // When chain changes, update selectedToken to the token on that chain
-  useEffect(() => {
-    if (
-      selectedToken &&
-      selectedChain &&
-      organizedCurrencies &&
-      selectedToken.chainId !== selectedChain
-    ) {
-      const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
-      const tokenOnChain = chainCurrencies.find(
-        (t) => t.symbol === selectedToken.symbol && t.chainId === selectedChain
-      );
-      if (tokenOnChain) {
-        setSelectedToken({
-          id: tokenOnChain.id,
-          symbol: tokenOnChain.symbol,
-          name: tokenOnChain.name,
-          chainId: tokenOnChain.chainId || undefined,
-          type: tokenOnChain.type,
-        });
-      }
-    }
-  }, [selectedChain]);
-
-  // Function to calculate total debts owed to all friends
-  const calculateTotalDebts = (friendsList: FriendWithBalances[]) => {
-    return friendsList.reduce((total, friend) => {
-      const positiveBalances = friend.balances.filter((b) => b.amount > 0);
-      const friendTotal = positiveBalances.reduce((sum: number, balance) => {
-        return sum + balance.amount;
-      }, 0);
-      return total + friendTotal;
-    }, 0);
-  };
-
-  // Calculate remaining total after excluding friends
-  const calculateRemainingTotal = () => {
-    if (!friends) return 0;
-
-    const includedFriends = friends.filter(
-      (friend) => !excludedFriendIds.includes(friend.id)
-    );
-    return calculateTotalDebts(includedFriends as FriendWithBalances[]);
-  };
+  }, [selectedUser, selectedToken]);
 
   // Toggle excluding a friend from settlement
   const toggleExcludeFriend = (friendId: string) => {
@@ -246,41 +173,11 @@ export function SettleDebtsModal({
     });
   };
 
-  // Get friends with debts for showing in the modal
-  const friendsWithDebts =
-    friends?.filter((friend) =>
-      friend.balances.some((balance) => balance.amount > 0)
-    ) || [];
-
-  // Helper to get the correct wallet address based on selected chain
-  const getUserWalletAddress = () => {
-    if (selectedChain === 'aptos') {
-      const aptosWallet = wallets.find(w => w.chainId === 'aptos');
-      return aptosWallet?.address || null;
-    } else if (selectedChain === 'stellar') {
-      return userStellarAddress;
-    }
-    // Add more chains as needed
-    return null;
-  };
-
+  // Settle handlers
   const handleSettleOne = async (settleWith: User) => {
-    const userWalletAddress = getUserWalletAddress();
-    if (selectedChain === 'aptos') {
-      if (!userWalletAddress) {
-        toast.error("Please add your Aptos wallet address in settings first.");
-        return;
-      }
-    } else {
-      if (!wallet) {
-        toast.error("Please connect your wallet to sign the transaction.");
-        connectWallet(); // Open the wallet modal
-        return;
-      }
-      if (!userWalletAddress) {
-        toast.error("Please add your Stellar wallet address in settings first.");
-        return;
-      }
+    if (!selectedWalletAddress) {
+      toast.error("Please add your Aptos wallet address in settings first.");
+      return;
     }
     if (!selectedToken) {
       toast.error("Please select a payment token");
@@ -288,10 +185,10 @@ export function SettleDebtsModal({
     }
     const payload = {
       groupId,
-      address: userWalletAddress,
+      address: selectedWalletAddress,
       settleWithId: settleWith.id,
       selectedTokenId: selectedToken.id,
-      selectedChainId: selectedChain || undefined,
+      selectedChainId: selectedToken.chainId,
       amount: parseFloat(individualAmount),
     };
     settleDebtMutation.mutate(payload, {
@@ -308,18 +205,9 @@ export function SettleDebtsModal({
   };
 
   const handleSettleAll = async () => {
-    const userWalletAddress = getUserWalletAddress();
-    if (selectedChain === 'aptos') {
-      if (!userWalletAddress) {
-        toast.error("Please add your Aptos wallet address in settings first.");
-        return;
-      }
-    } else {
-      if (!wallet || !userWalletAddress) {
-        toast.error("Please connect your wallet to sign the transaction.");
-        connectWallet();
-        return;
-      }
+    if (!selectedWalletAddress) {
+      toast.error("Please add your Aptos wallet address in settings first.");
+      return;
     }
     if (!selectedToken) {
       toast.error("Please select a payment token");
@@ -327,10 +215,10 @@ export function SettleDebtsModal({
     }
     const payload = {
       groupId,
-      address: userWalletAddress,
+      address: selectedWalletAddress,
       selectedTokenId: selectedToken.id,
-      selectedChainId: selectedChain || undefined,
-      amount: parseFloat(totalAmount), // or remainingTotal if that's the correct value
+      selectedChainId: selectedToken.chainId,
+      amount: parseFloat(totalAmount),
     };
     settleDebtMutation.mutate(payload, {
       onSuccess: () => {
@@ -350,12 +238,12 @@ export function SettleDebtsModal({
   // Get the selected user's balance for individual settlement
   const selectedUserBalance = selectedUser
     ? (selectedUser as unknown as FriendWithBalances).balances.find(
-        (balance) => balance.amount > 0
+        (balance) => balance.amount > 0 && (selectedToken ? (balance.currency === selectedToken.symbol || balance.currency === selectedToken.id) : true)
       )?.amount || 0
     : 0;
 
   // Calculate the remaining total after exclusions
-  const remainingTotal = calculateRemainingTotal();
+  const remainingTotal = calculateRemainingTotalForToken();
 
   return (
     <AnimatePresence>
@@ -380,7 +268,7 @@ export function SettleDebtsModal({
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="mb-1 text-xs sm:text-sm text-white/60">
-                      Settle All Debt
+                      Settle All Debt (Aptos)
                     </div>
                     <h2 className="text-xl sm:text-3xl font-semibold text-white">
                       Settle All Debts
@@ -395,14 +283,28 @@ export function SettleDebtsModal({
                 </div>
 
                 <div className="space-y-4 sm:space-y-6">
-                  {/* Show user's stored Stellar address */}
-                  {userStellarAddress ? (
-                    <div className="text-sm text-white/70">
-                      Using address: {userStellarAddress.slice(0, 25)}...
+                  {/* Show user's stored Aptos address */}
+                  {aptosWallets.length === 0 ? (
+                    <div className="text-sm text-red-400">
+                      Please add your Aptos wallet address in settings first.
                     </div>
                   ) : (
-                    <div className="text-sm text-red-400">
-                      Please add your Stellar wallet address in settings first.
+                    <div className="flex flex-col gap-2">
+                      <div className="text-sm text-white/70">Select Aptos Wallet:</div>
+                      <select
+                        className="rounded-md px-2 py-1 bg-black border border-white/10 text-white"
+                        value={selectedWalletAddress || ""}
+                        onChange={e => setSelectedWalletAddress(e.target.value)}
+                      >
+                        <option value="" disabled>
+                          Select wallet
+                        </option>
+                        {aptosWallets.map((w) => (
+                          <option key={w.address} value={w.address}>
+                            {w.address.slice(0, 12)}...{w.address.slice(-6)}
+                          </option>
+                        ))}
+                      </select>
                     </div>
                   )}
 
@@ -412,30 +314,11 @@ export function SettleDebtsModal({
                     </div>
 
                     <div className="relative mb-3 sm:mb-4">
-                      <button className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
-                        <span className="text-base sm:text-lg">
-                          {selectedToken?.symbol || "Token"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-white/50" />
-                      </button>
+                      <ResolverSelector
+                        value={selectedToken || undefined}
+                        onChange={(option) => setSelectedToken(option || null)}
+                      />
                     </div>
-
-                    {availableChainsForToken.length > 1 && (
-                      <div className="mb-3 sm:mb-4">
-                        <label className="block text-white mb-1">Select Chain</label>
-                        <select
-                          value={selectedChain || ''}
-                          onChange={e => setSelectedChain(e.target.value)}
-                          className="w-full rounded px-3 py-2 bg-black border border-white/10 text-white"
-                        >
-                          {availableChainsForToken.map(chain => (
-                            <option key={chain} value={chain}>
-                              {chain.charAt(0).toUpperCase() + chain.slice(1)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
 
                     <div className="relative">
                       <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
@@ -453,13 +336,13 @@ export function SettleDebtsModal({
                   </div>
 
                   <div className="space-y-3 sm:space-y-5 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                    {friendsWithDebts
+                    {filteredFriendsWithDebts
                       .filter((friend) =>
-                        friend.balances.some((b) => b.amount > 0)
+                        friend.balances.some((b) => b.amount > 0 && (b.currency === selectedToken?.symbol || b.currency === selectedToken?.id))
                       )
                       .map((friend, index) => {
                         const positiveBalance = friend.balances.find(
-                          (b) => b.amount > 0
+                          (b) => b.amount > 0 && (b.currency === selectedToken?.symbol || b.currency === selectedToken?.id)
                         );
                         const amount = positiveBalance
                           ? positiveBalance.amount
@@ -487,7 +370,6 @@ export function SettleDebtsModal({
                                   height={48}
                                   className="h-full w-full object-cover"
                                   onError={(e) => {
-                                    // Fallback to dicebear
                                     const target = e.target as HTMLImageElement;
                                     target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
                                   }}
@@ -527,8 +409,8 @@ export function SettleDebtsModal({
                         );
                       })}
 
-                    {friendsWithDebts.filter((friend) =>
-                      friend.balances.some((b) => b.amount > 0)
+                    {filteredFriendsWithDebts.filter((friend) =>
+                      friend.balances.some((b) => b.amount > 0 && (b.currency === selectedToken?.symbol || b.currency === selectedToken?.id))
                     ).length === 0 && (
                       <div className="text-center text-white/60 py-4 text-mobile-sm sm:text-base">
                         No debts to settle
@@ -539,15 +421,12 @@ export function SettleDebtsModal({
 
                 <button
                   className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => {
-                    console.log("[SettleDebtsModal] Settle All button clicked", { isPending, remainingTotal, friendsWithDebtsLength: friendsWithDebts.length });
-                    handleSettleAll();
-                  }}
+                  onClick={handleSettleAll}
                   disabled={
                     isPending ||
                     remainingTotal <= 0 ||
-                    friendsWithDebts.length === 0 ||
-                    !getUserWalletAddress()
+                    filteredFriendsWithDebts.length === 0 ||
+                    !selectedWalletAddress
                   }
                 >
                   {isPending ? (
@@ -568,11 +447,6 @@ export function SettleDebtsModal({
                     </>
                   )}
                 </button>
-                {selectedChain === 'aptos' && !getUserWalletAddress() && (
-                  <div className="text-sm text-red-400 mb-2 text-center">
-                    Please add your Aptos wallet address in settings first.
-                  </div>
-                )}
               </motion.div>
             )}
 
@@ -585,7 +459,7 @@ export function SettleDebtsModal({
                 <div className="flex items-center justify-between mb-4">
                   <div>
                     <div className="mb-1 text-xs sm:text-sm text-white/60">
-                      Settle Individual Debt
+                      Settle Individual Debt (Aptos)
                     </div>
                     <h2 className="text-xl sm:text-3xl font-semibold text-white">
                       {selectedUser
@@ -614,17 +488,25 @@ export function SettleDebtsModal({
                       />
                     </div>
 
-                    {availableChainsForToken.length > 1 && (
-                      <div className="mb-3 sm:mb-4">
-                        <label className="block text-white mb-1">Select Chain</label>
+                    {/* Wallet selector for individual settle */}
+                    {aptosWallets.length === 0 ? (
+                      <div className="text-sm text-red-400">
+                        Please add your Aptos wallet address in settings first.
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        <div className="text-sm text-white/70">Select Aptos Wallet:</div>
                         <select
-                          value={selectedChain || ''}
-                          onChange={e => setSelectedChain(e.target.value)}
-                          className="w-full rounded px-3 py-2 bg-black border border-white/10 text-white"
+                          className="rounded-md px-2 py-1 bg-black border border-white/10 text-white"
+                          value={selectedWalletAddress || ""}
+                          onChange={e => setSelectedWalletAddress(e.target.value)}
                         >
-                          {availableChainsForToken.map(chain => (
-                            <option key={chain} value={chain}>
-                              {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                          <option value="" disabled>
+                            Select wallet
+                          </option>
+                          {aptosWallets.map((w) => (
+                            <option key={w.address} value={w.address}>
+                              {w.address.slice(0, 12)}...{w.address.slice(-6)}
                             </option>
                           ))}
                         </select>
@@ -665,7 +547,6 @@ export function SettleDebtsModal({
                           height={56}
                           className="h-full w-full object-cover"
                           onError={(e) => {
-                            // Fallback to dicebear
                             const target = e.target as HTMLImageElement;
                             target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${selectedUser.id}`;
                           }}
@@ -694,7 +575,7 @@ export function SettleDebtsModal({
                     !selectedUser ||
                     parseFloat(individualAmount) <= 0 ||
                     !selectedToken ||
-                    !getUserWalletAddress()
+                    !selectedWalletAddress
                   }
                 >
                   {isPending ? (
@@ -715,11 +596,6 @@ export function SettleDebtsModal({
                     </>
                   )}
                 </button>
-                {selectedChain === 'aptos' && !getUserWalletAddress() && (
-                  <div className="text-sm text-red-400 mb-2">
-                    Please add your Aptos wallet address in settings first.
-                  </div>
-                )}
               </motion.div>
             )}
           </div>
@@ -727,4 +603,6 @@ export function SettleDebtsModal({
       )}
     </AnimatePresence>
   );
-}
+};
+
+export default SettleDebtsModalAptos; 

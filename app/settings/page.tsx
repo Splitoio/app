@@ -15,6 +15,7 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { easeIn, easeOut } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
@@ -370,7 +371,7 @@ export default function SettingsPage() {
       scale: 1,
       transition: {
         duration: 0.2,
-        ease: "easeOut",
+        ease: easeOut,
       },
     },
     exit: {
@@ -379,7 +380,7 @@ export default function SettingsPage() {
       scale: 0.95,
       transition: {
         duration: 0.15,
-        ease: "easeIn",
+        ease: easeIn,
       },
     },
   };
@@ -843,9 +844,13 @@ export default function SettingsPage() {
       {/* Add Wallet Modal */}
       <AddWalletModal
         isOpen={isWalletModalOpen}
-        onClose={() => setIsWalletModalOpen(false)}
-        onWalletAdded={handleWalletAdded}
+        onClose={() => {
+          setIsWalletModalOpen(false);
+          // Optionally, refetch user wallets or user profile here if needed
+          // handleWalletAdded();
+        }}
       />
+     
     </motion.div>
   );
 }

@@ -557,6 +557,7 @@ export default function GroupDetailsPage({
         balances={group.groupBalances}
         groupId={params.id}
         members={group.groupUsers.map((user) => user.user)}
+        defaultCurrency={group.defaultCurrency}
       />
 
       <AddMemberModal

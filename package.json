@@ -9,6 +9,8 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@aptos-labs/wallet-adapter-ant-design": "^5.1.0",
+    "@aptos-labs/wallet-adapter-react": "^7.0.1",
     "@creit.tech/stellar-wallets-kit": "^1.4.1",
     "@headlessui/react": "^2.2.0",
     "@radix-ui/react-label": "^2.1.2",
@@ -25,6 +27,7 @@
     "js-cookie": "^3.0.5",
     "lucide-react": "^0.469.0",
     "next": "^14.2.16",
+    "petra-plugin-wallet-adapter": "^0.4.5",
     "react": "^18",
     "react-dom": "^18",
     "sonner": "^2.0.1",
