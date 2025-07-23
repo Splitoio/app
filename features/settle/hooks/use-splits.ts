@@ -6,12 +6,50 @@ import { toast } from "sonner";
 
 export const useSettleDebt = (groupId: string) => {
   const queryClient = useQueryClient();
-  const { wallet } = useWallet();
+  const { wallet, walletType, isConnected, address, aptosWallet } = useWallet();
+
+  console.log('[useSettleDebt] Wallet state:', {
+    hasWallet: !!wallet,
+    walletType,
+    isConnected,
+    address,
+    walletKeys: wallet ? Object.keys(wallet) : 'no wallet',
+    aptosWallet: {
+      connected: aptosWallet?.connected,
+      hasAccount: !!aptosWallet?.account,
+      address: aptosWallet?.account?.address
+    }
+  });
 
   return useMutation({
     mutationFn: (payload: Parameters<typeof settleDebt>[0]) => {
-      // Only require wallet for signing, not for creating
-      return settleDebt(payload, wallet || undefined);
+      console.log('[useSettleDebt] About to call settleDebt with:', {
+        payload,
+        walletProvided: !!wallet,
+        walletType: typeof wallet,
+        wallet: wallet ? {
+          hasAccount: 'account' in wallet,
+          hasConnected: 'connected' in wallet,
+          hasSignTransaction: 'signTransaction' in wallet
+        } : 'no wallet',
+        aptosWalletFallback: {
+          connected: aptosWallet?.connected,
+          hasAccount: !!aptosWallet?.account,
+          address: aptosWallet?.account?.address
+        }
+      });
+      
+      // Use aptosWallet as fallback if main wallet is not available but we're on Aptos
+      const walletToUse = wallet || (payload.selectedChainId === 'aptos' && aptosWallet?.connected ? {
+        account: aptosWallet.account,
+        connected: aptosWallet.connected,
+        signTransaction: aptosWallet.signTransaction,
+        submitTransaction: aptosWallet.submitTransaction,
+      } : undefined);
+      
+      console.log('[useSettleDebt] Using wallet:', !!walletToUse);
+      
+      return settleDebt(payload, walletToUse);
     },
     onSuccess: (data) => {
       // Add a small delay to ensure backend processing is complete
