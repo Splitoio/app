@@ -19,6 +19,7 @@ import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currenci
 import { useAuthStore } from "@/stores/authStore";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
+import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
 
 // Define a type for friend data coming from the API
 interface FriendWithBalances {
@@ -57,6 +58,7 @@ export function SettleDebtsModal({
     isConnecting,
     connectWallet,
     wallet,
+    aptosWallet,
   } = useWallet();
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -108,12 +110,12 @@ export function SettleDebtsModal({
   // Set the selected user based on selectedFriendId prop
   useEffect(() => {
     if (selectedFriendId && friends) {
-      const friend = friends.find((friend) => friend.id === selectedFriendId);
+      const friend = friends.find((friend: any) => friend.id === selectedFriendId);
       if (friend) {
         setSelectedUser(friend as unknown as User);
 
         // Calculate amount owed to this specific friend
-        const positiveBalance = friend.balances.find((b) => b.amount > 0);
+        const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
         if (positiveBalance) {
           setIndividualAmount(positiveBalance.amount.toFixed(2));
         } else {
@@ -230,7 +232,7 @@ export function SettleDebtsModal({
     if (!friends) return 0;
 
     const includedFriends = friends.filter(
-      (friend) => !excludedFriendIds.includes(friend.id)
+      (friend: any) => !excludedFriendIds.includes(friend.id)
     );
     return calculateTotalDebts(includedFriends as FriendWithBalances[]);
   };
@@ -248,8 +250,8 @@ export function SettleDebtsModal({
 
   // Get friends with debts for showing in the modal
   const friendsWithDebts =
-    friends?.filter((friend) =>
-      friend.balances.some((balance) => balance.amount > 0)
+    friends?.filter((friend: any) =>
+      friend.balances.some((balance: any) => balance.amount > 0)
     ) || [];
 
   // Helper to get the correct wallet address based on selected chain
@@ -262,6 +264,16 @@ export function SettleDebtsModal({
     }
     // Add more chains as needed
     return null;
+  };
+
+  // Helper to check if wallet is connected for the selected chain
+  const isWalletConnectedForChain = () => {
+    if (selectedChain === 'aptos') {
+      return aptosWallet.connected && aptosWallet.account?.address;
+    } else if (selectedChain === 'stellar') {
+      return wallet && userStellarAddress;
+    }
+    return false;
   };
 
   const handleSettleOne = async (settleWith: User) => {
@@ -300,6 +312,7 @@ export function SettleDebtsModal({
         onClose();
       },
       onError: (err) => {
+        console.error("[SettleDebtsModal] Error settling debt:", err);
         toast.error("Failed to settle debt", {
           description: "Please try again or check your wallet connection.",
         });
@@ -454,12 +467,12 @@ export function SettleDebtsModal({
 
                   <div className="space-y-3 sm:space-y-5 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
                     {friendsWithDebts
-                      .filter((friend) =>
-                        friend.balances.some((b) => b.amount > 0)
+                      .filter((friend: any) =>
+                        friend.balances.some((b: any) => b.amount > 0)
                       )
-                      .map((friend, index) => {
+                      .map((friend: any, index: number) => {
                         const positiveBalance = friend.balances.find(
-                          (b) => b.amount > 0
+                          (b: any) => b.amount > 0
                         );
                         const amount = positiveBalance
                           ? positiveBalance.amount
@@ -527,8 +540,8 @@ export function SettleDebtsModal({
                         );
                       })}
 
-                    {friendsWithDebts.filter((friend) =>
-                      friend.balances.some((b) => b.amount > 0)
+                    {friendsWithDebts.filter((friend: any) =>
+                      friend.balances.some((b: any) => b.amount > 0)
                     ).length === 0 && (
                       <div className="text-center text-white/60 py-4 text-mobile-sm sm:text-base">
                         No debts to settle
@@ -536,6 +549,16 @@ export function SettleDebtsModal({
                     )}
                   </div>
                 </div>
+
+                {/* Show wallet connection component for Aptos if not connected */}
+                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
+                  <div className="mb-6">
+                    <div className="text-base sm:text-lg font-medium text-white mb-3">
+                      Connect Your Aptos Wallet
+                    </div>
+                    <ShadcnWalletSelector />
+                  </div>
+                )}
 
                 <button
                   className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -547,7 +570,7 @@ export function SettleDebtsModal({
                     isPending ||
                     remainingTotal <= 0 ||
                     friendsWithDebts.length === 0 ||
-                    !getUserWalletAddress()
+                    !isWalletConnectedForChain()
                   }
                 >
                   {isPending ? (
@@ -568,9 +591,16 @@ export function SettleDebtsModal({
                     </>
                   )}
                 </button>
-                {selectedChain === 'aptos' && !getUserWalletAddress() && (
-                  <div className="text-sm text-red-400 mb-2 text-center">
-                    Please add your Aptos wallet address in settings first.
+                
+                {/* Show appropriate wallet connection message */}
+                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
+                  <div className="text-sm text-amber-400 mt-2 text-center">
+                    Please connect your Aptos wallet to continue
+                  </div>
+                )}
+                {selectedChain === 'stellar' && !getUserWalletAddress() && (
+                  <div className="text-sm text-red-400 mt-2 text-center">
+                    Please add your Stellar wallet address in settings first.
                   </div>
                 )}
               </motion.div>
@@ -686,6 +716,16 @@ export function SettleDebtsModal({
                   )}
                 </div>
 
+                {/* Show wallet connection component for Aptos if not connected */}
+                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
+                  <div className="mb-6">
+                    <div className="text-base sm:text-lg font-medium text-white mb-3">
+                      Connect Your Aptos Wallet
+                    </div>
+                    <ShadcnWalletSelector />
+                  </div>
+                )}
+
                 <button
                   className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => selectedUser && handleSettleOne(selectedUser)}
@@ -694,7 +734,7 @@ export function SettleDebtsModal({
                     !selectedUser ||
                     parseFloat(individualAmount) <= 0 ||
                     !selectedToken ||
-                    !getUserWalletAddress()
+                    !isWalletConnectedForChain()
                   }
                 >
                   {isPending ? (
@@ -715,9 +755,16 @@ export function SettleDebtsModal({
                     </>
                   )}
                 </button>
-                {selectedChain === 'aptos' && !getUserWalletAddress() && (
-                  <div className="text-sm text-red-400 mb-2">
-                    Please add your Aptos wallet address in settings first.
+                
+                {/* Show appropriate wallet connection message */}
+                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
+                  <div className="text-sm text-amber-400 mt-2 text-center">
+                    Please connect your Aptos wallet to continue
+                  </div>
+                )}
+                {selectedChain === 'stellar' && !getUserWalletAddress() && (
+                  <div className="text-sm text-red-400 mt-2 text-center">
+                    Please add your Stellar wallet address in settings first.
                   </div>
                 )}
               </motion.div>

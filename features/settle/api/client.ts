@@ -7,8 +7,6 @@ import {
   Aptos,
   AptosConfig,
   Network,
-  Account,
-  U64,
   RawTransaction,
   Deserializer,
 } from "@aptos-labs/ts-sdk";
@@ -245,23 +243,39 @@ const settleDebtAptos = async (
   }
   console.log("[settleDebtAptos] Wallet transaction signing capability confirmed");
 
-  // Initialize Aptos client
-  console.log("[settleDebtAptos] Initializing Aptos client...");
-  const aptosConfig = new AptosConfig({ 
-    network: Network.TESTNET // Use testnet by default, can be made configurable
-  });
-  const aptos = new Aptos(aptosConfig);
-  console.log("[settleDebtAptos] Aptos client initialized for network:", Network.TESTNET);
-
   try {
     // Parse the serialized transaction
     console.log("[settleDebtAptos] Parsing serialized transaction...");
     let transaction;
     try {
-      console.log("[settleDebtAptos] Converting base64 to Uint8Array...");
-      // Convert base64 string to Uint8Array before deserialization
-      const serializedTxBytes = Uint8Array.from(atob(unsignedTx.serializedTx), c => c.charCodeAt(0));
+      console.log("[settleDebtAptos] Converting hex string to Uint8Array...");
+      
+      // Validate hex string format
+      if (!unsignedTx.serializedTx || typeof unsignedTx.serializedTx !== 'string') {
+        throw new Error("Invalid serialized transaction: not a string");
+      }
+      
+      // Remove any 0x prefix if present
+      const cleanHex = unsignedTx.serializedTx.replace(/^0x/, '');
+      
+      // Validate hex string (even length, valid hex characters)
+      if (cleanHex.length % 2 !== 0) {
+        throw new Error("Invalid hex string: odd length");
+      }
+      
+      if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
+        throw new Error("Invalid hex string: contains non-hex characters");
+      }
+      
+      // Convert hex string to Uint8Array
+      const serializedTxBytes = new Uint8Array(
+        cleanHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+      );
       console.log("[settleDebtAptos] Serialized transaction bytes length:", serializedTxBytes.length);
+      
+      if (serializedTxBytes.length === 0) {
+        throw new Error("Empty transaction bytes after hex conversion");
+      }
       
       console.log("[settleDebtAptos] Creating deserializer...");
       const deserializer = new Deserializer(serializedTxBytes);
@@ -278,10 +292,23 @@ const settleDebtAptos = async (
     } catch (parseError) {
       console.error("[settleDebtAptos] Failed to parse serialized transaction:", {
         error: parseError,
+        errorMessage: parseError instanceof Error ? parseError.message : 'Unknown parse error',
         serializedTx: unsignedTx.serializedTx,
         serializedTxType: typeof unsignedTx.serializedTx,
-        serializedTxLength: unsignedTx.serializedTx?.length
+        serializedTxLength: unsignedTx.serializedTx?.length,
+        isValidHex: /^(0x)?[0-9a-fA-F]*$/.test(unsignedTx.serializedTx || ''),
+        hasEvenLength: (unsignedTx.serializedTx?.replace(/^0x/, '')?.length || 0) % 2 === 0
       });
+      
+      // Provide more specific error message based on the parse error
+      if (parseError instanceof Error) {
+        if (parseError.message.includes("hex")) {
+          throw new Error("Invalid transaction format: malformed hex string received from server.");
+        } else if (parseError.message.includes("deserialize") || parseError.message.includes("Deserializer")) {
+          throw new Error("Invalid transaction format: failed to deserialize transaction data.");
+        }
+      }
+      
       throw new Error("Invalid transaction format received from server.");
     }
 
@@ -293,8 +320,10 @@ const settleDebtAptos = async (
       transactionStructure: transaction ? Object.keys(transaction) : 'null'
     });
 
+    console.log("\n=== 3. Signing transaction ===\n");
     console.log("[settleDebtAptos] Calling wallet.signTransaction...");
-    // Sign the transaction using the wallet
+    
+    // Sign the transaction using the wallet (similar to Stellar flow)
     const signedTransaction = await wallet.signTransaction({
       transactionOrPayload: transaction
     });
@@ -304,6 +333,7 @@ const settleDebtAptos = async (
       signedTransaction
     });
 
+    console.log("\n=== 4. Submitting signed transaction to backend ===\n");
     const submitPayload = {
       signedTx: signedTransaction,
       groupId: payload.groupId,
@@ -311,7 +341,7 @@ const settleDebtAptos = async (
       settleWithId: payload.settleWithId,
     };
 
-    // Submit the signed transaction to our backend
+    // Submit the signed transaction to our backend (similar to Stellar flow)
     console.log("[settleDebtAptos] POST /groups/settle-transaction/submit", submitPayload);
 
     console.log("[settleDebtAptos] Submitting signed transaction to backend...");
@@ -322,6 +352,7 @@ const settleDebtAptos = async (
       hasData: !!submitTx.data
     });
 
+    console.log("\n=== 5. Transaction settlement completed ===\n");
     console.log("[settleDebtAptos] Aptos settlement completed successfully");
     return submitTx.data;
 

@@ -26,10 +26,8 @@ import {
 //   ChainResponse as ChainResponseType,
 // } from "@/features/wallets/api/client";
 import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react";
-import { WalletSelector } from "@aptos-labs/wallet-adapter-ant-design";
-import "@aptos-labs/wallet-adapter-ant-design/dist/index.css";
-import { log } from "console";
-
+import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
+import { AccountAddress } from "@aptos-labs/ts-sdk";
 // Define wallet interface
 interface Wallet {
   id: string;
@@ -158,7 +156,18 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
         toast.error("Invalid Solana address format.");
         return;
       }
+    } else if (selectedChain.id === "aptos") {
+    try {
+      const parsed = AccountAddress.fromString(walletAddress);
+      // Optional strict check (only 64 hex chars)
+      if (!/^0x[a-fA-F0-9]{64}$/.test(parsed.toString())) {
+        throw new Error("Not 64 hex chars");
+      }
+    } catch (err) {
+      toast.error("Invalid Aptos address. Must be a valid 0x-prefixed 64-character hex string.");
+      return;
     }
+  }
 
     // Make sure we're using the exact chainId as expected by the backend
     // Use "xlm" when the selected chain is "stellar"
@@ -287,30 +296,28 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
     }
   };
 
-  // Handler for Aptos wallet connect using Wallet Adapter SDK
-  const handleAptosWalletConnect = async () => {
+  const handleAptosWalletConnectMutate = async (address: string) => {
+    console.log("Aptos handleAptosWalletConnectMutate called");
     try {
-      if (!connect) return;
-      if (!wallets || wallets.length === 0) {
-        toast.error("No Aptos wallets available to connect.");
+      if (!address) {
+        toast.error("Please connect your Aptos wallet first.");
         return;
       }
-      const walletName = wallets[0].name;
-      if (!walletName) {
-        toast.error("Could not determine Aptos wallet name.");
+
+      // Check if the wallet is already connected
+      const existingWallet = userWallets.find(
+        (wallet) => wallet.chainId === "aptos" && wallet.address === address
+      );
+
+      if (existingWallet) {
+        toast.error("Aptos wallet is already connected.");
         return;
       }
-      await connect(walletName);
-      if (!account?.address) {
-        toast.error("No Aptos wallet connected.");
-        return;
-      }
-      setAptosAddress(account.address.toString());
       addWalletMutation(
         {
           chainId: "aptos",
-          address: account.address.toString(),
-          isPrimary: true,
+          address: address,
+          isPrimary: false,
         },
         {
           onSuccess: () => {
@@ -324,7 +331,54 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
       console.error("Aptos Wallet Connect Error:", error);
       toast.error("Failed to connect Aptos wallet.");
     }
-  };
+
+    
+    
+
+  }
+
+  // Handler for Aptos wallet connect using Wallet Adapter SDK
+  // const handleAptosWalletConnect = async () => {
+  //   console.log("Aptos handleAptosWalletConnect called 111111111111111111111111");
+  //   try {
+  //     console.log("Aptos handleAptosWalletConnect called 222222222222222222222222");
+  //     if (isConnectingWallet) return;
+  //     setIsConnectingWallet(true);
+  //     if (!connect) return;
+  //     if (!wallets || wallets.length === 0) {
+  //       toast.error("No Aptos wallets available to connect.");
+  //       return;
+  //     }
+  //     const walletName = wallets[0].name;
+  //     if (!walletName) {
+  //       toast.error("Could not determine Aptos wallet name.");
+  //       return;
+  //     }
+  //     await connect(walletName);
+  //     if (!account?.address) {
+  //       toast.error("No Aptos wallet connected.");
+  //       return;
+  //     }
+  //     setAptosAddress(account.address.toString());
+  //     addWalletMutation(
+  //       {
+  //         chainId: "aptos",
+  //         address: account.address.toString(),
+  //         isPrimary: true,
+  //       },
+  //       {
+  //         onSuccess: () => {
+  //           toast.success("Aptos wallet connected successfully!");
+  //           setAptosAddress("");
+  //           onClose();
+  //         },
+  //       }
+  //     );
+  //   } catch (error) {
+  //     console.error("Aptos Wallet Connect Error:", error);
+  //     toast.error("Failed to connect Aptos wallet.");
+  //   }
+  // };
 
   const { account, connected, connect, wallets } = useWallet();
 
@@ -333,6 +387,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
     if (connected && account?.address) {
       setAptosAddress(account.address.toString());
       console.log("Aptos address set:", account.address.toString());
+      // handleAptosWalletConnectMutate(account.address.toString());
     } else {
       setAptosAddress("");
       console.log("Aptos address cleared");
@@ -511,17 +566,19 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                   )}
                   {selectedChain?.id === "aptos" && (
                     <div className="w-full flex flex-col items-center mt-2">
-                      
-                        <WalletSelector />
-    
+                      <ShadcnWalletSelector />
                       {connected && account?.address && (
                         <>
                           <div className="text-xs text-white/60 mt-1">
                             Connected Aptos address: {aptosAddress || (account.address.toString ? account.address.toString() : String(account.address))}
                           </div>
                           <button
-                            className="mt-3 w-full bg-blue-600 text-white rounded-full py-2 font-semibold hover:bg-blue-700 transition"
-                            onClick={handleAptosWalletConnect}
+                            className="text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 border-white/40 hover:bg-white/10"
+                            onClick={()=>{//handleAptosWalletConnect() //added mutate functin as this one was giving error of connected address saying already connected might be right can change on further debugging
+                              console.log("Aptos handleAptosWalletConnectMutate called");
+                              handleAptosWalletConnectMutate(aptosAddress || (account.address.toString ? account.address.toString() : String(account.address)))
+
+                            }}
                           >
                             {userWallets.some(w => w.chainId === "aptos" && w.address === (account.address.toString ? account.address.toString() : String(account.address))) ? 'Update Wallet' : 'Save Wallet'}
                           </button>
