@@ -4,9 +4,13 @@ import {
   WalletNetwork,
 } from "@creit.tech/stellar-wallets-kit";
 import {
-  RawTransaction,
+  Account,
+  Aptos,
+  AptosConfig,
+  Network,
+  RawTransaction
 } from "@aptos-labs/ts-sdk";
-const APTOS_COIN = "0x1::aptos_coin::AptosCoin";
+
 type UnsignedTxResponse = {
   serializedTx: string;
   txHash: string;
@@ -14,7 +18,10 @@ type UnsignedTxResponse = {
   tokenSymbol?: string;
   chainName?: string;
   rawtx: RawTransaction;
+  address: string;
 };
+const config = new AptosConfig({ network: Network.TESTNET });
+const aptos = new Aptos(config);
 
 // Type for Stellar wallet
 type StellarWallet = StellarWalletsKit;
@@ -40,23 +47,23 @@ const isStellarWallet = (wallet: WalletType): wallet is StellarWallet => {
     walletConstructorName: wallet && wallet.constructor ? wallet.constructor.name : 'unknown',
     walletPrototype: wallet && Object.getPrototypeOf(wallet)?.constructor?.name
   });
-  
+
   // Check if it's a Stellar wallet by looking for StellarWalletsKit specific properties
   const hasSignTransaction = wallet && typeof (wallet as StellarWallet).signTransaction === 'function';
   const doesNotHaveConnectedProperty = !(wallet as AptosWalletContextType).connected;
-  const isStellarKit = wallet && wallet.constructor && 
-    (wallet.constructor.name === 'StellarWalletsKit' || 
-     Object.getPrototypeOf(wallet)?.constructor?.name === 'StellarWalletsKit');
-  
+  const isStellarKit = wallet && wallet.constructor &&
+    (wallet.constructor.name === 'StellarWalletsKit' ||
+      Object.getPrototypeOf(wallet)?.constructor?.name === 'StellarWalletsKit');
+
   const isStellar = wallet && hasSignTransaction && (doesNotHaveConnectedProperty || isStellarKit);
-  
+
   console.log("[isStellarWallet] Analysis:", {
     hasSignTransaction,
     doesNotHaveConnectedProperty,
     isStellarKit,
     result: isStellar
   });
-  
+
   return isStellar;
 };
 
@@ -70,21 +77,21 @@ const isAptosWallet = (wallet: WalletType): wallet is AptosWalletContextType => 
     hasAccount: wallet && 'account' in wallet,
     hasSignTransaction: wallet && 'signTransaction' in wallet
   });
-  
+
   // Check if it has the connected property as boolean (Aptos wallet pattern)
   const hasConnectedBoolean = wallet && typeof (wallet as AptosWalletContextType).connected === 'boolean';
   const hasAccount = wallet && 'account' in wallet;
   const hasSignTransaction = wallet && 'signTransaction' in wallet;
-  
+
   const isAptos = wallet && hasConnectedBoolean && (hasAccount || hasSignTransaction);
-  
+
   console.log("[isAptosWallet] Analysis:", {
     hasConnectedBoolean,
     hasAccount,
     hasSignTransaction,
     result: isAptos
   });
-  
+
   return isAptos;
 };
 
@@ -115,13 +122,13 @@ const settleDebtStellar = async (
   // Now we need the wallet to sign the transaction
   // Determine the correct network passphrase based on the wallet's configuration
   let networkPassphrase = WalletNetwork.TESTNET;
-  
+
   console.log("[settleDebtStellar] Determining network configuration...");
   try {
     // Try to get the wallet's current network configuration
     const walletConfig = (wallet as any).config;
     console.log("[settleDebtStellar] Wallet config:", walletConfig);
-    
+
     if (walletConfig && walletConfig.network) {
       networkPassphrase = walletConfig.network;
       console.log("[settleDebtStellar] Using wallet network:", networkPassphrase);
@@ -219,10 +226,10 @@ const settleDebtAptos = async (
   });
 
   // Get address from account (handle different types)
-  const walletAddress = typeof wallet.account.address === 'string' 
-    ? wallet.account.address 
+  const walletAddress = typeof wallet.account.address === 'string'
+    ? wallet.account.address
     : wallet.account.address?.toString();
-    
+
   console.log("[settleDebtAptos] Extracted wallet address:", {
     address: walletAddress,
     addressType: typeof walletAddress,
@@ -243,8 +250,8 @@ const settleDebtAptos = async (
   try {
     // Parse the serialized transaction
     console.log("[settleDebtAptos] Parsing serialized transaction...");
-    let transaction= unsignedTx.serializedTx;
-    
+    let transaction = unsignedTx.serializedTx;
+
     // const transaction = await aptos.transaction.build.simple({
     //   sender: sourceAddress,
     //   data: {
@@ -260,47 +267,47 @@ const settleDebtAptos = async (
 
 
     // try {
-      // console.log("[settleDebtAptos] Converting hex string to Uint8Array...");
-      
-      // Validate hex string format
-      // if (!unsignedTx.serializedTx || typeof unsignedTx.serializedTx !== 'string') {
-      //   throw new Error("Invalid serialized transaction: not a string");
-      // }
-      
-      // Remove any 0x prefix if present
-      // const cleanHex = unsignedTx.serializedTx.replace(/^0x/, '');
-      
-      // Validate hex string (even length, valid hex characters)
-      // if (cleanHex.length % 2 !== 0) {
-      //   throw new Error("Invalid hex string: odd length");
-      // }
-      
-      // if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
-      //   throw new Error("Invalid hex string: contains non-hex characters");
-      // }
-      
-      // // Convert hex string to Uint8Array
-      // const serializedTxBytes = new Uint8Array(
-      //   cleanHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-      // );
-      // console.log("[settleDebtAptos] Serialized transaction bytes length:", serializedTxBytes.length);
-      
-      // if (serializedTxBytes.length === 0) {
-      //   throw new Error("Empty transaction bytes after hex conversion");
-      // }
-      
-      // console.log("[settleDebtAptos] Creating deserializer...");
-      // const deserializer = new Deserializer(serializedTxBytes);
-      
-      // console.log("[settleDebtAptos] Deserializing raw transaction...");
-      // const deserializedTxn = RawTransaction.deserialize(deserializer);
-      // transaction = deserializedTxn;
-      // console.log("[settleDebtAptos] Transaction deserialized successfully:", {
-      //   transactionType: typeof transaction,
-      //   hasSequenceNumber: transaction && 'sequence_number' in transaction,
-      //   hasSender: transaction && 'sender' in transaction,
-      //   transaction
-      // });
+    // console.log("[settleDebtAptos] Converting hex string to Uint8Array...");
+
+    // Validate hex string format
+    // if (!unsignedTx.serializedTx || typeof unsignedTx.serializedTx !== 'string') {
+    //   throw new Error("Invalid serialized transaction: not a string");
+    // }
+
+    // Remove any 0x prefix if present
+    // const cleanHex = unsignedTx.serializedTx.replace(/^0x/, '');
+
+    // Validate hex string (even length, valid hex characters)
+    // if (cleanHex.length % 2 !== 0) {
+    //   throw new Error("Invalid hex string: odd length");
+    // }
+
+    // if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
+    //   throw new Error("Invalid hex string: contains non-hex characters");
+    // }
+
+    // // Convert hex string to Uint8Array
+    // const serializedTxBytes = new Uint8Array(
+    //   cleanHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+    // );
+    // console.log("[settleDebtAptos] Serialized transaction bytes length:", serializedTxBytes.length);
+
+    // if (serializedTxBytes.length === 0) {
+    //   throw new Error("Empty transaction bytes after hex conversion");
+    // }
+
+    // console.log("[settleDebtAptos] Creating deserializer...");
+    // const deserializer = new Deserializer(serializedTxBytes);
+
+    // console.log("[settleDebtAptos] Deserializing raw transaction...");
+    // const deserializedTxn = RawTransaction.deserialize(deserializer);
+    // transaction = deserializedTxn;
+    // console.log("[settleDebtAptos] Transaction deserialized successfully:", {
+    //   transactionType: typeof transaction,
+    //   hasSequenceNumber: transaction && 'sequence_number' in transaction,
+    //   hasSender: transaction && 'sender' in transaction,
+    //   transaction
+    // });
     // } catch (parseError) {
     //   console.error("[settleDebtAptos] Failed to parse serialized transaction:", {
     //     error: parseError,
@@ -311,7 +318,7 @@ const settleDebtAptos = async (
     //     isValidHex: /^(0x)?[0-9a-fA-F]*$/.test(unsignedTx.serializedTx || ''),
     //     hasEvenLength: (unsignedTx.serializedTx?.replace(/^0x/, '')?.length || 0) % 2 === 0
     //   });
-      
+
     //   // Provide more specific error message based on the parse error
     //   if (parseError instanceof Error) {
     //     if (parseError.message.includes("hex")) {
@@ -320,29 +327,64 @@ const settleDebtAptos = async (
     //       throw new Error("Invalid transaction format: failed to deserialize transaction data.");
     //     }
     //   }
-      
+
     //   throw new Error("Invalid transaction format received from server.");
     // }
 
     // Log what is being sent to signTransaction
-
+    // const payload1: InputTransactionData = {
+    //     data: {
+    //       function: "0x1::coin::transfer",
+    //       typeArguments: [APTOS_COIN],
+    //       functionArguments: [unsignedTx.address, 1],
+    //     },
+    //   };
+    
+    
+    
+    const payload1 = await aptos.transaction.build.simple({
+      sender: unsignedTx.address,
+      data: {
+        function: "0x1::coin::transfer",
+        typeArguments: ["0x1::aptos_coin::AptosCoin"],
+        functionArguments: [
+          unsignedTx.address, // recipient address
+          1, // amount in octas
+        ],
+      },
+    });
 
 
     console.log("[settleDebtAptos] About to call wallet.signTransaction with:", {
-      transaction,
-      type: typeof transaction,
+      payload: payload1,
+      type: typeof payload1,
       walletAddress: walletAddress,
       transactionStructure: transaction ? Object.keys(transaction) : 'null'
     });
 
-    console.log("\n=== 3. Signing transaction ===\n");
-    console.log("[settleDebtAptos] Calling wallet.signTransaction...",wallet.signTransaction);
+    console.log("\n=== Signing transaction ===\n");
+    console.log("[settleDebtAptos] Calling wallet.signTransaction...", wallet.signTransaction);
 
-    
+
     // Sign the transaction using the wallet (similar to Stellar flow)
+    // const  = await wallet.signTransaction({
+    //   transactionOrPayload: transaction,
+    // });
+
+
     const signedTransaction = await wallet.signTransaction({
-      transactionOrPayload: transaction,
+      transactionOrPayload: payload1,
+      pluginParams: {
+        customParam: "customValue",
+      },
+
     });
+    
+    console.log("[settleDebtAptos] Signed transaction:", {
+      signedTransactionType: typeof signedTransaction,
+      signedTransaction
+    });
+
     console.log("[settleDebtAptos] Transaction signed successfully:", {
       signedTransactionType: typeof signedTransaction,
       hasSignature: signedTransaction && 'signature' in signedTransaction,
@@ -380,7 +422,7 @@ const settleDebtAptos = async (
       payload,
       walletAddress
     });
-    
+
     if (error instanceof Error) {
       // Handle specific wallet errors
       if (error.message.includes("User rejected")) {
@@ -394,7 +436,7 @@ const settleDebtAptos = async (
         throw new Error("Network error. Please check your connection and try again.");
       }
     }
-    
+
     throw error;
   }
 };
@@ -425,7 +467,7 @@ export const settleDebt = async (
   });
 
   console.log("[settleDebt] POST /groups/settle-transaction/create", payload);
-  
+
   console.log("[settleDebt] Creating unsigned transaction...");
   // Create the transaction - no wallet needed here, just the user's address
   const unsignedTx: UnsignedTxResponse = await apiClient.post(
@@ -449,7 +491,7 @@ export const settleDebt = async (
     walletConstructor: wallet && (wallet as any).constructor ? (wallet as any).constructor.name : 'unknown',
     walletStringified: wallet ? JSON.stringify(wallet, null, 2) : 'null'
   });
-  
+
   if (!wallet) {
     console.error("[settleDebt] No wallet provided - this might be because:");
     console.error("1. Stellar wallet is not connected via useWallet() hook");
@@ -462,22 +504,22 @@ export const settleDebt = async (
   // Determine wallet type and route to appropriate handler
   console.log("[settleDebt] Checking if wallet is Stellar...");
   const stellarCheck = isStellarWallet(wallet);
-  
+
   if (stellarCheck) {
     console.log("[settleDebt] ✓ Using Stellar wallet - routing to settleDebtStellar");
     return settleDebtStellar(payload, unsignedTx, wallet);
-  } 
-  
+  }
+
   console.log("[settleDebt] Checking if wallet is Aptos...");
   const aptosCheck = isAptosWallet(wallet);
-  
+
   if (aptosCheck) {
     console.log("[settleDebt] ✓ Using Aptos wallet - routing to settleDebtAptos");
 
     console.log("[settleDebt] Calling settleDebtAptos with unsignedTx as ghghgfhhf", unsignedTx);
     return settleDebtAptos(payload, unsignedTx, wallet);
-  } 
-  
+  }
+
   console.error("[settleDebt] Unsupported wallet type detected:", {
     wallet,
     walletType: typeof wallet,
@@ -487,7 +529,7 @@ export const settleDebt = async (
     aptosCheck,
     walletStringified: JSON.stringify(wallet, null, 2)
   });
-  
+
   // Try to give more specific error message based on wallet structure
   if (wallet && typeof wallet === 'object') {
     const walletObj = wallet as any;
@@ -499,6 +541,6 @@ export const settleDebt = async (
       throw new Error("Detected what appears to be an Aptos wallet, but wallet type detection failed. Please check wallet connection.");
     }
   }
-  
+
   throw new Error("Unsupported wallet type. Please connect a Stellar or Aptos wallet.");
 };
