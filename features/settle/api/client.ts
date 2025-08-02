@@ -4,19 +4,16 @@ import {
   WalletNetwork,
 } from "@creit.tech/stellar-wallets-kit";
 import {
-  Aptos,
-  AptosConfig,
-  Network,
   RawTransaction,
-  Deserializer,
 } from "@aptos-labs/ts-sdk";
-
+const APTOS_COIN = "0x1::aptos_coin::AptosCoin";
 type UnsignedTxResponse = {
   serializedTx: string;
   txHash: string;
   settlementId: string;
   tokenSymbol?: string;
   chainName?: string;
+  rawtx: RawTransaction;
 };
 
 // Type for Stellar wallet
@@ -246,73 +243,91 @@ const settleDebtAptos = async (
   try {
     // Parse the serialized transaction
     console.log("[settleDebtAptos] Parsing serialized transaction...");
-    let transaction;
-    try {
-      console.log("[settleDebtAptos] Converting hex string to Uint8Array...");
+    let transaction= unsignedTx.serializedTx;
+    
+    // const transaction = await aptos.transaction.build.simple({
+    //   sender: sourceAddress,
+    //   data: {
+    //     function: "0x1::coin::transfer",
+    //     typeArguments: ["0x1::aptos_coin::AptosCoin"],
+    //     functionArguments: [
+    //       tx.address, // recipient address
+    //       amountInOctas, // amount in octas
+    //     ],
+    //   },
+    // });
+
+
+
+    // try {
+      // console.log("[settleDebtAptos] Converting hex string to Uint8Array...");
       
       // Validate hex string format
-      if (!unsignedTx.serializedTx || typeof unsignedTx.serializedTx !== 'string') {
-        throw new Error("Invalid serialized transaction: not a string");
-      }
+      // if (!unsignedTx.serializedTx || typeof unsignedTx.serializedTx !== 'string') {
+      //   throw new Error("Invalid serialized transaction: not a string");
+      // }
       
       // Remove any 0x prefix if present
-      const cleanHex = unsignedTx.serializedTx.replace(/^0x/, '');
+      // const cleanHex = unsignedTx.serializedTx.replace(/^0x/, '');
       
       // Validate hex string (even length, valid hex characters)
-      if (cleanHex.length % 2 !== 0) {
-        throw new Error("Invalid hex string: odd length");
-      }
+      // if (cleanHex.length % 2 !== 0) {
+      //   throw new Error("Invalid hex string: odd length");
+      // }
       
-      if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
-        throw new Error("Invalid hex string: contains non-hex characters");
-      }
+      // if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
+      //   throw new Error("Invalid hex string: contains non-hex characters");
+      // }
       
-      // Convert hex string to Uint8Array
-      const serializedTxBytes = new Uint8Array(
-        cleanHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-      );
-      console.log("[settleDebtAptos] Serialized transaction bytes length:", serializedTxBytes.length);
+      // // Convert hex string to Uint8Array
+      // const serializedTxBytes = new Uint8Array(
+      //   cleanHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+      // );
+      // console.log("[settleDebtAptos] Serialized transaction bytes length:", serializedTxBytes.length);
       
-      if (serializedTxBytes.length === 0) {
-        throw new Error("Empty transaction bytes after hex conversion");
-      }
+      // if (serializedTxBytes.length === 0) {
+      //   throw new Error("Empty transaction bytes after hex conversion");
+      // }
       
-      console.log("[settleDebtAptos] Creating deserializer...");
-      const deserializer = new Deserializer(serializedTxBytes);
+      // console.log("[settleDebtAptos] Creating deserializer...");
+      // const deserializer = new Deserializer(serializedTxBytes);
       
-      console.log("[settleDebtAptos] Deserializing raw transaction...");
-      const deserializedTxn = RawTransaction.deserialize(deserializer);
-      transaction = deserializedTxn;
-      console.log("[settleDebtAptos] Transaction deserialized successfully:", {
-        transactionType: typeof transaction,
-        hasSequenceNumber: transaction && 'sequence_number' in transaction,
-        hasSender: transaction && 'sender' in transaction,
-        transaction
-      });
-    } catch (parseError) {
-      console.error("[settleDebtAptos] Failed to parse serialized transaction:", {
-        error: parseError,
-        errorMessage: parseError instanceof Error ? parseError.message : 'Unknown parse error',
-        serializedTx: unsignedTx.serializedTx,
-        serializedTxType: typeof unsignedTx.serializedTx,
-        serializedTxLength: unsignedTx.serializedTx?.length,
-        isValidHex: /^(0x)?[0-9a-fA-F]*$/.test(unsignedTx.serializedTx || ''),
-        hasEvenLength: (unsignedTx.serializedTx?.replace(/^0x/, '')?.length || 0) % 2 === 0
-      });
+      // console.log("[settleDebtAptos] Deserializing raw transaction...");
+      // const deserializedTxn = RawTransaction.deserialize(deserializer);
+      // transaction = deserializedTxn;
+      // console.log("[settleDebtAptos] Transaction deserialized successfully:", {
+      //   transactionType: typeof transaction,
+      //   hasSequenceNumber: transaction && 'sequence_number' in transaction,
+      //   hasSender: transaction && 'sender' in transaction,
+      //   transaction
+      // });
+    // } catch (parseError) {
+    //   console.error("[settleDebtAptos] Failed to parse serialized transaction:", {
+    //     error: parseError,
+    //     errorMessage: parseError instanceof Error ? parseError.message : 'Unknown parse error',
+    //     serializedTx: unsignedTx.serializedTx,
+    //     serializedTxType: typeof unsignedTx.serializedTx,
+    //     serializedTxLength: unsignedTx.serializedTx?.length,
+    //     isValidHex: /^(0x)?[0-9a-fA-F]*$/.test(unsignedTx.serializedTx || ''),
+    //     hasEvenLength: (unsignedTx.serializedTx?.replace(/^0x/, '')?.length || 0) % 2 === 0
+    //   });
       
-      // Provide more specific error message based on the parse error
-      if (parseError instanceof Error) {
-        if (parseError.message.includes("hex")) {
-          throw new Error("Invalid transaction format: malformed hex string received from server.");
-        } else if (parseError.message.includes("deserialize") || parseError.message.includes("Deserializer")) {
-          throw new Error("Invalid transaction format: failed to deserialize transaction data.");
-        }
-      }
+    //   // Provide more specific error message based on the parse error
+    //   if (parseError instanceof Error) {
+    //     if (parseError.message.includes("hex")) {
+    //       throw new Error("Invalid transaction format: malformed hex string received from server.");
+    //     } else if (parseError.message.includes("deserialize") || parseError.message.includes("Deserializer")) {
+    //       throw new Error("Invalid transaction format: failed to deserialize transaction data.");
+    //     }
+    //   }
       
-      throw new Error("Invalid transaction format received from server.");
-    }
+    //   throw new Error("Invalid transaction format received from server.");
+    // }
 
     // Log what is being sent to signTransaction
+
+
+
     console.log("[settleDebtAptos] About to call wallet.signTransaction with:", {
       transaction,
       type: typeof transaction,
@@ -321,11 +336,12 @@ const settleDebtAptos = async (
     });
 
     console.log("\n=== 3. Signing transaction ===\n");
-    console.log("[settleDebtAptos] Calling wallet.signTransaction...");
+    console.log("[settleDebtAptos] Calling wallet.signTransaction...",wallet.signTransaction);
+
     
     // Sign the transaction using the wallet (similar to Stellar flow)
     const signedTransaction = await wallet.signTransaction({
-      transactionOrPayload: transaction
+      transactionOrPayload: transaction,
     });
     console.log("[settleDebtAptos] Transaction signed successfully:", {
       signedTransactionType: typeof signedTransaction,
@@ -457,6 +473,8 @@ export const settleDebt = async (
   
   if (aptosCheck) {
     console.log("[settleDebt] ✓ Using Aptos wallet - routing to settleDebtAptos");
+
+    console.log("[settleDebt] Calling settleDebtAptos with unsignedTx as ghghgfhhf", unsignedTx);
     return settleDebtAptos(payload, unsignedTx, wallet);
   } 
   
