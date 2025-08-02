@@ -271,29 +271,43 @@ export function SettleDebtsModal({
     if (selectedChain === 'aptos') {
       return aptosWallet.connected && aptosWallet.account?.address;
     } else if (selectedChain === 'stellar') {
-      return wallet && userStellarAddress;
+      // For Stellar, check if the wallet is connected AND we have an address
+      return walletConnected && wallet && userStellarAddress;
+    }
+    return false;
+  };
+
+  // Helper to check if we can proceed with settlement
+  const canProceedWithSettlement = () => {
+    if (selectedChain === 'aptos') {
+      // For Aptos, need wallet connected and address available
+      return aptosWallet.connected && aptosWallet.account?.address;
+    } else if (selectedChain === 'stellar') {
+      // For Stellar, need wallet connected and address in settings
+      return walletConnected && wallet && userStellarAddress;
     }
     return false;
   };
 
   const handleSettleOne = async (settleWith: User) => {
     const userWalletAddress = getUserWalletAddress();
-    if (selectedChain === 'aptos') {
-      if (!userWalletAddress) {
-        toast.error("Please add your Aptos wallet address in settings first.");
-        return;
+    
+    // Check wallet connection first
+    if (!canProceedWithSettlement()) {
+      if (selectedChain === 'aptos') {
+        toast.error("Please connect your Aptos wallet first.");
+      } else {
+        toast.error("Please connect your Stellar wallet first.");
       }
-    } else {
-      if (!wallet) {
-        toast.error("Please connect your wallet to sign the transaction.");
-        connectWallet(); // Open the wallet modal
-        return;
-      }
-      if (!userWalletAddress) {
-        toast.error("Please add your Stellar wallet address in settings first.");
-        return;
-      }
+      connectWallet();
+      return;
     }
+    
+    if (!userWalletAddress) {
+      toast.error(`Please add your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet address in settings first.`);
+      return;
+    }
+    
     if (!selectedToken) {
       toast.error("Please select a payment token");
       return;
@@ -322,18 +336,23 @@ export function SettleDebtsModal({
 
   const handleSettleAll = async () => {
     const userWalletAddress = getUserWalletAddress();
-    if (selectedChain === 'aptos') {
-      if (!userWalletAddress) {
-        toast.error("Please add your Aptos wallet address in settings first.");
-        return;
+    
+    // Check wallet connection first
+    if (!canProceedWithSettlement()) {
+      if (selectedChain === 'aptos') {
+        toast.error("Please connect your Aptos wallet first.");
+      } else {
+        toast.error("Please connect your Stellar wallet first.");
       }
-    } else {
-      if (!wallet || !userWalletAddress) {
-        toast.error("Please connect your wallet to sign the transaction.");
-        connectWallet();
-        return;
-      }
+      connectWallet();
+      return;
     }
+    
+    if (!userWalletAddress) {
+      toast.error(`Please add your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet address in settings first.`);
+      return;
+    }
+    
     if (!selectedToken) {
       toast.error("Please select a payment token");
       return;
@@ -550,47 +569,57 @@ export function SettleDebtsModal({
                   </div>
                 </div>
 
-                {/* Show wallet connection component for Aptos if not connected */}
-                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
+                {/* Show wallet connection component for any chain if not connected */}
+                {!canProceedWithSettlement() && (
                   <div className="mb-6">
                     <div className="text-base sm:text-lg font-medium text-white mb-3">
-                      Connect Your Aptos Wallet
+                      {selectedChain === 'aptos' ? 'Connect Your Aptos Wallet' : 'Connect Your Stellar Wallet'}
                     </div>
-                    <ShadcnWalletSelector />
+                    {selectedChain === 'aptos' && <ShadcnWalletSelector />}
                   </div>
                 )}
 
-                <button
-                  className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => {
-                    console.log("[SettleDebtsModal] Settle All button clicked", { isPending, remainingTotal, friendsWithDebtsLength: friendsWithDebts.length });
-                    handleSettleAll();
-                  }}
-                  disabled={
-                    isPending ||
-                    remainingTotal <= 0 ||
-                    friendsWithDebts.length === 0 ||
-                    !isWalletConnectedForChain()
-                  }
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                      <span>Settling payment...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Image
-                        src="/coins-dollar.svg"
-                        alt="Settle Payment"
-                        width={24}
-                        height={24}
-                        className="invert h-4 w-4 sm:h-5 sm:w-5"
-                      />
-                      <span>Settle Payment</span>
-                    </>
-                  )}
-                </button>
+                {canProceedWithSettlement() ? (
+                  <button
+                    className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => {
+                      console.log("[SettleDebtsModal] Settle All button clicked", { isPending, remainingTotal, friendsWithDebtsLength: friendsWithDebts.length });
+                      handleSettleAll();
+                    }}
+                    disabled={
+                      isPending ||
+                      remainingTotal <= 0 ||
+                      friendsWithDebts.length === 0
+                    }
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                        <span>Settling payment...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Image
+                          src="/coins-dollar.svg"
+                          alt="Settle Payment"
+                          width={24}
+                          height={24}
+                          className="invert h-4 w-4 sm:h-5 sm:w-5"
+                        />
+                        <span>Settle Payment</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  selectedChain === 'stellar' && (
+                    <button
+                      className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-sm font-medium h-10 sm:h-12 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+                      onClick={connectWallet}
+                    >
+                      <span>Connect Stellar Wallet</span>
+                    </button>
+                  )
+                )}
                 
                 {/* Show appropriate wallet connection message */}
                 {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
@@ -716,56 +745,54 @@ export function SettleDebtsModal({
                   )}
                 </div>
 
-                {/* Show wallet connection component for Aptos if not connected */}
-                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
+                {/* Show wallet connection component for any chain if not connected */}
+                {!canProceedWithSettlement() && (
                   <div className="mb-6">
                     <div className="text-base sm:text-lg font-medium text-white mb-3">
-                      Connect Your Aptos Wallet
+                      {selectedChain === 'aptos' ? 'Connect Your Aptos Wallet' : 'Connect Your Stellar Wallet'}
                     </div>
-                    <ShadcnWalletSelector />
+                    {selectedChain === 'aptos' && <ShadcnWalletSelector />}
                   </div>
                 )}
 
-                <button
-                  className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={() => selectedUser && handleSettleOne(selectedUser)}
-                  disabled={
-                    isPending ||
-                    !selectedUser ||
-                    parseFloat(individualAmount) <= 0 ||
-                    !selectedToken ||
-                    !isWalletConnectedForChain()
-                  }
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                      <span>Settling payment...</span>
-                    </>
-                  ) : (
-                    <>
-                      <Image
-                        src="/coins-dollar.svg"
-                        alt="Settle Payment"
-                        width={24}
-                        height={24}
-                        className="invert h-4 w-4 sm:h-5 sm:w-5"
-                      />
-                      <span>Settle Payment</span>
-                    </>
-                  )}
-                </button>
-                
-                {/* Show appropriate wallet connection message */}
-                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
-                  <div className="text-sm text-amber-400 mt-2 text-center">
-                    Please connect your Aptos wallet to continue
-                  </div>
-                )}
-                {selectedChain === 'stellar' && !getUserWalletAddress() && (
-                  <div className="text-sm text-red-400 mt-2 text-center">
-                    Please add your Stellar wallet address in settings first.
-                  </div>
+                {canProceedWithSettlement() ? (
+                  <button
+                    className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    onClick={() => selectedUser && handleSettleOne(selectedUser)}
+                    disabled={
+                      isPending ||
+                      !selectedUser ||
+                      parseFloat(individualAmount) <= 0 ||
+                      !selectedToken
+                    }
+                  >
+                    {isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                        <span>Settling payment...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Image
+                          src="/coins-dollar.svg"
+                          alt="Settle Payment"
+                          width={24}
+                          height={24}
+                          className="invert h-4 w-4 sm:h-5 sm:w-5"
+                        />
+                        <span>Settle Payment</span>
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  selectedChain === 'stellar' && (
+                    <button
+                      className="text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 border-white/40 hover:bg-white/10"
+                      onClick={connectWallet}
+                    >
+                      <span>Connect Stellar Wallet</span>
+                    </button>
+                  )
                 )}
               </motion.div>
             )}
