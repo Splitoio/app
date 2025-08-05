@@ -13,12 +13,19 @@ import {
 
 type UnsignedTxResponse = {
   serializedTx: string;
+  transaction?: {
+    function?: string;
+    typeArguments?: string[];
+    functionArguments?: any[];
+    recpAddress?: string;
+  };
   txHash: string;
   settlementId: string;
   tokenSymbol?: string;
   chainName?: string;
   rawtx: RawTransaction;
   address: string;
+  amount?: number;
 };
 const config = new AptosConfig({ network: Network.TESTNET });
 const aptos = new Aptos(config);
@@ -31,6 +38,7 @@ type AptosWalletContextType = {
   account: any;
   signTransaction?: (args: any) => Promise<any>;
   submitTransaction?: (transaction: any) => Promise<any>;
+  signAndSubmitTransaction?: (transaction: any) => Promise<any>;
   connected: boolean;
 };
 
@@ -241,168 +249,59 @@ const settleDebtAptos = async (
     throw new Error("Unable to get wallet address. Please ensure your wallet is properly connected.");
   }
 
-  if (!wallet.signTransaction) {
-    console.error("[settleDebtAptos] Wallet does not support transaction signing");
-    throw new Error("Wallet does not support transaction signing.");
+  if (!wallet.signAndSubmitTransaction) {
+    console.error("[settleDebtAptos] Wallet does not support signAndSubmitTransaction");
+    throw new Error("Wallet does not support signAndSubmitTransaction. Please use a compatible Aptos wallet.");
   }
-  console.log("[settleDebtAptos] Wallet transaction signing capability confirmed");
+  console.log("[settleDebtAptos] Wallet signAndSubmitTransaction capability confirmed");
 
   try {
-    // Parse the serialized transaction
-    console.log("[settleDebtAptos] Parsing serialized transaction...");
-    let transaction = unsignedTx.serializedTx;
+    // Create transaction payload from the backend response
+    console.log("[settleDebtAptos] Creating transaction payload...");
+    console.log("[settleDebtAptos] unsignedTx:", unsignedTx);
 
-    // const transaction = await aptos.transaction.build.simple({
-    //   sender: sourceAddress,
-    //   data: {
-    //     function: "0x1::coin::transfer",
-    //     typeArguments: ["0x1::aptos_coin::AptosCoin"],
-    //     functionArguments: [
-    //       tx.address, // recipient address
-    //       amountInOctas, // amount in octas
-    //     ],
-    //   },
-    // });
-
-
-
-    // try {
-    // console.log("[settleDebtAptos] Converting hex string to Uint8Array...");
-
-    // Validate hex string format
-    // if (!unsignedTx.serializedTx || typeof unsignedTx.serializedTx !== 'string') {
-    //   throw new Error("Invalid serialized transaction: not a string");
-    // }
-
-    // Remove any 0x prefix if present
-    // const cleanHex = unsignedTx.serializedTx.replace(/^0x/, '');
-
-    // Validate hex string (even length, valid hex characters)
-    // if (cleanHex.length % 2 !== 0) {
-    //   throw new Error("Invalid hex string: odd length");
-    // }
-
-    // if (!/^[0-9a-fA-F]*$/.test(cleanHex)) {
-    //   throw new Error("Invalid hex string: contains non-hex characters");
-    // }
-
-    // // Convert hex string to Uint8Array
-    // const serializedTxBytes = new Uint8Array(
-    //   cleanHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-    // );
-    // console.log("[settleDebtAptos] Serialized transaction bytes length:", serializedTxBytes.length);
-
-    // if (serializedTxBytes.length === 0) {
-    //   throw new Error("Empty transaction bytes after hex conversion");
-    // }
-
-    // console.log("[settleDebtAptos] Creating deserializer...");
-    // const deserializer = new Deserializer(serializedTxBytes);
-
-    // console.log("[settleDebtAptos] Deserializing raw transaction...");
-    // const deserializedTxn = RawTransaction.deserialize(deserializer);
-    // transaction = deserializedTxn;
-    // console.log("[settleDebtAptos] Transaction deserialized successfully:", {
-    //   transactionType: typeof transaction,
-    //   hasSequenceNumber: transaction && 'sequence_number' in transaction,
-    //   hasSender: transaction && 'sender' in transaction,
-    //   transaction
-    // });
-    // } catch (parseError) {
-    //   console.error("[settleDebtAptos] Failed to parse serialized transaction:", {
-    //     error: parseError,
-    //     errorMessage: parseError instanceof Error ? parseError.message : 'Unknown parse error',
-    //     serializedTx: unsignedTx.serializedTx,
-    //     serializedTxType: typeof unsignedTx.serializedTx,
-    //     serializedTxLength: unsignedTx.serializedTx?.length,
-    //     isValidHex: /^(0x)?[0-9a-fA-F]*$/.test(unsignedTx.serializedTx || ''),
-    //     hasEvenLength: (unsignedTx.serializedTx?.replace(/^0x/, '')?.length || 0) % 2 === 0
-    //   });
-
-    //   // Provide more specific error message based on the parse error
-    //   if (parseError instanceof Error) {
-    //     if (parseError.message.includes("hex")) {
-    //       throw new Error("Invalid transaction format: malformed hex string received from server.");
-    //     } else if (parseError.message.includes("deserialize") || parseError.message.includes("Deserializer")) {
-    //       throw new Error("Invalid transaction format: failed to deserialize transaction data.");
-    //     }
-    //   }
-
-    //   throw new Error("Invalid transaction format received from server.");
-    // }
-
-    // Log what is being sent to signTransaction
-    // const payload1: InputTransactionData = {
-    //     data: {
-    //       function: "0x1::coin::transfer",
-    //       typeArguments: [APTOS_COIN],
-    //       functionArguments: [unsignedTx.address, 1],
-    //     },
-    //   };
-    
-    
-    
-    const payload1 = await aptos.transaction.build.simple({
-      sender: unsignedTx.address,
+    // Use the transaction data from backend to build the payload
+    const amountInOctas = Math.floor(parseFloat(unsignedTx.amount?.toString() || "0") * 100000000);
+    const transactionPayload = {
       data: {
-        function: "0x1::coin::transfer",
-        typeArguments: ["0x1::aptos_coin::AptosCoin"],
-        functionArguments: [
-          unsignedTx.address, // recipient address
-          1, // amount in octas
+        function: unsignedTx.transaction?.function || "0x1::coin::transfer",
+        typeArguments: unsignedTx.transaction?.typeArguments || ["0x1::aptos_coin::AptosCoin"],
+        functionArguments: unsignedTx.transaction?.functionArguments || [
+          unsignedTx.transaction?.recpAddress, // recipient address
+          amountInOctas // amount
         ],
       },
-    });
+    };
 
-
-    console.log("[settleDebtAptos] About to call wallet.signTransaction with:", {
-      payload: payload1,
-      type: typeof payload1,
+    console.log("[settleDebtAptos] About to call wallet.signAndSubmitTransaction with:", {
+      payload: transactionPayload,
       walletAddress: walletAddress,
-      transactionStructure: transaction ? Object.keys(transaction) : 'null'
     });
 
-    console.log("\n=== Signing transaction ===\n");
-    console.log("[settleDebtAptos] Calling wallet.signTransaction...", wallet.signTransaction);
+    console.log("\n=== Signing and submitting transaction ===\n");
+    console.log("[settleDebtAptos] Calling wallet.signAndSubmitTransaction...");
 
+    // Use signAndSubmitTransaction to handle both signing and submission
+    const transactionResponse = await wallet.signAndSubmitTransaction(transactionPayload);
 
-    // Sign the transaction using the wallet (similar to Stellar flow)
-    // const  = await wallet.signTransaction({
-    //   transactionOrPayload: transaction,
-    // });
-
-
-    const signedTransaction = await wallet.signTransaction({
-      transactionOrPayload: payload1,
-      pluginParams: {
-        customParam: "customValue",
-      },
-
-    });
-    
-    console.log("[settleDebtAptos] Signed transaction:", {
-      signedTransactionType: typeof signedTransaction,
-      signedTransaction
+    console.log("[settleDebtAptos] Transaction response:", {
+      transactionResponseType: typeof transactionResponse,
+      hasHash: !!transactionResponse.hash,
+      transactionResponse
     });
 
-    console.log("[settleDebtAptos] Transaction signed successfully:", {
-      signedTransactionType: typeof signedTransaction,
-      hasSignature: signedTransaction && 'signature' in signedTransaction,
-      signedTransaction
-    });
-
-    console.log("\n=== 4. Submitting signed transaction to backend ===\n");
+    console.log("\n=== Submitting transaction hash to backend ===\n");
     const submitPayload = {
-      signedTx: signedTransaction,
+      signedTx: transactionResponse.hash,
+      txHash: transactionResponse.hash,
       groupId: payload.groupId,
       settlementId: unsignedTx.settlementId,
       settleWithId: payload.settleWithId,
     };
 
-    // Submit the signed transaction to our backend (similar to Stellar flow)
     console.log("[settleDebtAptos] POST /groups/settle-transaction/submit", submitPayload);
 
-    console.log("[settleDebtAptos] Submitting signed transaction to backend...");
+    console.log("[settleDebtAptos] Submitting transaction hash to backend...");
     const submitTx = await apiClient.post("/groups/settle-transaction/submit", submitPayload);
     console.log("[settleDebtAptos] submitTx response received:", {
       status: submitTx.status,
@@ -410,7 +309,7 @@ const settleDebtAptos = async (
       hasData: !!submitTx.data
     });
 
-    console.log("\n=== 5. Transaction settlement completed ===\n");
+    console.log("\n=== Transaction settlement completed ===\n");
     console.log("[settleDebtAptos] Aptos settlement completed successfully");
     return submitTx.data;
 
@@ -481,7 +380,8 @@ export const settleDebt = async (
     chainName: unsignedTx.chainName,
     serializedTxLength: unsignedTx.serializedTx?.length,
     hasSerializedTx: !!unsignedTx.serializedTx,
-    message: "iam here"
+    message: "iam here",
+    amount: unsignedTx.amount
   });
 
   // Check if wallet is connected before proceeding with signing

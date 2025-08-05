@@ -45,6 +45,7 @@ export const useSettleDebt = (groupId: string) => {
         connected: aptosWallet.connected,
         signTransaction: aptosWallet.signTransaction,
         submitTransaction: aptosWallet.submitTransaction,
+        signAndSubmitTransaction: aptosWallet.signAndSubmitTransaction,
       } : undefined);
       
       console.log('[useSettleDebt] Using wallet:', !!walletToUse);

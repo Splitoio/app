@@ -21,6 +21,7 @@ type UnifiedWalletType = StellarWalletsKit | {
   connected: boolean;
   signTransaction?: (args: any) => Promise<any>;
   submitTransaction?: (transaction: any) => Promise<any>;
+  signAndSubmitTransaction?: (transaction: any) => Promise<any>;
 };
 
 type WalletStore = {
@@ -82,6 +83,7 @@ export function useWallet() {
           connected: aptosWallet.connected,
           signTransaction: aptosWallet.signTransaction,
           submitTransaction: aptosWallet.submitTransaction,
+          signAndSubmitTransaction: aptosWallet.signAndSubmitTransaction,
         };
         console.log('[useWallet] Setting Aptos wallet in store:', aptosWalletObj);
         setWallet(aptosWalletObj, 'aptos');

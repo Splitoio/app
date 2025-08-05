@@ -23,6 +23,7 @@ type AptosWalletContextType = {
   account: any; // Use any to avoid type conflicts between different versions
   signTransaction?: (args: any) => Promise<any>;
   submitTransaction?: (transaction: any) => Promise<any>;
+  signAndSubmitTransaction?: (transaction: any) => Promise<any>;
   connected: boolean;
 };
 

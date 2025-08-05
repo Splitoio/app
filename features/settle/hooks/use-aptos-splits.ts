@@ -31,6 +31,7 @@ export const useSettleDebtAptos = (groupId: string) => {
         account: wallet.account,
         signTransaction: wallet.signTransaction,
         submitTransaction: wallet.submitTransaction,
+        signAndSubmitTransaction: wallet.signAndSubmitTransaction,
         connected: wallet.connected,
       };
       
@@ -86,8 +87,8 @@ export const useSettleDebtAptosWithSubmit = (groupId: string) => {
         throw new Error("Wallet account not found. Please ensure your wallet is properly connected.");
       }
       
-      if (!wallet.submitTransaction) {
-        throw new Error("Your wallet does not support direct transaction submission. Please try a different wallet or method.");
+      if (!wallet.submitTransaction && !wallet.signAndSubmitTransaction) {
+        throw new Error("Your wallet does not support transaction submission. Please try a different wallet or method.");
       }
       
       // Use the wallet context from Aptos wallet adapter
@@ -95,6 +96,7 @@ export const useSettleDebtAptosWithSubmit = (groupId: string) => {
         account: wallet.account,
         signTransaction: wallet.signTransaction,
         submitTransaction: wallet.submitTransaction,
+        signAndSubmitTransaction: wallet.signAndSubmitTransaction,
         connected: wallet.connected,
       };
       
