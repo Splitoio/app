@@ -146,7 +146,8 @@ export function GroupInfoHeader({
               )}
             </button>
 
-            <button
+            {/* Settle all debts button - mobile version - commented out */}
+            {/* <button
               onClick={handleSettleClick}
               disabled={isSettling}
               className="flex h-10 items-center justify-center gap-1 rounded-full border border-white/80 bg-transparent px-4 text-mobile-sm font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
@@ -168,7 +169,7 @@ export function GroupInfoHeader({
                   <span className="truncate">Settle all debts</span>
                 </>
               )}
-            </button>
+            </button> */}
           </div>
 
           {/* Right Column - Profile and Settings */}
@@ -247,7 +248,8 @@ export function GroupInfoHeader({
               )}
             </button>
 
-            <button
+            {/* Settle all debts button - desktop version - commented out */}
+            {/* <button
               onClick={handleSettleClick}
               disabled={isSettling}
               className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 text-base font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
@@ -269,7 +271,7 @@ export function GroupInfoHeader({
                   <span>Settle all debts</span>
                 </>
               )}
-            </button>
+            </button> */}
 
             <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
               <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">

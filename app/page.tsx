@@ -144,7 +144,8 @@ export default function Page() {
             )}
           </h2>
           <div className="flex items-center gap-3 sm:gap-4">
-            <button
+            {/* Settle all debt button - commented out */}
+            {/* <button
               onClick={handleSettleAllClick}
               disabled={isSettling || isBalanceLoading}
               className="group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/10 bg-white px-4 sm:px-6 text-mobile-sm sm:text-base font-medium text-black transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-70 disabled:cursor-not-allowed"
@@ -166,33 +167,35 @@ export default function Page() {
                   <span className="truncate">Settle all debts</span>
                 </>
               )}
-            </button>
-            <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                {user?.image ? (
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={56}
-                    height={56}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                    alt="Profile"
-                    width={56}
-                    height={56}
-                    className="h-full w-full"
-                    onError={(e) => {
-                      console.error(`Error loading identicon for user`);
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                    }}
-                  />
-                )}
+            </button> */}
+            <Link href="/settings" className="cursor-pointer">
+              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                  {user?.image ? (
+                    <Image
+                      src={user.image}
+                      alt="Profile"
+                      width={56}
+                      height={56}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
+                      alt="Profile"
+                      width={56}
+                      height={56}
+                      className="h-full w-full"
+                      onError={(e) => {
+                        console.error(`Error loading identicon for user`);
+                        const target = e.target as HTMLImageElement;
+                        target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </div>
