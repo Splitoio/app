@@ -43,6 +43,7 @@ export default function GroupDetailsPage({
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
+  const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"members" | "splits" | "activity">(
     "splits"
   );
@@ -91,6 +92,11 @@ export default function GroupDetailsPage({
     });
   };
 
+  const handleSettleFriendClick = (friendId: string) => {
+    setSettleFriendId(friendId);
+    setIsSettleModalOpen(true);
+  };
+
   const markAsPaidMutation = useMarkAsPaid();
 
   const handleRemoveMember = async (memberId: string) => {
@@ -112,7 +118,6 @@ export default function GroupDetailsPage({
         payload: {
           name: groupSettings.name,
           currency: groupSettings.currency,
-          lockPrice: groupSettings.lockPrice,
         },
       },
       {
@@ -378,10 +383,7 @@ export default function GroupDetailsPage({
                             <>
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => {
-                                  // Set the friend to settle with
-                                  setIsSettleModalOpen(true);
-                                }}
+                                onClick={() => handleSettleFriendClick(member.user.id)}
                               >
                                 <Image
                                   src="/coins-dollar.svg"
@@ -553,11 +555,16 @@ export default function GroupDetailsPage({
 
       <SettleDebtsModal
         isOpen={isSettleModalOpen}
-        onClose={() => setIsSettleModalOpen(false)}
+        onClose={() => {
+          setIsSettleModalOpen(false);
+          setSettleFriendId(null);
+        }}
         balances={group.groupBalances}
         groupId={params.id}
         members={group.groupUsers.map((user) => user.user)}
         defaultCurrency={group.defaultCurrency}
+        showIndividualView={settleFriendId !== null}
+        selectedFriendId={settleFriendId}
       />
 
       <AddMemberModal
