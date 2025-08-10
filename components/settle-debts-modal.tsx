@@ -59,6 +59,8 @@ export function SettleDebtsModal({
     connectWallet,
     wallet,
     aptosWallet,
+    address,
+    walletType,
   } = useWallet();
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
@@ -90,9 +92,13 @@ export function SettleDebtsModal({
         hasStellarAccount: !!user.stellarAccount
       } : null,
       userStellarAddress,
+      walletConnected,
+      wallet: wallet ? 'exists' : 'null',
+      walletAddress: address,
+      walletType,
       userFromStore: user
     });
-  }, [user, userStellarAddress]);
+  }, [user, userStellarAddress, walletConnected, wallet, address, walletType]);
 
   // Reset excluded friends when modal opens/closes
   useEffect(() => {
@@ -260,7 +266,8 @@ export function SettleDebtsModal({
       const aptosWallet = wallets.find(w => w.chainId === 'aptos');
       return aptosWallet?.address || null;
     } else if (selectedChain === 'stellar') {
-      return userStellarAddress;
+      // First try to get from connected wallet, then fallback to saved address
+      return address || userStellarAddress;
     }
     // Add more chains as needed
     return null;
@@ -272,19 +279,41 @@ export function SettleDebtsModal({
       return aptosWallet.connected && aptosWallet.account?.address;
     } else if (selectedChain === 'stellar') {
       // For Stellar, check if the wallet is connected AND we have an address
-      return walletConnected && wallet && userStellarAddress;
+      return walletConnected && wallet && (address || userStellarAddress);
     }
     return false;
   };
 
   // Helper to check if we can proceed with settlement
   const canProceedWithSettlement = () => {
+    const result = {
+      aptos: selectedChain === 'aptos' ? {
+        connected: aptosWallet.connected,
+        hasAddress: !!aptosWallet.account?.address,
+        canProceed: aptosWallet.connected && aptosWallet.account?.address
+      } : null,
+      stellar: selectedChain === 'stellar' ? {
+        walletConnected,
+        hasWallet: !!wallet,
+        address,
+        userStellarAddress,
+        hasAnyAddress: !!(address || userStellarAddress),
+        canProceed: walletConnected && wallet && (address || userStellarAddress)
+      } : null
+    };
+    
+    console.log('[SettleDebtsModal] canProceedWithSettlement check:', {
+      selectedChain,
+      result,
+      finalResult: selectedChain === 'aptos' ? result.aptos?.canProceed : result.stellar?.canProceed
+    });
+    
     if (selectedChain === 'aptos') {
       // For Aptos, need wallet connected and address available
       return aptosWallet.connected && aptosWallet.account?.address;
     } else if (selectedChain === 'stellar') {
-      // For Stellar, need wallet connected and address in settings
-      return walletConnected && wallet && userStellarAddress;
+      // For Stellar, need wallet connected and address (either from connected wallet or saved settings)
+      return walletConnected && wallet && (address || userStellarAddress);
     }
     return false;
   };
@@ -304,7 +333,7 @@ export function SettleDebtsModal({
     }
     
     if (!userWalletAddress) {
-      toast.error(`Please add your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet address in settings first.`);
+      toast.error(`Please connect your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet or add your wallet address in settings first.`);
       return;
     }
     
@@ -349,7 +378,7 @@ export function SettleDebtsModal({
     }
     
     if (!userWalletAddress) {
-      toast.error(`Please add your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet address in settings first.`);
+      toast.error(`Please connect your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet or add your wallet address in settings first.`);
       return;
     }
     
@@ -629,7 +658,7 @@ export function SettleDebtsModal({
                 )}
                 {selectedChain === 'stellar' && !getUserWalletAddress() && (
                   <div className="text-sm text-red-400 mt-2 text-center">
-                    Please add your Stellar wallet address in settings first.
+                    Please connect your Stellar wallet or add your Stellar wallet address in settings first.
                   </div>
                 )}
               </motion.div>
