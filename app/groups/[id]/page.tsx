@@ -97,6 +97,18 @@ export default function GroupDetailsPage({
     setIsSettleModalOpen(true);
   };
 
+  // Calculate the specific amount owed to a friend in this group
+  const getSpecificDebtAmount = (friendId: string) => {
+    if (!group || !user) return 0;
+    
+    // Find the balance entry for this friend in this group
+    const balance = group.groupBalances.find(
+      (balance) => balance.userId === user.id && balance.firendId === friendId
+    );
+    
+    return (balance && balance.amount > 0) ? balance.amount : 0;
+  };
+
   const markAsPaidMutation = useMarkAsPaid();
 
   const handleRemoveMember = async (memberId: string) => {
@@ -565,6 +577,7 @@ export default function GroupDetailsPage({
         defaultCurrency={group.defaultCurrency}
         showIndividualView={settleFriendId !== null}
         selectedFriendId={settleFriendId}
+        specificAmount={settleFriendId ? getSpecificDebtAmount(settleFriendId) : undefined}
       />
 
       <AddMemberModal

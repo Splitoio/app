@@ -49,6 +49,14 @@ interface GroupData {
   }>;
 }
 
+interface FriendData {
+  id: string;
+  email: string;
+  name: string;
+  image: string | null;
+  balances: Array<{ currency: string; amount: number }>;
+}
+
 interface FriendsBreakdownModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -69,6 +77,7 @@ export function FriendsBreakdownModal({
 }: FriendsBreakdownModalProps) {
   const [user, setUser] = useState<User | null>(null);
   const [groupsData, setGroupsData] = useState<GroupData[]>([]);
+  const [friendsData, setFriendsData] = useState<FriendData[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState<{
@@ -97,6 +106,10 @@ export function FriendsBreakdownModal({
       // Fetch user details
       const userData = await apiClient.get("/users/me") as User;
       setUser(userData);
+
+      // Fetch friends data
+      const friendsResponse = await apiClient.get("/users/friends") as FriendData[];
+      setFriendsData(friendsResponse);
 
       // Fetch group balances
       const balancesData = await apiClient.get("/groups/balances") as GroupData[];
@@ -128,18 +141,26 @@ export function FriendsBreakdownModal({
       group.groupBalances.forEach((balance) => {
         // Only include positive amounts (debts user owes)
         if (balance.userId === user.id && balance.amount > 0) {
-          // Find friend name from group users
+          // Find friend from the friends API data first
+          const friendFromAPI = friendsData.find(friend => friend.id === balance.firendId);
+          
+          // Fall back to group users if not found in friends API
           const friendUser = group.groupUsers?.find(
             (gu) => gu.user.id === balance.firendId
           )?.user;
+
+          // Use friend data from API if available, otherwise use group user data
+          const friendName = friendFromAPI?.name || friendUser?.name || friendUser?.email || balance.firendId;
+          const friendEmail = friendFromAPI?.email || friendUser?.email || "";
+          const friendImage = friendFromAPI?.image || friendUser?.image || null;
 
           debts.push({
             groupId: group.id,
             groupName: group.name,
             friendId: balance.firendId,
-            friendName: friendUser?.name || friendUser?.email || balance.firendId,
-            friendEmail: friendUser?.email || "",
-            friendImage: friendUser?.image || null,
+            friendName,
+            friendEmail,
+            friendImage,
             amount: balance.amount,
             currency: balance.currency,
           });

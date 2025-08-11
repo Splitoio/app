@@ -418,9 +418,11 @@ export function SettleDebtsModal({
 
   // Get the selected user's balance for individual settlement
   const selectedUserBalance = selectedUser
-    ? (selectedUser as unknown as FriendWithBalances).balances.find(
-        (balance) => balance.amount > 0
-      )?.amount || 0
+    ? (specificAmount !== undefined 
+        ? specificAmount 
+        : (selectedUser as unknown as FriendWithBalances).balances.find(
+            (balance) => balance.amount > 0
+          )?.amount || 0)
     : 0;
 
   // Calculate the remaining total after exclusions
