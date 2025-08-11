@@ -200,7 +200,7 @@ export function GroupsList() {
           // Calculate the net balance for the current user in this group
           let balanceDisplay = null;
           let netBalance = 0;
-          let currency = group.defaultCurrency || "USD";
+          const currency = group.defaultCurrency || "USD";
           if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
             // Sum all balances for the user in this group (across all currencies)
             const userBalances = group.groupBalances.filter(

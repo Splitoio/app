@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
+import { FriendsBreakdownModal } from "@/components/friends-breakdown-modal";
 import { AddFriendsModal } from "@/components/add-friends-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
@@ -31,6 +32,7 @@ import { formatCurrency } from "@/utils/formatters";
 
 export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [isFriendsBreakdownModalOpen, setIsFriendsBreakdownModalOpen] = useState(false);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [settleFriendGroupId, setSettleFriendGroupId] = useState<string | null>(null);
@@ -87,27 +89,8 @@ export default function Page() {
   };
 
   const handleSettleFriendClick = (friendId: string) => {
-    // Find the group where the user owes this friend
-    let foundGroupId: string | null = null;
-    if (groups && groups.length > 0) {
-      for (const group of groups) {
-        if (group.groupBalances && user) {
-          const userBalance = group.groupBalances.find(
-            (b) => b.userId === user.id && b.firendId === friendId && b.amount > 0
-          );
-          if (userBalance) {
-            foundGroupId = group.id;
-            break;
-          }
-        }
-      }
-    }
-    setSettleFriendId(friendId);
-    setSettleFriendGroupId(foundGroupId);
-    setIsSettleModalOpen(true);
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.FRIENDS] });
-    }, 500);
+    // Open the friends breakdown modal first
+    setIsFriendsBreakdownModalOpen(true);
   };
 
   return (
@@ -536,6 +519,15 @@ export default function Page() {
         showIndividualView={settleFriendId !== null}
         selectedFriendId={settleFriendId}
         groupId={settleFriendId ? settleFriendGroupId || "" : (groups && groups[0]?.id) || ""}
+      />
+
+      <FriendsBreakdownModal
+        isOpen={isFriendsBreakdownModalOpen}
+        onClose={() => setIsFriendsBreakdownModalOpen(false)}
+        onSettleAll={() => {
+          setIsFriendsBreakdownModalOpen(false);
+          handleSettleAllClick();
+        }}
       />
 
       <AddFriendsModal
