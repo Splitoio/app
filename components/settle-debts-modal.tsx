@@ -40,6 +40,7 @@ interface SettleDebtsModalProps {
   showIndividualView?: boolean;
   selectedFriendId?: string | null;
   defaultCurrency?: string; // <-- add this
+  specificAmount?: number; // Add specific amount for individual debt settlement
 }
 
 export function SettleDebtsModal({
@@ -51,6 +52,7 @@ export function SettleDebtsModal({
   showIndividualView = false,
   selectedFriendId = null,
   defaultCurrency,
+  specificAmount, // Add this parameter
 }: SettleDebtsModalProps) {
   const user = useAuthStore((state) => state.user);
   const {
@@ -120,18 +122,23 @@ export function SettleDebtsModal({
       if (friend) {
         setSelectedUser(friend as unknown as User);
 
-        // Calculate amount owed to this specific friend
-        const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
-        if (positiveBalance) {
-          setIndividualAmount(positiveBalance.amount.toFixed(2));
+        // Use specific amount if provided, otherwise calculate from friend balances
+        if (specificAmount !== undefined) {
+          setIndividualAmount(specificAmount.toFixed(2));
         } else {
-          setIndividualAmount("0");
+          // Calculate amount owed to this specific friend
+          const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
+          if (positiveBalance) {
+            setIndividualAmount(positiveBalance.amount.toFixed(2));
+          } else {
+            setIndividualAmount("0");
+          }
         }
       }
     } else if (!showIndividualView) {
       setSelectedUser(null);
     }
-  }, [selectedFriendId, friends, showIndividualView]);
+  }, [selectedFriendId, friends, showIndividualView, specificAmount]);
 
   // Calculate total debts across all groups on mount and when data changes
   useEffect(() => {
@@ -166,7 +173,8 @@ export function SettleDebtsModal({
 
   // Update individualAmount when selectedUser changes
   useEffect(() => {
-    if (selectedUser) {
+    if (selectedUser && specificAmount === undefined) {
+      // Only update from user balances if no specific amount is provided
       const positiveBalance = (selectedUser as any).balances?.find((b: any) => b.amount > 0);
       if (positiveBalance) {
         setIndividualAmount(positiveBalance.amount.toFixed(2));
@@ -174,7 +182,7 @@ export function SettleDebtsModal({
         setIndividualAmount("0");
       }
     }
-  }, [selectedUser]);
+  }, [selectedUser, specificAmount]);
 
   // Update available chains when selectedToken changes
   useEffect(() => {

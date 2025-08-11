@@ -79,6 +79,7 @@ export function FriendsBreakdownModal({
     groupName: string;
     friendName: string;
     group?: GroupData;
+    specificAmount?: number;
   } | null>(null);
 
   useHandleEscapeToCloseModal(isOpen, onClose);
@@ -200,6 +201,7 @@ export function FriendsBreakdownModal({
       ...debt,
       // Include the group and member data needed for settle debts modal
       group,
+      specificAmount: debt.amount, // Pass the specific debt amount
     });
     setIsSettleModalOpen(true);
   };
@@ -404,6 +406,7 @@ export function FriendsBreakdownModal({
           defaultCurrency={selectedDebt.currency}
           showIndividualView={selectedDebt.friendName !== "all"}
           selectedFriendId={selectedDebt.friendName !== "all" ? selectedDebt.friendId : null}
+          specificAmount={selectedDebt.specificAmount} // Pass the specific amount
         />
       )}
     </>
