@@ -368,7 +368,7 @@ export function FriendsBreakdownModal({
                   </div>
 
                   {/* Settle All Button */}
-                  {(friendGroups.length > 1 || debts.length > 1) && (
+                  {/* {(friendGroups.length > 1 || debts.length > 1) && (
                     <div className="mt-6 pt-6 border-t border-white/10">
                       <button
                         onClick={() => {
@@ -391,7 +391,7 @@ export function FriendsBreakdownModal({
                         Settle All Debts (${totalAmount.toFixed(2)})
                       </button>
                     </div>
-                  )}
+                  )} */}
                 </>
               )}
             </motion.div>

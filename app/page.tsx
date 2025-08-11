@@ -259,21 +259,38 @@ export default function Page() {
             <h2 className="text-xl sm:text-2xl font-semibold text-white">
               Your Friends
             </h2>
-            <button
-              onClick={() => setIsAddFriendModalOpen(true)}
-              className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
-            >
-              <Image
-                src="/plus-sign-circle.svg"
-                alt="Add"
-                width={20}
-                height={20}
-                className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
-              />
-              <span className="font-medium text-mobile-sm sm:text-base">
-                Add Friends
-              </span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => setIsFriendsBreakdownModalOpen(true)}
+                className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
+              >
+                <Image
+                  src="/coins-dollar.svg"
+                  alt="Manage Debts"
+                  width={20}
+                  height={20}
+                  className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
+                />
+                <span className="font-medium text-mobile-sm sm:text-base">
+                  Manage Debts
+                </span>
+              </button>
+              <button
+                onClick={() => setIsAddFriendModalOpen(true)}
+                className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
+              >
+                <Image
+                  src="/plus-sign-circle.svg"
+                  alt="Add"
+                  width={20}
+                  height={20}
+                  className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
+                />
+                <span className="font-medium text-mobile-sm sm:text-base">
+                  Add Friends
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4 sm:space-y-8">
@@ -368,7 +385,8 @@ export default function Page() {
                       </button>
                     )}
 
-                    {hasPositiveBalance && (
+                    {/* Individual settle debt button - commented out, replaced with single Manage Debts button */}
+                    {/* {hasPositiveBalance && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => handleSettleFriendClick(friend.id)}
@@ -382,7 +400,7 @@ export default function Page() {
                         />
                         <span>Settle Debts</span>
                       </button>
-                    )}
+                    )} */}
                   </div>
                 );
               })
