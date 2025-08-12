@@ -8,6 +8,7 @@ import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { apiClient } from "@/api-helpers/client";
 import { toast } from "sonner";
 import Image from "next/image";
+import { formatCurrency } from "@/utils/formatters";
 import { User as ApiUser, GroupBalance as ApiGroupBalance } from "@/api-helpers/modelSchema";
 
 interface User {
@@ -179,22 +180,26 @@ export function FriendsBreakdownModal({
       friendName: string;
       friendEmail: string;
       friendImage: string | null;
-      totalAmount: number;
+      debtsByCurrency: Map<string, number>;
       debts: typeof debts;
     }>();
 
     debts.forEach(debt => {
       const existing = groupedDebts.get(debt.friendId);
       if (existing) {
-        existing.totalAmount += debt.amount;
+        // Add debt amount to the appropriate currency
+        const currentAmountForCurrency = existing.debtsByCurrency.get(debt.currency) || 0;
+        existing.debtsByCurrency.set(debt.currency, currentAmountForCurrency + debt.amount);
         existing.debts.push(debt);
       } else {
+        const debtsByCurrency = new Map<string, number>();
+        debtsByCurrency.set(debt.currency, debt.amount);
         groupedDebts.set(debt.friendId, {
           friendId: debt.friendId,
           friendName: debt.friendName,
           friendEmail: debt.friendEmail,
           friendImage: debt.friendImage,
-          totalAmount: debt.amount,
+          debtsByCurrency,
           debts: [debt],
         });
       }
@@ -275,16 +280,6 @@ export function FriendsBreakdownModal({
                 </div>
               ) : (
                 <>
-                  {/* Total Amount Summary */}
-                  <div className="bg-white/5 rounded-xl p-4 mb-6">
-                    <div className="text-center">
-                      <p className="text-white/60 text-sm mb-2">Total Amount You Owe</p>
-                      <p className="text-2xl font-semibold text-red-400">
-                        ${totalAmount.toFixed(2)}
-                      </p>
-                    </div>
-                  </div>
-
                   {/* Individual Friends and their debts */}
                   <div className="space-y-4">
                     {friendGroups.length === 0 ? (
@@ -316,11 +311,16 @@ export function FriendsBreakdownModal({
                                 <p className="text-white font-medium">
                                   {friendGroup.friendName}
                                 </p>
-                                <p className="text-white/60 text-sm">
-                                  Total owed: <span className="text-red-400 font-medium">
-                                    ${friendGroup.totalAmount.toFixed(2)}
-                                  </span>
-                                </p>
+                                <div className="text-white/60 text-sm">
+                                  Total owed: {
+                                    Array.from(friendGroup.debtsByCurrency.entries()).map(([currency, amount], index) => (
+                                      <span key={currency} className="text-red-400 font-medium">
+                                        {index > 0 && ', '}
+                                        {formatCurrency(amount, currency)}
+                                      </span>
+                                    ))
+                                  }
+                                </div>
                               </div>
                             </div>
                           </div>
@@ -338,7 +338,7 @@ export function FriendsBreakdownModal({
                                   </p>
                                   <p className="text-white/60 text-xs">
                                     Amount: <span className="text-red-400 font-medium">
-                                      ${debt.amount.toFixed(2)} {debt.currency}
+                                      {formatCurrency(debt.amount, debt.currency)}
                                     </span>
                                   </p>
                                 </div>

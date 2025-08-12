@@ -327,11 +327,14 @@ export default function GroupDetailsPage({
                 const balances = group?.groupBalances.filter(
                   (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
                 );
+                
+                // Correct logic: positive amount means userId owes to firendId
+                // negative amount means firendId owes to userId
                 const owedBalance = balances?.filter(
-                  (balance) => balance.amount > 0
+                  (balance) => balance.amount > 0  // member owes money (shows as "You owe" for current user)
                 );
                 const oweBalance = balances?.filter(
-                  (balance) => balance.amount < 0
+                  (balance) => balance.amount < 0  // member is owed money (shows as "Owes you" for current user)
                 );
 
                 // Group balances by currency

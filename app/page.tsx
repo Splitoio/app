@@ -303,14 +303,20 @@ export default function Page() {
               </div>
             ) : friends && friends.length > 0 ? (
               friends.map((friend) => {
-                // Find if there's a balance with this friend
-                const hasPositiveBalance = friend.balances.some(
-                  (balance) => balance.amount > 0
-                );
-                const hasNegativeBalance = friend.balances.some(
-                  (balance) => balance.amount < 0
-                );
-                const friendBalance = friend.balances[0]; // Just use the first balance for now
+                // Group balances by positive/negative and currency
+                const oweBalances: Record<string, number> = {};
+                const owedBalances: Record<string, number> = {};
+
+                friend.balances.forEach((balance) => {
+                  if (balance.amount > 0) {
+                    oweBalances[balance.currency] = balance.amount;
+                  } else if (balance.amount < 0) {
+                    owedBalances[balance.currency] = Math.abs(balance.amount);
+                  }
+                });
+
+                const hasOwedBalances = Object.keys(owedBalances).length > 0;
+                const hasOweBalances = Object.keys(oweBalances).length > 0;
 
                 return (
                   <div
@@ -341,30 +347,64 @@ export default function Page() {
                         <p className="text-mobile-base sm:text-xl text-white font-medium">
                           {friend.name}
                         </p>
-                        {friendBalance ? (
-                          <p className="text-mobile-sm sm:text-base text-white/60">
-                            {friendBalance.amount > 0 ? (
-                              <>
-                                You owe <span className="text-[#FF4444] font-medium">${Math.abs(friendBalance.amount).toFixed(2)}</span>
-                              </>
-                            ) : friendBalance.amount < 0 ? (
-                              <>
-                                Owes you <span className="text-[#53e45d] font-medium">${Math.abs(friendBalance.amount).toFixed(2)}</span>
-                              </>
+                        {hasOwedBalances || hasOweBalances ? (
+                          <div className="text-mobile-sm sm:text-base text-white/60">
+                            {hasOwedBalances && hasOweBalances ? (
+                              // Show both what you owe and what you're owed
+                              <div>
+                                <div>
+                                  You owe{" "}
+                                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#FF4444] font-medium">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div>
+                                  Owes you{" "}
+                                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#53e45d] font-medium">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : hasOweBalances ? (
+                              // Only show what you owe
+                              <span>
+                                You owe{" "}
+                                {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                  <span key={curr}>
+                                    <span className="text-[#FF4444] font-medium">{formatCurrency(amount, curr)}</span>
+                                    {index < Object.entries(oweBalances).length - 1 && ", "}
+                                  </span>
+                                ))}
+                              </span>
                             ) : (
-                              "All settled up"
+                              // Only show what they owe you
+                              <span>
+                                Owes you{" "}
+                                {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                  <span key={curr}>
+                                    <span className="text-[#53e45d] font-medium">{formatCurrency(amount, curr)}</span>
+                                    {index < Object.entries(owedBalances).length - 1 && ", "}
+                                  </span>
+                                ))}
+                              </span>
                             )}
-                          </p>
+                          </div>
                         ) : (
-                          <p className="text-base text-white/60">
-                            No transactions yet
+                          <p className="text-mobile-sm sm:text-base text-white/60">
+                            All settled up
                           </p>
                         )}
                       </div>
                     </div>
 
                     {/* Show appropriate button based on debt direction */}
-                    {hasNegativeBalance && (
+                    {hasOwedBalances && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => sendReminder({
@@ -482,14 +522,14 @@ export default function Page() {
                             }, {} as Record<string, number>);
 
                             // Separate positive and negative balances by currency
-                            const owedBalances: Record<string, number> = {}; // What others owe you (positive amounts)
-                            const oweBalances: Record<string, number> = {}; // What you owe others (negative amounts)
+                            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
+                            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
                             
                             Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
                               if (amount > 0) {
-                                owedBalances[curr] = amount; // Others owe you
+                                oweBalances[curr] = amount; // You owe others
                               } else if (amount < 0) {
-                                oweBalances[curr] = Math.abs(amount); // You owe others
+                                owedBalances[curr] = Math.abs(amount); // Others owe you
                               }
                             });
 

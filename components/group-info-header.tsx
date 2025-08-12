@@ -96,7 +96,7 @@ export function GroupInfoHeader({
           <p className="text-mobile-base sm:text-lg text-white/70">
             {owed.length > 0 ? (
               <>
-                Overall, you are owed {" "}
+                Overall, you owe {" "}
                 <span className="text-[#FF4444]">
                   {owed
                     .map((b) => formatCurrency(b.amount, b.currency))
@@ -105,7 +105,7 @@ export function GroupInfoHeader({
               </>
             ) : owe.length > 0 ? (
               <>
-                Overall, you owe {" "}
+                Overall, you are owed {" "}
                 <span className="text-[#53e45d]">
                   {owe
                     .map((b) => formatCurrency(b.amount, b.currency))

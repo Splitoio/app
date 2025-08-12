@@ -3,14 +3,14 @@
  */
 export function formatCurrency(amount: number, currencyCode: string): string {
   // Handle blockchain tokens (typically we don't use currency symbols for these)
-  const isToken = !["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "INR"].includes(
+  const isToken = !["USD", "EUR", "GBP", "JPY", "CAD", "AUD", "INR", "CHF"].includes(
     currencyCode
   );
 
   if (isToken) {
     // For tokens, simply return the amount with the token symbol
     return `${amount.toFixed(6)} ${currencyCode}`;
-  }
+  };
 
   // For fiat currencies, use the Intl.NumberFormat
   try {

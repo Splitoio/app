@@ -232,14 +232,14 @@ export function GroupsList() {
             }, {} as Record<string, number>);
 
             // Separate positive and negative balances by currency
-            const owedBalances: Record<string, number> = {}; // What others owe you (positive amounts)
-            const oweBalances: Record<string, number> = {}; // What you owe others (negative amounts)
+            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
+            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
             
             Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
               if (amount > 0) {
-                owedBalances[curr] = amount; // Others owe you
+                oweBalances[curr] = amount; // You owe others
               } else if (amount < 0) {
-                oweBalances[curr] = Math.abs(amount); // You owe others
+                owedBalances[curr] = Math.abs(amount); // Others owe you
               }
             });
 
