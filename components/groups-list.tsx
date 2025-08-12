@@ -232,14 +232,14 @@ export function GroupsList() {
             }, {} as Record<string, number>);
 
             // Separate positive and negative balances by currency
-            const owedBalances: Record<string, number> = {};
-            const oweBalances: Record<string, number> = {};
+            const owedBalances: Record<string, number> = {}; // What others owe you (positive amounts)
+            const oweBalances: Record<string, number> = {}; // What you owe others (negative amounts)
             
             Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
               if (amount > 0) {
-                owedBalances[curr] = amount;
+                owedBalances[curr] = amount; // Others owe you
               } else if (amount < 0) {
-                oweBalances[curr] = Math.abs(amount);
+                oweBalances[curr] = Math.abs(amount); // You owe others
               }
             });
 
@@ -252,44 +252,44 @@ export function GroupsList() {
                 <div className="text-mobile-xs sm:text-sm">
                   <div>
                     You owe{" "}
-                    {Object.entries(owedBalances).map(([curr, amount], index) => (
+                    {Object.entries(oweBalances).map(([curr, amount], index) => (
                       <span key={curr}>
                         <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                        {index < Object.entries(owedBalances).length - 1 && ", "}
+                        {index < Object.entries(oweBalances).length - 1 && ", "}
                       </span>
                     ))}
                   </div>
                   <div>
                     Owes you{" "}
-                    {Object.entries(oweBalances).map(([curr, amount], index) => (
+                    {Object.entries(owedBalances).map(([curr, amount], index) => (
                       <span key={curr}>
                         <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                        {index < Object.entries(oweBalances).length - 1 && ", "}
+                        {index < Object.entries(owedBalances).length - 1 && ", "}
                       </span>
                     ))}
                   </div>
                 </div>
               );
-            } else if (hasOwedBalances) {
+            } else if (hasOweBalances) {
               balanceDisplay = (
                 <span>
                   You owe{" "}
-                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                  {Object.entries(oweBalances).map(([curr, amount], index) => (
                     <span key={curr}>
                       <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                      {index < Object.entries(oweBalances).length - 1 && ", "}
                     </span>
                   ))}
                 </span>
               );
-            } else if (hasOweBalances) {
+            } else if (hasOwedBalances) {
               balanceDisplay = (
                 <span>
                   Owes you{" "}
-                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                  {Object.entries(owedBalances).map(([curr, amount], index) => (
                     <span key={curr}>
                       <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                      {index < Object.entries(owedBalances).length - 1 && ", "}
                     </span>
                   ))}
                 </span>

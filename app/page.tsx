@@ -466,19 +466,83 @@ export default function Page() {
                         <p className="text-mobile-sm sm:text-base text-white/60">
                           {(() => {
                             if (!user || !group.groupBalances) return "No balance";
-                            const currency = group.defaultCurrency || "USD";
+                            
+                            // Group balances by currency for the user in this group
                             const userBalances = group.groupBalances.filter(
-                              (b) => b.userId === user.id && b.currency === currency
+                              (b) => b.userId === user.id
                             );
-                            const netBalance = userBalances.reduce((sum, b) => sum + b.amount, 0);
-                            if (userBalances.length === 0) return "No balance";
-                            if (netBalance > 0) {
+                            
+                            // Group balances by currency
+                            const balancesByCurrency = userBalances.reduce((acc, balance) => {
+                              if (!acc[balance.currency]) {
+                                acc[balance.currency] = 0;
+                              }
+                              acc[balance.currency] += balance.amount;
+                              return acc;
+                            }, {} as Record<string, number>);
+
+                            // Separate positive and negative balances by currency
+                            const owedBalances: Record<string, number> = {}; // What others owe you (positive amounts)
+                            const oweBalances: Record<string, number> = {}; // What you owe others (negative amounts)
+                            
+                            Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
+                              if (amount > 0) {
+                                owedBalances[curr] = amount; // Others owe you
+                              } else if (amount < 0) {
+                                oweBalances[curr] = Math.abs(amount); // You owe others
+                              }
+                            });
+
+                            const hasOwedBalances = Object.keys(owedBalances).length > 0;
+                            const hasOweBalances = Object.keys(oweBalances).length > 0;
+
+                            if (hasOwedBalances && hasOweBalances) {
+                              // Show both what you owe and what you're owed
                               return (
-                                <>You owe <span className="text-[#FF4444]">${netBalance.toFixed(2)}</span></>
+                                <div>
+                                  <div>
+                                    You owe{" "}
+                                    {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                      <span key={curr}>
+                                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                                        {index < Object.entries(oweBalances).length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div>
+                                    Owes you{" "}
+                                    {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                      <span key={curr}>
+                                        <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                                        {index < Object.entries(owedBalances).length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
                               );
-                            } else if (netBalance < 0) {
+                            } else if (hasOweBalances) {
                               return (
-                                <>Owes you <span className="text-[#53e45d]">${Math.abs(netBalance).toFixed(2)}</span></>
+                                <>
+                                  You owe{" "}
+                                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </>
+                              );
+                            } else if (hasOwedBalances) {
+                              return (
+                                <>
+                                  Owes you{" "}
+                                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </>
                               );
                             } else {
                               return "Settled";

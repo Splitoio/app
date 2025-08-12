@@ -117,12 +117,33 @@ export default function GroupDetailsPage({
   const getSpecificDebtAmount = (friendId: string) => {
     if (!group || !user) return 0;
     
-    // Find the balance entry for this friend in this group
-    const balance = group.groupBalances.find(
+    // Find all balance entries for this friend in this group
+    const balances = group.groupBalances.filter(
       (balance) => balance.userId === user.id && balance.firendId === friendId
     );
     
-    return (balance && balance.amount > 0) ? balance.amount : 0;
+    // Return the total amount owed (could be positive or negative)
+    return balances.reduce((sum, balance) => sum + balance.amount, 0);
+  };
+
+  // Get currency-specific debt information for a friend
+  const getSpecificDebtByCurrency = (friendId: string) => {
+    if (!group || !user) return {};
+    
+    const balances = group.groupBalances.filter(
+      (balance) => balance.userId === user.id && balance.firendId === friendId
+    );
+    
+    // Group by currency
+    const debtByCurrency: Record<string, number> = {};
+    balances.forEach(balance => {
+      if (!debtByCurrency[balance.currency]) {
+        debtByCurrency[balance.currency] = 0;
+      }
+      debtByCurrency[balance.currency] += balance.amount;
+    });
+    
+    return debtByCurrency;
   };
 
   const markAsPaidMutation = useMarkAsPaid();
@@ -626,6 +647,7 @@ export default function GroupDetailsPage({
         showIndividualView={settleFriendId !== null}
         selectedFriendId={settleFriendId}
         specificAmount={settleFriendId ? getSpecificDebtAmount(settleFriendId) : undefined}
+        specificDebtByCurrency={settleFriendId ? getSpecificDebtByCurrency(settleFriendId) : undefined}
       />
 
       <AddMemberModal

@@ -41,6 +41,7 @@ interface SettleDebtsModalProps {
   selectedFriendId?: string | null;
   defaultCurrency?: string; // <-- add this
   specificAmount?: number; // Add specific amount for individual debt settlement
+  specificDebtByCurrency?: Record<string, number>; // Add currency-specific debt info
 }
 
 export function SettleDebtsModal({
@@ -53,6 +54,7 @@ export function SettleDebtsModal({
   selectedFriendId = null,
   defaultCurrency,
   specificAmount, // Add this parameter
+  specificDebtByCurrency, // Add currency-specific debt info
 }: SettleDebtsModalProps) {
   const user = useAuthStore((state) => state.user);
   const {
@@ -148,12 +150,17 @@ export function SettleDebtsModal({
 
         // Use specific amount if provided, otherwise calculate from friend balances
         if (specificAmount !== undefined) {
-          setIndividualAmount(specificAmount.toFixed(2));
+          setIndividualAmount(Math.abs(specificAmount).toFixed(2));
+        } else if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
+          // Use currency-specific debt amount - get the first currency's amount
+          const firstCurrency = Object.keys(specificDebtByCurrency)[0];
+          const firstCurrencyAmount = specificDebtByCurrency[firstCurrency];
+          setIndividualAmount(Math.abs(firstCurrencyAmount).toFixed(2));
         } else {
           // Calculate amount owed to this specific friend
           const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
           if (positiveBalance) {
-            setIndividualAmount(positiveBalance.amount.toFixed(2));
+            setIndividualAmount(Math.abs(positiveBalance.amount).toFixed(2));
           } else {
             setIndividualAmount("0");
           }
@@ -162,7 +169,7 @@ export function SettleDebtsModal({
     } else if (!showIndividualView) {
       setSelectedUser(null);
     }
-  }, [selectedFriendId, friends, showIndividualView, specificAmount]);
+  }, [selectedFriendId, friends, showIndividualView, specificAmount, specificDebtByCurrency]);
 
   // Calculate total debts across all groups on mount and when data changes
   useEffect(() => {
@@ -177,12 +184,21 @@ export function SettleDebtsModal({
     if (isOpen && organizedCurrencies) {
       const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
       let tokenToSelect = chainCurrencies[0];
-      if (defaultCurrency) {
+      
+      // Priority 1: Use currency from specific debt if available
+      if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
+        const debtCurrency = Object.keys(specificDebtByCurrency)[0];
+        const match = chainCurrencies.find((t) => t.id === debtCurrency || t.symbol === debtCurrency);
+        if (match) tokenToSelect = match;
+      }
+      // Priority 2: Use default currency
+      else if (defaultCurrency) {
         const match = chainCurrencies.find(
           (t) => t.symbol === defaultCurrency
         );
         if (match) tokenToSelect = match;
       }
+      
       if (tokenToSelect) {
         setSelectedToken({
           id: tokenToSelect.id,
@@ -193,7 +209,7 @@ export function SettleDebtsModal({
         });
       }
     }
-  }, [isOpen, organizedCurrencies, defaultCurrency]);
+  }, [isOpen, organizedCurrencies, defaultCurrency, specificDebtByCurrency]);
 
   // Update individualAmount when selectedUser changes
   useEffect(() => {
@@ -201,7 +217,7 @@ export function SettleDebtsModal({
       // Only update from user balances if no specific amount is provided
       const positiveBalance = (selectedUser as any).balances?.find((b: any) => b.amount > 0);
       if (positiveBalance) {
-        setIndividualAmount(positiveBalance.amount.toFixed(2));
+        setIndividualAmount(Math.abs(positiveBalance.amount).toFixed(2));
       } else {
         setIndividualAmount("0");
       }
@@ -445,9 +461,17 @@ export function SettleDebtsModal({
     ? (specificAmount !== undefined 
         ? specificAmount 
         : (selectedUser as unknown as FriendWithBalances).balances.find(
-            (balance) => balance.amount > 0
+            (balance) => balance.amount !== 0  // Changed from > 0 to !== 0 to include debts
           )?.amount || 0)
     : 0;
+
+  // Get currency-specific debts for the selected user
+  const selectedUserDebtByCurrency = selectedUser && specificDebtByCurrency 
+    ? specificDebtByCurrency 
+    : {};
+
+  // Check if there are any debts to settle for the selected user
+  const hasDebtsToSettle = Object.values(selectedUserDebtByCurrency).some(amount => amount !== 0);
 
   // Calculate the remaining total after exclusions
   const remainingTotal = calculateRemainingTotal();
