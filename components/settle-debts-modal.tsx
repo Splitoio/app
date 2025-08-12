@@ -15,8 +15,9 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import ResolverSelector, { Option as TokenOption } from "./ResolverSelector";
-import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
+import { useOrganizedCurrencies, useGetExchangeRate } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
+import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
@@ -73,6 +74,9 @@ export function SettleDebtsModal({
   const [individualAmount, setIndividualAmount] = useState("0");
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
   const [availableChainsForToken, setAvailableChainsForToken] = useState<string[]>([]);
+  const [debtCurrency, setDebtCurrency] = useState<string>("USD"); // Currency of the debt
+  const [fiatAmount, setFiatAmount] = useState("0"); // Original fiat amount
+  const [tokenAmount, setTokenAmount] = useState("0"); // Converted token amount
 
   const settleDebtMutation = useSettleDebt(groupId);
   const queryClient = useQueryClient();
@@ -85,6 +89,42 @@ export function SettleDebtsModal({
   const stellarWallet = wallets.find(w => w.chainId === "stellar");
   const userStellarAddress = stellarWallet?.address || null;
   useHandleEscapeToCloseModal(isOpen, onClose);
+
+  // Custom pricing data fetcher using the pricing API
+  const fetchPricingData = async (tokenId: string, baseCurrency: string) => {
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+    const response = await fetch(
+      `${API_URL}/api/pricing/price?id=${tokenId}&baseCurrency=${baseCurrency}`,
+      {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch price for ${tokenId} in ${baseCurrency}`);
+    }
+
+    return await response.json();
+  };
+
+  // Currency conversion using pricing API - get token price in debt currency
+  const shouldConvert = debtCurrency !== selectedToken?.id && debtCurrency !== selectedToken?.symbol;
+  const { data: tokenPriceData, isLoading: isLoadingTokenPrice, error: priceError } = useQuery({
+    queryKey: ['tokenPrice', selectedToken?.id, debtCurrency],
+    queryFn: () => fetchPricingData(selectedToken?.id || '', debtCurrency.toLowerCase()),
+    enabled: !!selectedToken?.id && !!debtCurrency && shouldConvert,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Fallback: Use exchange rate if conversion fails
+  const { data: exchangeRateData, isLoading: isLoadingRate, error: exchangeRateError } = useGetExchangeRate(
+    debtCurrency,
+    selectedToken?.id || ""
+  );
 
   // Helper function to get currency symbol from organized currencies data
   const getCurrencySymbol = (currencyId: string): string => {
@@ -150,18 +190,32 @@ export function SettleDebtsModal({
 
         // Use specific amount if provided, otherwise calculate from friend balances
         if (specificAmount !== undefined) {
-          setIndividualAmount(Math.abs(specificAmount).toFixed(2));
+          const amount = Math.abs(specificAmount);
+          setFiatAmount(amount.toFixed(2));
+          setIndividualAmount(amount.toFixed(2));
+          // Set debt currency from specificDebtByCurrency if available
+          if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
+            setDebtCurrency(Object.keys(specificDebtByCurrency)[0]);
+          }
         } else if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
           // Use currency-specific debt amount - get the first currency's amount
           const firstCurrency = Object.keys(specificDebtByCurrency)[0];
           const firstCurrencyAmount = specificDebtByCurrency[firstCurrency];
-          setIndividualAmount(Math.abs(firstCurrencyAmount).toFixed(2));
+          const amount = Math.abs(firstCurrencyAmount);
+          setFiatAmount(amount.toFixed(2));
+          setIndividualAmount(amount.toFixed(2));
+          setDebtCurrency(firstCurrency);
         } else {
           // Calculate amount owed to this specific friend
           const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
           if (positiveBalance) {
-            setIndividualAmount(Math.abs(positiveBalance.amount).toFixed(2));
+            const amount = Math.abs(positiveBalance.amount);
+            setFiatAmount(amount.toFixed(2));
+            setIndividualAmount(amount.toFixed(2));
+            // Use currency from the balance data if available, otherwise default
+            setDebtCurrency(positiveBalance.currency || defaultCurrency || "USD");
           } else {
+            setFiatAmount("0");
             setIndividualAmount("0");
           }
         }
@@ -223,6 +277,64 @@ export function SettleDebtsModal({
       }
     }
   }, [selectedUser, specificAmount]);
+
+  // Update token amount when pricing data is available
+  useEffect(() => {
+    const fiatValue = parseFloat(fiatAmount) || 0;
+    
+    if (!shouldConvert || fiatValue <= 0) {
+      // No conversion needed or invalid amount
+      setTokenAmount(fiatAmount);
+      return;
+    }
+
+    if (tokenPriceData && tokenPriceData.price) {
+      // Calculate token amount: fiatAmount / tokenPriceInDebtCurrency
+      console.log("[SettleDebtsModal] Using pricing data:", tokenPriceData);
+      const tokenAmount = fiatValue / tokenPriceData.price;
+      setTokenAmount(tokenAmount.toFixed(6));
+    } else if (exchangeRateData && exchangeRateData.rate && !isLoadingRate) {
+      // Fallback: Calculate using exchange rate
+      console.log("[SettleDebtsModal] Using exchange rate fallback:", exchangeRateData);
+      const convertedAmount = fiatValue * exchangeRateData.rate;
+      setTokenAmount(convertedAmount.toFixed(6));
+    } else if (!isLoadingTokenPrice && !isLoadingRate) {
+      // If both fail, use fiat amount as fallback
+      console.log("[SettleDebtsModal] Using fiat amount fallback due to conversion failure");
+      if (priceError) {
+        console.error("[SettleDebtsModal] Pricing error:", priceError);
+      }
+      if (exchangeRateError) {
+        console.error("[SettleDebtsModal] Exchange rate error:", exchangeRateError);
+      }
+      setTokenAmount(fiatAmount);
+    }
+  }, [tokenPriceData, exchangeRateData, isLoadingTokenPrice, isLoadingRate, fiatAmount, selectedToken, shouldConvert, priceError, exchangeRateError]);
+
+  // Debug: Log conversion parameters
+  useEffect(() => {
+    if (shouldConvert && parseFloat(fiatAmount) > 0 && selectedToken?.id) {
+      console.log("[SettleDebtsModal] Conversion params:", {
+        fiatAmount,
+        debtCurrency,
+        tokenId: selectedToken.id,
+        tokenSymbol: selectedToken.symbol,
+        shouldConvert
+      });
+      console.log("[SettleDebtsModal] Exchange rate request:", {
+        from: debtCurrency,
+        to: selectedToken.id,
+        exchangeRateData,
+        isLoadingRate,
+        exchangeRateError: exchangeRateError?.message
+      });
+    }
+  }, [fiatAmount, debtCurrency, selectedToken, shouldConvert, exchangeRateData, isLoadingRate]);
+
+  // When fiat amount changes, update individual amount for compatibility
+  useEffect(() => {
+    setIndividualAmount(fiatAmount);
+  }, [fiatAmount]);
 
   // Update available chains when selectedToken changes
   useEffect(() => {
@@ -395,7 +507,7 @@ export function SettleDebtsModal({
       settleWithId: settleWith.id,
       selectedTokenId: selectedToken.id,
       selectedChainId: selectedChain || undefined,
-      amount: parseFloat(individualAmount),
+      amount: parseFloat(tokenAmount) || parseFloat(individualAmount), // Use converted amount or fallback
     };
     settleDebtMutation.mutate(payload, {
       onSuccess: () => {
@@ -778,18 +890,66 @@ export function SettleDebtsModal({
                       </div>
                     )}
 
-                    <div className="relative">
-                      <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
-                        <input
-                          type="text"
-                          value={individualAmount}
-                          onChange={(e) => setIndividualAmount(e.target.value)}
-                          className="bg-transparent outline-none text-base sm:text-lg w-full"
-                        />
-                        <span className="text-base sm:text-lg text-white/50">
-                          {selectedToken?.symbol || "Token"}
-                        </span>
+                    <div className="relative space-y-3">
+                      {/* Fiat Amount Input */}
+                      <div>
+                        <label className="block text-white mb-2 text-sm">
+                          Debt Amount ({getCurrencySymbol(debtCurrency)})
+                        </label>
+                        <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
+                          <input
+                            type="text"
+                            value={fiatAmount}
+                            onChange={(e) => {
+                              setFiatAmount(e.target.value);
+                              setIndividualAmount(e.target.value); // Keep for compatibility
+                            }}
+                            className="bg-transparent outline-none text-base sm:text-lg w-full"
+                            placeholder="0.00"
+                          />
+                          <span className="text-base sm:text-lg text-white/50">
+                            {getCurrencySymbol(debtCurrency)}
+                          </span>
+                        </div>
                       </div>
+
+                      {/* Token Amount Display */}
+                      {selectedToken && parseFloat(fiatAmount) > 0 && (
+                        <div>
+                          <label className="block text-white mb-2 text-sm">
+                            Token Amount to Send {(isLoadingTokenPrice || isLoadingRate) && "(Converting...)"}
+                          </label>
+                          <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-white/5 border border-white/10 text-white">
+                            <span className="text-base sm:text-lg">
+                              {(isLoadingTokenPrice || isLoadingRate) ? "..." : tokenAmount}
+                            </span>
+                            <span className="text-base sm:text-lg text-white/50">
+                              {selectedToken?.symbol || "Token"}
+                            </span>
+                          </div>
+                          {(tokenPriceData || exchangeRateData) && (
+                            <div className="text-xs text-white/60 mt-1">
+                              {tokenPriceData ? (
+                                <>
+                                  Price: 1 {selectedToken?.symbol} = {getCurrencySymbol(debtCurrency)}{tokenPriceData.price?.toFixed(6)}
+                                  <br />
+                                  Rate: 1 {getCurrencySymbol(debtCurrency)} = {(1/tokenPriceData.price)?.toFixed(6)} {selectedToken?.symbol}
+                                </>
+                              ) : exchangeRateData ? (
+                                <>
+                                  Rate: 1 {getCurrencySymbol(debtCurrency)} = {exchangeRateData.rate?.toFixed(6)} {selectedToken?.symbol}
+                                  {priceError && " (Using fallback rate)"}
+                                </>
+                              ) : null}
+                            </div>
+                          )}
+                          {priceError && !exchangeRateData && !isLoadingTokenPrice && !isLoadingRate && (
+                            <div className="text-xs text-yellow-400 mt-1">
+                              Unable to fetch current exchange rate - using fallback conversion
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
@@ -850,8 +1010,9 @@ export function SettleDebtsModal({
                     disabled={
                       isPending ||
                       !selectedUser ||
-                      parseFloat(individualAmount) <= 0 ||
-                      !selectedToken
+                      parseFloat(fiatAmount) <= 0 ||
+                      !selectedToken ||
+                      (isLoadingTokenPrice || isLoadingRate)
                     }
                   >
                     {isPending ? (

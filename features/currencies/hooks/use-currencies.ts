@@ -46,6 +46,8 @@ export const useGetExchangeRate = (from: string, to: string) => {
     // Only fetch if both currencies are provided
     enabled: !!from && !!to && from !== to,
     staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1, // Only retry once to avoid spamming errors
+    retryDelay: 1000, // Wait 1 second before retry
   });
 };
 
