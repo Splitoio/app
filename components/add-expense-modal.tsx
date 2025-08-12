@@ -73,9 +73,11 @@ function useAllChainsTokens() {
         chains.forEach((chain: any) => {
           (chain.tokens || []).forEach((token: any) => {
             opts.push({
+              id: token.id || token.symbol,
+              symbol: token.symbol,
+              name: token.name,
               chainId: chain.chainId,
-              token: token.symbol,
-              label: `${chain.name} - ${token.symbol}`,
+              type: token.type,
             });
           });
         });

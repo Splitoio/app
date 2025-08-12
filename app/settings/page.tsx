@@ -33,6 +33,7 @@ import {
   useGetAllCurrencies,
   useOrganizedCurrencies,
 } from "@/features/currencies/hooks/use-currencies";
+import type { Currency } from "@/features/currencies/api/client";
 import {
   useUserWallets,
   useAddWallet,
@@ -104,8 +105,11 @@ export default function SettingsPage() {
   // Process wallet data for UI
   const wallets = walletData?.accounts || [];
 
-  // Get all currencies from the API response
-  const currencies = currencyData?.currencies || [];
+  // Get all currencies from the API response and filter out ETH and USDC
+  const allCurrencies = currencyData?.currencies || [];
+  const currencies = allCurrencies.filter(
+    (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+  );
 
   // Separate currencies by type for UI organization
   const fiatCurrencies = currencies.filter((c) => c.type === "FIAT");
@@ -399,12 +403,28 @@ export default function SettingsPage() {
     // Use the cached organized currencies from our hook
     const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
     const chainGroups = organizedCurrencies?.chainGroups || {};
+    
+    // Filter out ETH and USDC from fiat currencies
+    const filteredFiatCurrencies = fiatCurrencies.filter(
+      (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+    );
+    
+    // Filter out ETH and USDC from chain currencies
+    const filteredChainGroups: Record<string, Currency[]> = {};
+    Object.entries(chainGroups).forEach(([chainId, currencies]) => {
+      const filteredCurrencies = currencies.filter(
+        (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+      );
+      if (filteredCurrencies.length > 0) {
+        filteredChainGroups[chainId] = filteredCurrencies;
+      }
+    });
 
     return (
       <>
         {/* Fiat Currencies */}
         <div className="px-4 py-2 text-sm text-white/50 font-medium">Fiat</div>
-        {fiatCurrencies.map((currency) => (
+        {filteredFiatCurrencies.map((currency) => (
           <button
             key={`fiat-${currency.id}`}
             type="button"
@@ -435,7 +455,7 @@ export default function SettingsPage() {
         ))}
 
         {/* Chain Currencies */}
-        {Object.entries(chainGroups).map(([chainId, currencies]) => (
+        {Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
           <div key={`chain-${chainId}`}>
             <div className="px-4 py-2 mt-2 text-sm text-white/50 font-medium">
               {chainId}
@@ -646,6 +666,7 @@ export default function SettingsPage() {
           <CurrencyDropdown
             selectedCurrencies={selectedCurrencies}
             setSelectedCurrencies={setSelectedCurrencies}
+            filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
           />
         </div>
 

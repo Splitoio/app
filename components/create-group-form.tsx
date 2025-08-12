@@ -17,6 +17,7 @@ import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
 import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
 import CurrencyDropdown from "./currency-dropdown";
+import type { Currency } from "@/features/currencies/api/client";
 
 interface CreateGroupFormProps {
   isOpen: boolean;
@@ -328,6 +329,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     }));
                   }}
                   showFiatCurrencies={true}
+                  filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
                 />
               </div>
 

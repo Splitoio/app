@@ -12,6 +12,7 @@ import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currenci
 import { useAvailableChains } from "@/features/wallets/hooks/use-wallets";
 import { useEffect, useState } from "react";
 import CurrencyDropdown from "./currency-dropdown";
+import type { Currency } from "@/features/currencies/api/client";
 
 // Option type for compatibility with parent
 // (id = currency id or token id, symbol, name, chainId, type)
@@ -37,7 +38,13 @@ export default function ResolverSelector({ value, onChange }: Props) {
   const fiatCurrencies = organized?.fiatCurrencies || [];
   const chainGroups = organized?.chainGroups || {};
   const chainCurrencies = Object.values(chainGroups).flat();
-  const currencies = [...chainCurrencies, ...fiatCurrencies];
+  
+  // Filter out ETH and USDC from the currencies
+  const filteredChainCurrencies = chainCurrencies.filter(
+    (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+  );
+  
+  const currencies = [...filteredChainCurrencies, ...fiatCurrencies];
 
   // Update parent when selection changes
   const handleCurrencyChange = (currenciesSelected: string[]) => {
@@ -68,6 +75,7 @@ export default function ResolverSelector({ value, onChange }: Props) {
       selectedCurrencies={selectedCurrency}
       setSelectedCurrencies={handleCurrencyChange}
       showFiatCurrencies={false} // Remove fiat section
+      filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"} // Filter out ETH and USDC
     />
   );
 }
