@@ -1,4 +1,5 @@
 import { ReminderResponse } from "@/features/reminders/api/client";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import { Check, X, Loader2 } from "lucide-react";
 import Image from "next/image";
 import {
@@ -55,6 +56,21 @@ export function TransactionRequestList({
   isRejecting,
   className = "" 
 }: TransactionRequestListProps) {
+  const { data: allCurrencies } = useGetAllCurrencies();
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string = 'USD'): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
   if (!reminders || reminders.length === 0) {
     return (
       <div className="text-center py-8 text-white/60">
@@ -70,10 +86,10 @@ export function TransactionRequestList({
         const amount = reminder.split?.amount || reminder.amount || 0;
         let requestText = "Request pending";
         if (reminder.split) {
-          requestText = `Requested $${amount.toFixed(2)}`;
+          requestText = `Requested ${formatCurrency(amount)}`;
         } else if (reminder.reminderType === "USER") {
           if (amount > 0) {
-            requestText = `Requested $${amount.toFixed(2)}`;
+            requestText = `Requested ${formatCurrency(amount)}`;
           } else if (reminder.content) {
             requestText = reminder.content;
           } else {
@@ -106,13 +122,13 @@ export function TransactionRequestList({
                       <p className="text-mobile-sm sm:text-base text-white/60">
                         {reminder.reminderType === "USER"
                           ? (reminder.amount && reminder.amount > 0
-                              ? `$${reminder.amount.toFixed(2)}`
+                              ? formatCurrency(reminder.amount)
                               : reminder.content || "Requested payment")
                           : reminder.split && reminder.split.expenseParticipants && reminder.split.expenseParticipants.length > 0
-                            ? `$${reminder.split.expenseParticipants[0].amount.toFixed(2)}`
+                            ? formatCurrency(reminder.split.expenseParticipants[0].amount)
                             : reminder.split
-                              ? `$${reminder.split.amount.toFixed(2)}`
-                              : "$0.00"}
+                              ? formatCurrency(reminder.split.amount)
+                              : formatCurrency(0)}
                       </p>
                       <p className="text-xs sm:text-sm text-white/60">
                         {getTimeAgo(reminder.createdAt)}
@@ -127,7 +143,7 @@ export function TransactionRequestList({
                     <p>Status: {reminder.status}</p>
                     <p>Created: {new Date(reminder.createdAt).toLocaleString()}</p>
                     {reminder.split && (
-                      <p>Amount: ${reminder.split.amount.toFixed(2)}</p>
+                      <p>Amount: {formatCurrency(reminder.split.amount)}</p>
                     )}
                   </div>
                 </TooltipContent>

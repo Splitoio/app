@@ -84,6 +84,30 @@ export function SettleDebtsModal({
   const userStellarAddress = stellarWallet?.address || null;
   useHandleEscapeToCloseModal(isOpen, onClose);
 
+  // Helper function to get currency symbol from organized currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    if (!organizedCurrencies) return currencyId;
+    
+    // Check fiat currencies first
+    const fiatCurrency = organizedCurrencies.fiatCurrencies?.find((c: any) => c.id === currencyId);
+    if (fiatCurrency) return fiatCurrency.symbol;
+    
+    // Check chain groups for crypto currencies
+    for (const chainGroup of Object.values(organizedCurrencies.chainGroups || {})) {
+      const cryptoCurrency = chainGroup.find((c: any) => c.id === currencyId);
+      if (cryptoCurrency) return cryptoCurrency.symbol;
+    }
+    
+    return currencyId;
+  };
+
+  // Helper function to format currency using actual symbols
+  const formatCurrency = (amount: number, currencyId: string = 'USD'): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
+
   // Debug: Log user data
   useEffect(() => {
     console.log("[SettleDebtsModal] User data debug:", {
@@ -535,6 +559,7 @@ export function SettleDebtsModal({
                         const amount = positiveBalance
                           ? positiveBalance.amount
                           : 0;
+                        const currency = positiveBalance?.currency || defaultCurrency;
                         const isExcluded = excludedFriendIds.includes(
                           friend.id
                         );
@@ -571,7 +596,7 @@ export function SettleDebtsModal({
                                 <p className="text-mobile-sm sm:text-base text-white/60">
                                   You owe{" "}
                                   <span className="text-[#FF4444]">
-                                    ${amount.toFixed(2)}
+                                    {formatCurrency(amount, currency)}
                                   </span>
                                 </p>
                               </div>
@@ -776,7 +801,7 @@ export function SettleDebtsModal({
                         <p className="text-mobile-sm sm:text-base text-white/60">
                           You owe{" "}
                           <span className="text-[#FF4444]">
-                            ${Math.abs(selectedUserBalance).toFixed(2)}
+                            {formatCurrency(Math.abs(selectedUserBalance), defaultCurrency)}
                           </span>
                         </p>
                       </div>

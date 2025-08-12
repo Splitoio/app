@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import axios from "axios";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import TimeLockToggle from "@/components/ui/TimeLockToggle";
@@ -38,6 +39,7 @@ export default function GroupDetailsPage({
   const { address } = useWallet();
   const router = useRouter();
   const { sendReminder, isSending } = useReminders();
+  const { data: allCurrencies } = useGetAllCurrencies();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
@@ -47,6 +49,20 @@ export default function GroupDetailsPage({
   const [activeTab, setActiveTab] = useState<"members" | "splits" | "activity">(
     "splits"
   );
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
 
   // State for group settings form
   const [groupSettings, setGroupSettings] = useState({
@@ -296,28 +312,37 @@ export default function GroupDetailsPage({
                 const oweBalance = balances?.filter(
                   (balance) => balance.amount < 0
                 );
-                const owed = Math.abs(
-                  owedBalance?.reduce(
-                    (sum, balance) => sum + balance.amount,
-                    0
-                  ) || 0
-                );
-                const owe = Math.abs(
-                  oweBalance?.reduce(
-                    (sum, balance) => sum + balance.amount,
-                    0
-                  ) || 0
-                );
+
+                // Group balances by currency
+                const owedByCurrency = owedBalance?.reduce((acc, balance) => {
+                  if (!acc[balance.currency]) {
+                    acc[balance.currency] = 0;
+                  }
+                  acc[balance.currency] += Math.abs(balance.amount);
+                  return acc;
+                }, {} as Record<string, number>) || {};
+
+                const oweByCurrency = oweBalance?.reduce((acc, balance) => {
+                  if (!acc[balance.currency]) {
+                    acc[balance.currency] = 0;
+                  }
+                  acc[balance.currency] += Math.abs(balance.amount);
+                  return acc;
+                }, {} as Record<string, number>) || {};
+
+                // Check if there are any balances at all
+                const hasOwedBalances = Object.keys(owedByCurrency).length > 0;
+                const hasOweBalances = Object.keys(oweByCurrency).length > 0;
 
                 // Skip users that have no debt relationship
-                if (owed === 0 && owe === 0 && member.user.id !== user?.id) {
+                if (!hasOwedBalances && !hasOweBalances && member.user.id !== user?.id) {
                   return null;
                 }
 
                 // Determine if this is the current user or someone else
                 const isCurrentUser = member.user.id === user?.id;
                 // Only show the current user if they have debts to settle
-                if (isCurrentUser && owed === 0 && owe === 0) {
+                if (isCurrentUser && !hasOwedBalances && !hasOweBalances) {
                   return null;
                 }
 
@@ -351,18 +376,37 @@ export default function GroupDetailsPage({
                           {isCurrentUser ? "You" : member.user.name}
                         </p>
 
-                        {/* Only one of these will show based on the balance direction */}
-                        {owed > 0 && !isCurrentUser && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            Owes you <span className="text-green-500">${owed.toFixed(2)}</span>
-                          </p>
+                        {/* Show amounts owed by currency */}
+                        {hasOwedBalances && !isCurrentUser && (
+                          <div className="text-mobile-sm sm:text-base text-white/70">
+                            Owes you{" "}
+                            {Object.entries(owedByCurrency).map(([currency, amount], index) => (
+                              <span key={currency}>
+                                <span className="text-green-500">
+                                  {formatCurrency(amount, currency)}
+                                </span>
+                                {index < Object.entries(owedByCurrency).length - 1 && ", "}
+                              </span>
+                            ))}
+                          </div>
                         )}
-                        {!isCurrentUser && owe > 0 && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            You owe <span className="text-red-500">${owe.toFixed(2)}</span>
-                          </p>
+
+                        {/* Show amounts owed by currency */}
+                        {!isCurrentUser && hasOweBalances && (
+                          <div className="text-mobile-sm sm:text-base text-white/70">
+                            You owe{" "}
+                            {Object.entries(oweByCurrency).map(([currency, amount], index) => (
+                              <span key={currency}>
+                                <span className="text-red-500">
+                                  {formatCurrency(amount, currency)}
+                                </span>
+                                {index < Object.entries(oweByCurrency).length - 1 && ", "}
+                              </span>
+                            ))}
+                          </div>
                         )}
-                        {owed === 0 && owe === 0 && (
+
+                        {!hasOwedBalances && !hasOweBalances && (
                           <p className="text-mobile-sm sm:text-base text-white/70">
                             No Payment Requirement
                           </p>
@@ -373,7 +417,7 @@ export default function GroupDetailsPage({
                     <div className="flex items-center gap-2">
                       {!isCurrentUser && (
                         <div className="flex items-center gap-2">
-                          {owed > 0 && (
+                          {hasOwedBalances && (
                             <button
                               className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
                               onClick={() => {
@@ -391,7 +435,7 @@ export default function GroupDetailsPage({
                             </button>
                           )}
 
-                          {owe > 0 && (
+                          {hasOweBalances && (
                             <>
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
@@ -412,14 +456,18 @@ export default function GroupDetailsPage({
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
                                 onClick={async () => {
+                                  // For simplicity, mark the first currency balance as paid
+                                  const firstCurrency = Object.keys(oweByCurrency)[0];
+                                  const firstAmount = oweByCurrency[firstCurrency];
+                                  
                                   markAsPaidMutation.mutate(
                                     {
                                       groupId,
                                       payload: {
                                         payerId: user.id,
                                         payeeId: member.user.id,
-                                        amount: owe,
-                                        currency: group.defaultCurrency || "USD",
+                                        amount: firstAmount,
+                                        currency: firstCurrency,
                                         currencyType: "FIAT",
                                       },
                                     },
@@ -550,7 +598,7 @@ export default function GroupDetailsPage({
                         </div>
                       </div>
                       <div className="text-mobile-base sm:text-base text-white font-medium">
-                        ${expense.amount.toFixed(2)}
+                        {formatCurrency(expense.amount, expense.currency || 'USD')}
                       </div>
                     </div>
                   );
