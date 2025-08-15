@@ -1,7 +1,7 @@
 "use client";
 
 import { X, Loader2, ChevronDown, MinusCircle } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { toast } from "sonner";
@@ -77,6 +77,8 @@ export function SettleDebtsModal({
   const [debtCurrency, setDebtCurrency] = useState<string>("USD"); // Currency of the debt
   const [fiatAmount, setFiatAmount] = useState("0"); // Original fiat amount
   const [tokenAmount, setTokenAmount] = useState("0"); // Converted token amount
+  const [multiCurrencyDebts, setMultiCurrencyDebts] = useState<Array<{currency: string, amount: number, tokenAmount: number}>>([]);
+  const [totalTokenAmount, setTotalTokenAmount] = useState("0"); // Total token amount for all currencies
 
   const settleDebtMutation = useSettleDebt(groupId);
   const queryClient = useQueryClient();
@@ -89,6 +91,53 @@ export function SettleDebtsModal({
   const stellarWallet = wallets.find(w => w.chainId === "stellar");
   const userStellarAddress = stellarWallet?.address || null;
   useHandleEscapeToCloseModal(isOpen, onClose);
+
+  // Helper functions for debt calculations
+  const transformGroupBalancesToCurrencyMap = (groupBalances: GroupBalance[], userId: string): Record<string, number> => {
+    const currencyMap: Record<string, number> = {};
+    
+    groupBalances.forEach(balance => {
+      // Only include balances for the current user
+      if (balance.userId === userId) {
+        if (!currencyMap[balance.currency]) {
+          currencyMap[balance.currency] = 0;
+        }
+        currencyMap[balance.currency] += balance.amount;
+      }
+    });
+
+    return currencyMap;
+  };
+
+  const calculateTotalDebtsFromBalances = (balancesData: Record<string, number>) => {
+    const total = Object.entries(balancesData).reduce((total, [currency, amount]) => {
+      // Only include positive amounts (debts we owe)
+      if (amount > 0) {
+        return total + amount;
+      }
+      return total;
+    }, 0);
+    return total;
+  };
+
+  const getDebtCurrencies = (balancesData: Record<string, number>) => {
+    const result = Object.entries(balancesData)
+      .filter(([currency, amount]) => amount > 0)
+      .map(([currency, amount]) => ({ currency, amount }));
+    return result;
+  };
+
+  // COMMENTED OUT: Individual friend debt logic - focus only on group balances
+  // const calculateTotalDebts = (friendsList: FriendWithBalances[]) => {
+  //   const total = friendsList.reduce((total, friend) => {
+  //     const positiveBalances = friend.balances.filter((b) => b.amount > 0);
+  //     const friendTotal = positiveBalances.reduce((sum: number, balance) => {
+  //       return sum + balance.amount;
+  //     }, 0);
+  //     return total + friendTotal;
+  //   }, 0);
+  //   return total;
+  // };
 
   // Custom pricing data fetcher using the pricing API
   const fetchPricingData = async (tokenId: string, baseCurrency: string) => {
@@ -111,12 +160,54 @@ export function SettleDebtsModal({
     return await response.json();
   };
 
+  // Fetch pricing data for multiple currencies
+  const fetchMultiCurrencyPricing = async (tokenId: string, currencies: string[]) => {
+    const promises = currencies.map(currency => 
+      fetchPricingData(tokenId, currency.toLowerCase()).catch(error => ({
+        currency,
+        error: error.message,
+        price: null
+      }))
+    );
+    
+    const results = await Promise.all(promises);
+    return results.map((result, index) => ({
+      currency: currencies[index],
+      price: result.price || null,
+      error: result.error || null
+    }));
+  };
+
   // Currency conversion using pricing API - get token price in debt currency
   const shouldConvert = debtCurrency !== selectedToken?.id && debtCurrency !== selectedToken?.symbol;
   const { data: tokenPriceData, isLoading: isLoadingTokenPrice, error: priceError } = useQuery({
     queryKey: ['tokenPrice', selectedToken?.id, debtCurrency],
     queryFn: () => fetchPricingData(selectedToken?.id || '', debtCurrency.toLowerCase()),
     enabled: !!selectedToken?.id && !!debtCurrency && shouldConvert,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+  });
+
+  // Multi-currency pricing for group settlements
+  const groupBalancesObj = balances && typeof balances === 'object' && !Array.isArray(balances) 
+    ? balances as Record<string, number>
+    : balances && Array.isArray(balances) && user
+    ? transformGroupBalancesToCurrencyMap(balances as GroupBalance[], user.id)
+    : {};
+
+  // Memoize group debt currencies to prevent infinite loops
+  const groupDebtCurrencies = useMemo(() => {
+    return Object.keys(groupBalancesObj).length > 0
+      ? getDebtCurrencies(groupBalancesObj)
+      : [];
+  }, [groupBalancesObj]);
+  
+  const { data: multiCurrencyPricing, isLoading: isLoadingMultiCurrency } = useQuery({
+    queryKey: ['multiCurrencyPricing', selectedToken?.id, groupDebtCurrencies.map(d => d.currency).join(',')],
+    queryFn: () => fetchMultiCurrencyPricing(
+      selectedToken?.id || '', 
+      groupDebtCurrencies.map(d => d.currency)
+    ),
+    enabled: !!selectedToken?.id && groupDebtCurrencies.length > 0,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
@@ -150,33 +241,9 @@ export function SettleDebtsModal({
     return `${symbol}${amount.toFixed(decimals)}`;
   };
 
-  // Debug: Log user data
-  useEffect(() => {
-    console.log("[SettleDebtsModal] User data debug:", {
-      user: user ? {
-        id: user.id,
-        name: user.name,
-        stellarAccount: user.stellarAccount,
-        hasStellarAccount: !!user.stellarAccount
-      } : null,
-      userStellarAddress,
-      walletConnected,
-      wallet: wallet ? 'exists' : 'null',
-      walletAddress: address,
-      walletType,
-      userFromStore: user
-    });
-  }, [user, userStellarAddress, walletConnected, wallet, address, walletType]);
-
   // Reset excluded friends when modal opens/closes
   useEffect(() => {
     if (isOpen) {
-      console.log("[SettleDebtsModal] Modal opened", { 
-        groupId, 
-        showIndividualView, 
-        selectedFriendId,
-        userStellarAddress
-      });
       setExcludedFriendIds([]);
     }
   }, [isOpen, groupId, showIndividualView, selectedFriendId, userStellarAddress]);
@@ -206,18 +273,24 @@ export function SettleDebtsModal({
           setIndividualAmount(amount.toFixed(2));
           setDebtCurrency(firstCurrency);
         } else {
-          // Calculate amount owed to this specific friend
-          const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
-          if (positiveBalance) {
-            const amount = Math.abs(positiveBalance.amount);
-            setFiatAmount(amount.toFixed(2));
-            setIndividualAmount(amount.toFixed(2));
-            // Use currency from the balance data if available, otherwise default
-            setDebtCurrency(positiveBalance.currency || defaultCurrency || "USD");
-          } else {
-            setFiatAmount("0");
-            setIndividualAmount("0");
-          }
+          // COMMENTED OUT: Calculate amount owed to this specific friend from cross-group balances
+          // Focus only on group-specific debt amounts
+          // const positiveBalance = friend.balances.find((b: any) => b.amount > 0);
+          // if (positiveBalance) {
+          //   const amount = Math.abs(positiveBalance.amount);
+          //   setFiatAmount(amount.toFixed(2));
+          //   setIndividualAmount(amount.toFixed(2));
+          //   // Use currency from the balance data if available, otherwise default
+          //   setDebtCurrency(positiveBalance.currency || defaultCurrency || "USD");
+          // } else {
+          //   setFiatAmount("0");
+          //   setIndividualAmount("0");
+          // }
+          
+          // Use only default amounts when no specific debt is provided
+          setFiatAmount("0");
+          setIndividualAmount("0");
+          setDebtCurrency(defaultCurrency || "USD");
         }
       }
     } else if (!showIndividualView) {
@@ -227,11 +300,18 @@ export function SettleDebtsModal({
 
   // Calculate total debts across all groups on mount and when data changes
   useEffect(() => {
-    if (friends) {
-      const totalOwed = calculateTotalDebts(friends as FriendWithBalances[]);
+    if (groupId && balances && typeof balances === 'object' && !Array.isArray(balances)) {
+      // We're in a group context with group balances - ONLY use group balances
+      const totalOwed = calculateTotalDebtsFromBalances(balances as Record<string, number>);
       setTotalAmount(totalOwed.toFixed(2));
-    }
-  }, [friends, balanceData]);
+    } 
+    // COMMENTED OUT: Individual friend debt calculation to focus only on group balances
+    // else if (friends) {
+    //   // We're in a general debt settlement context
+    //   const totalOwed = calculateTotalDebts(friends as FriendWithBalances[]);
+    //   setTotalAmount(totalOwed.toFixed(2));
+    // }
+  }, [balanceData, balances, groupId]); // Removed friends dependency
 
   // Fetch available tokens
   useEffect(() => {
@@ -268,15 +348,25 @@ export function SettleDebtsModal({
   // Update individualAmount when selectedUser changes
   useEffect(() => {
     if (selectedUser && specificAmount === undefined) {
-      // Only update from user balances if no specific amount is provided
-      const positiveBalance = (selectedUser as any).balances?.find((b: any) => b.amount > 0);
-      if (positiveBalance) {
-        setIndividualAmount(Math.abs(positiveBalance.amount).toFixed(2));
+      // COMMENTED OUT: Only update from user balances if no specific amount is provided
+      // Focus on group balances only, not individual friend balances across groups
+      // const positiveBalance = (selectedUser as any).balances?.find((b: any) => b.amount > 0);
+      // if (positiveBalance) {
+      //   setIndividualAmount(Math.abs(positiveBalance.amount).toFixed(2));
+      // } else {
+      //   setIndividualAmount("0");
+      // }
+      
+      // Use specific debt amount or group balance instead
+      if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
+        const firstCurrency = Object.keys(specificDebtByCurrency)[0];
+        const amount = Math.abs(specificDebtByCurrency[firstCurrency]);
+        setIndividualAmount(amount.toFixed(2));
       } else {
         setIndividualAmount("0");
       }
     }
-  }, [selectedUser, specificAmount]);
+  }, [selectedUser, specificAmount, specificDebtByCurrency]); // Updated dependencies
 
   // Update token amount when pricing data is available
   useEffect(() => {
@@ -311,25 +401,88 @@ export function SettleDebtsModal({
     }
   }, [tokenPriceData, exchangeRateData, isLoadingTokenPrice, isLoadingRate, fiatAmount, selectedToken, shouldConvert, priceError, exchangeRateError]);
 
-  // Debug: Log conversion parameters
+  // Update multi-currency debt calculations
   useEffect(() => {
-    if (shouldConvert && parseFloat(fiatAmount) > 0 && selectedToken?.id) {
-      console.log("[SettleDebtsModal] Conversion params:", {
-        fiatAmount,
-        debtCurrency,
-        tokenId: selectedToken.id,
-        tokenSymbol: selectedToken.symbol,
-        shouldConvert
-      });
-      console.log("[SettleDebtsModal] Exchange rate request:", {
-        from: debtCurrency,
-        to: selectedToken.id,
-        exchangeRateData,
-        isLoadingRate,
-        exchangeRateError: exchangeRateError?.message
-      });
+    console.log('Multi-currency calculation triggered:', {
+      multiCurrencyPricing: !!multiCurrencyPricing,
+      selectedToken: selectedToken?.symbol,
+      groupDebtCurrencies: groupDebtCurrencies,
+      showIndividualView,
+      groupBalancesObj
+    });
+
+    // Prevent infinite loops - only run when we have the required data
+    if (!multiCurrencyPricing || !selectedToken || groupDebtCurrencies.length === 0) {
+      console.log('Early return from multi-currency calculation');
+      return;
     }
-  }, [fiatAmount, debtCurrency, selectedToken, shouldConvert, exchangeRateData, isLoadingRate]);
+
+    if (!showIndividualView && multiCurrencyPricing && groupDebtCurrencies.length > 0) {
+
+      const debtsWithTokenAmounts = groupDebtCurrencies.map(debt => {
+        const pricingData = multiCurrencyPricing.find(p => p.currency === debt.currency);
+        let tokenAmount = 0;
+
+        if (pricingData && pricingData.price && !pricingData.error) {
+          // Convert using pricing data
+          tokenAmount = debt.amount / pricingData.price;
+        } else {
+          // Fallback: assume 1:1 ratio or use a default conversion
+          tokenAmount = debt.amount;
+        }
+        
+        return {
+          currency: debt.currency,
+          amount: debt.amount,
+          tokenAmount: tokenAmount
+        };
+      });
+      
+      // Only update if the data has actually changed to prevent infinite loops
+      const newDebtsString = JSON.stringify(debtsWithTokenAmounts);
+      const currentDebtsString = JSON.stringify(multiCurrencyDebts);
+      
+      // Calculate total token amount needed
+      const totalTokens = debtsWithTokenAmounts.reduce((sum, debt) => sum + debt.tokenAmount, 0);
+      
+      if (newDebtsString !== currentDebtsString) {
+        setMultiCurrencyDebts(debtsWithTokenAmounts);
+        setTotalTokenAmount(totalTokens.toFixed(6));
+      }
+      
+      if (newDebtsString !== currentDebtsString) {
+        setMultiCurrencyDebts(debtsWithTokenAmounts);
+        setTotalTokenAmount(totalTokens.toFixed(6));
+      }
+
+    } else if (showIndividualView && multiCurrencyPricing && groupDebtCurrencies.length > 0) {
+      const debtsWithTokenAmounts = groupDebtCurrencies.map(debt => {
+        const pricingEntry = multiCurrencyPricing?.find((p: any) => p.currency === debt.currency);
+        if (!pricingEntry || !pricingEntry.price) {
+          return { ...debt, tokenAmount: 0 };
+        }
+
+        const tokenAmount = debt.amount / pricingEntry.price;
+        
+        return {
+          ...debt,
+          tokenAmount,
+          pricing: pricingEntry
+        };
+      });
+
+      // Only update if the data has actually changed to prevent infinite loops
+      const newDebtsString = JSON.stringify(debtsWithTokenAmounts);
+      const currentDebtsString = JSON.stringify(multiCurrencyDebts);
+      
+      if (newDebtsString !== currentDebtsString) {
+        setMultiCurrencyDebts(debtsWithTokenAmounts);
+        
+        const totalTokens = debtsWithTokenAmounts.reduce((sum, debt) => sum + (debt.tokenAmount || 0), 0);
+        setTotalTokenAmount(totalTokens.toFixed(6));
+      }
+    }
+  }, [multiCurrencyPricing, groupDebtCurrencies, showIndividualView, selectedToken?.id]);
 
   // When fiat amount changes, update individual amount for compatibility
   useEffect(() => {
@@ -382,25 +535,24 @@ export function SettleDebtsModal({
     }
   }, [selectedChain]);
 
-  // Function to calculate total debts owed to all friends
-  const calculateTotalDebts = (friendsList: FriendWithBalances[]) => {
-    return friendsList.reduce((total, friend) => {
-      const positiveBalances = friend.balances.filter((b) => b.amount > 0);
-      const friendTotal = positiveBalances.reduce((sum: number, balance) => {
-        return sum + balance.amount;
-      }, 0);
-      return total + friendTotal;
-    }, 0);
-  };
-
   // Calculate remaining total after excluding friends
   const calculateRemainingTotal = () => {
-    if (!friends) return 0;
-
-    const includedFriends = friends.filter(
-      (friend: any) => !excludedFriendIds.includes(friend.id)
-    );
-    return calculateTotalDebts(includedFriends as FriendWithBalances[]);
+    if (groupId && balances && typeof balances === 'object' && !Array.isArray(balances)) {
+      // For group context, use group balances only - no exclusions needed
+      const total = calculateTotalDebtsFromBalances(balances as Record<string, number>);
+      console.log("[SettleDebtsModal] Group remaining total:", total);
+      return total;
+    } 
+    // COMMENTED OUT: Individual friend context calculation - focus only on group balances
+    // else if (friends) {
+    //   // For friend context, calculate with exclusions
+    //   const includedFriends = friends.filter(
+    //     (friend: any) => !excludedFriendIds.includes(friend.id)
+    //   );
+    //   const total = calculateTotalDebts(includedFriends as FriendWithBalances[]);
+    //   return total;
+    // }
+    return 0;
   };
 
   // Toggle excluding a friend from settlement
@@ -415,10 +567,22 @@ export function SettleDebtsModal({
   };
 
   // Get friends with debts for showing in the modal
-  const friendsWithDebts =
-    friends?.filter((friend: any) =>
-      friend.balances.some((balance: any) => balance.amount > 0)
-    ) || [];
+  // COMMENTED OUT: Individual friend debt logic - focus only on group balances
+  // const friendsWithDebts =
+  //   friends?.filter((friend: any) =>
+  //     friend.balances.some((balance: any) => balance.amount > 0)
+  //   ) || [];
+
+  // Get group debt breakdown for group context
+  const groupDebtBreakdown = groupId && Object.keys(groupBalancesObj).length > 0
+    ? getDebtCurrencies(groupBalancesObj)
+    : [];
+
+  console.log("[SettleDebtsModal] Group debt breakdown:", {
+    groupId,
+    groupBalancesObjKeys: Object.keys(groupBalancesObj),
+    groupDebtBreakdown
+  });
 
   // Helper to get the correct wallet address based on selected chain
   const getUserWalletAddress = () => {
@@ -461,13 +625,6 @@ export function SettleDebtsModal({
         canProceed: walletConnected && wallet && (address || userStellarAddress)
       } : null
     };
-    
-    console.log('[SettleDebtsModal] canProceedWithSettlement check:', {
-      selectedChain,
-      result,
-      finalResult: selectedChain === 'aptos' ? result.aptos?.canProceed : result.stellar?.canProceed
-    });
-    
     if (selectedChain === 'aptos') {
       // For Aptos, need wallet connected and address available
       return aptosWallet.connected && aptosWallet.account?.address;
@@ -501,13 +658,18 @@ export function SettleDebtsModal({
       toast.error("Please select a payment token");
       return;
     }
+    // Use multi-currency total if available, otherwise use individual amount
+    const amountToSettle = multiCurrencyDebts.length > 0 
+      ? parseFloat(totalTokenAmount) 
+      : (parseFloat(tokenAmount) || parseFloat(individualAmount));
+
     const payload = {
       groupId,
       address: userWalletAddress,
       settleWithId: settleWith.id,
       selectedTokenId: selectedToken.id,
       selectedChainId: selectedChain || undefined,
-      amount: parseFloat(tokenAmount) || parseFloat(individualAmount), // Use converted amount or fallback
+      amount: amountToSettle,
     };
     settleDebtMutation.mutate(payload, {
       onSuccess: () => {
@@ -546,13 +708,20 @@ export function SettleDebtsModal({
       toast.error("Please select a payment token");
       return;
     }
+
+    // Use total token amount for multi-currency settlements, or regular total for single currency
+    const amountToSettle = multiCurrencyDebts.length > 0 
+      ? parseFloat(totalTokenAmount) 
+      : parseFloat(totalAmount);
+
     const payload = {
       groupId,
       address: userWalletAddress,
       selectedTokenId: selectedToken.id,
       selectedChainId: selectedChain || undefined,
-      amount: parseFloat(totalAmount), // or remainingTotal if that's the correct value
+      amount: amountToSettle,
     };
+    
     settleDebtMutation.mutate(payload, {
       onSuccess: () => {
         onClose();
@@ -572,9 +741,9 @@ export function SettleDebtsModal({
   const selectedUserBalance = selectedUser
     ? (specificAmount !== undefined 
         ? specificAmount 
-        : (selectedUser as unknown as FriendWithBalances).balances.find(
-            (balance) => balance.amount !== 0  // Changed from > 0 to !== 0 to include debts
-          )?.amount || 0)
+        : specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0
+        ? Object.values(specificDebtByCurrency)[0] // Use specific debt amount instead of cross-group balances
+        : 0) // COMMENTED OUT: (selectedUser as unknown as FriendWithBalances).balances.find() - focus on group-specific debts
     : 0;
 
   // Get currency-specific debts for the selected user
@@ -672,98 +841,80 @@ export function SettleDebtsModal({
                       <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
                         <input
                           type="text"
-                          value={remainingTotal.toFixed(2)}
+                          value={multiCurrencyDebts.length > 0 ? totalTokenAmount : remainingTotal.toFixed(2)}
                           onChange={(e) => setTotalAmount(e.target.value)}
                           className="bg-transparent outline-none text-base sm:text-lg w-full"
+                          readOnly={multiCurrencyDebts.length > 0}
                         />
                         <span className="text-base sm:text-lg text-white/50">
                           {selectedToken?.symbol || "Token"}
                         </span>
                       </div>
+                      
+                      {/* Multi-currency breakdown display - show for both group and individual view */}
+                      {multiCurrencyDebts.length > 0 && (
+                        <div className="mt-3 p-3 bg-white/5 rounded-lg">
+                          <div className="text-sm text-white/70 mb-2">Settlement Breakdown:</div>
+                          {multiCurrencyDebts.map((debt, index) => (
+                            <div key={index} className="flex justify-between items-center text-sm">
+                              <span className="text-white/80">
+                                {formatCurrency(debt.amount, debt.currency)} worth {selectedToken?.symbol}
+                              </span>
+                              <span className="text-white/60">
+                                {debt.tokenAmount.toFixed(6)} {selectedToken?.symbol}
+                              </span>
+                            </div>
+                          ))}
+                          <div className="border-t border-white/10 mt-2 pt-2">
+                            <div className="flex justify-between items-center text-sm font-medium">
+                              <span className="text-white">Total:</span>
+                              <span className="text-white">
+                                {totalTokenAmount} {selectedToken?.symbol}
+                              </span>
+                            </div>
+                          </div>
+                          {isLoadingMultiCurrency && (
+                            <div className="text-xs text-yellow-400 mt-1">
+                              Calculating conversion rates...
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   </div>
 
                   <div className="space-y-3 sm:space-y-5 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                    {friendsWithDebts
-                      .filter((friend: any) =>
-                        friend.balances.some((b: any) => b.amount > 0)
-                      )
-                      .map((friend: any, index: number) => {
-                        const positiveBalance = friend.balances.find(
-                          (b: any) => b.amount > 0
-                        );
-                        const amount = positiveBalance
-                          ? positiveBalance.amount
-                          : 0;
-                        const currency = positiveBalance?.currency || defaultCurrency;
-                        const isExcluded = excludedFriendIds.includes(
-                          friend.id
-                        );
-
-                        return (
-                          <div
-                            key={index}
-                            className={`flex items-center justify-between ${
-                              isExcluded ? "opacity-50" : ""
-                            }`}
-                          >
+                    {/* Group debt breakdown - show when in group context */}
+                    {groupDebtBreakdown.length > 0 ? (
+                      <>
+                        <div className="text-white/70 text-sm mb-3">Debts to settle:</div>
+                        {groupDebtBreakdown.map((debt, index) => (
+                          <div key={index} className="flex items-center justify-between">
                             <div className="flex items-center gap-3 sm:gap-4">
-                              <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
-                                <Image
-                                  src={
-                                    friend.image ||
-                                    `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
-                                  }
-                                  alt={friend.name || "User"}
-                                  width={48}
-                                  height={48}
-                                  className="h-full w-full object-cover"
-                                  onError={(e) => {
-                                    // Fallback to dicebear
-                                    const target = e.target as HTMLImageElement;
-                                    target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
-                                  }}
-                                />
+                              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-white/10 rounded-full flex items-center justify-center">
+                                <span className="text-white text-xs sm:text-sm font-medium">
+                                  {getCurrencySymbol(debt.currency)}
+                                </span>
                               </div>
                               <div>
-                                <p className="text-mobile-base sm:text-xl text-white font-medium">
-                                  {friend.name}
+                                <p className="text-mobile-base sm:text-lg text-white font-medium">
+                                  {debt.currency}
                                 </p>
                                 <p className="text-mobile-sm sm:text-base text-white/60">
                                   You owe{" "}
                                   <span className="text-[#FF4444]">
-                                    {formatCurrency(amount, currency)}
+                                    {formatCurrency(debt.amount, debt.currency)}
                                   </span>
                                 </p>
                               </div>
                             </div>
-
-                            <button
-                              className={`flex items-center justify-center h-8 w-8 sm:h-10 sm:w-10 rounded-full border border-white/10 hover:bg-white/5 transition-colors ${
-                                isExcluded ? "bg-white/5" : ""
-                              }`}
-                              onClick={() => toggleExcludeFriend(friend.id)}
-                              title={
-                                isExcluded
-                                  ? "Include in settlement"
-                                  : "Exclude from settlement"
-                              }
-                            >
-                              <MinusCircle
-                                className={`h-4 w-4 sm:h-5 sm:w-5 text-white ${
-                                  isExcluded ? "text-red-500" : "text-white/70"
-                                }`}
-                              />
-                            </button>
                           </div>
-                        );
-                      })}
-
-                    {friendsWithDebts.filter((friend: any) =>
-                      friend.balances.some((b: any) => b.amount > 0)
-                    ).length === 0 && (
+                        ))}
+                      </>
+                    ) : (
+                      /* COMMENTED OUT: Friend-based debt list - focusing only on group balances */
                       <div className="text-center text-white/60 py-4 text-mobile-sm sm:text-base">
-                        No debts to settle
+                        Individual friend debt settlement has been disabled. Please use group-specific debt settlement.
                       </div>
                     )}
                   </div>
@@ -772,9 +923,6 @@ export function SettleDebtsModal({
                 {/* Show wallet connection component for any chain if not connected */}
                 {!canProceedWithSettlement() && (
                   <div className="mb-6">
-                    <div className="text-base sm:text-lg font-medium text-white mb-3">
-                      {selectedChain === 'aptos' ? 'Connect Your Aptos Wallet' : 'Connect Your Stellar Wallet'}
-                    </div>
                     {selectedChain === 'aptos' && <ShadcnWalletSelector />}
                   </div>
                 )}
@@ -783,13 +931,20 @@ export function SettleDebtsModal({
                   <button
                     className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => {
-                      console.log("[SettleDebtsModal] Settle All button clicked", { isPending, remainingTotal, friendsWithDebtsLength: friendsWithDebts.length });
+                      console.log("[SettleDebtsModal] Settle All button clicked", { 
+                        isPending, 
+                        remainingTotal, 
+                        // COMMENTED OUT: friendsWithDebtsLength: friendsWithDebts.length - focus only on group debts
+                        multiCurrencyDebts: multiCurrencyDebts.length > 0 ? multiCurrencyDebts : 'empty',
+                        totalTokenAmount,
+                        groupDebtBreakdown: groupDebtBreakdown.length > 0 ? groupDebtBreakdown : 'empty'
+                      });
                       handleSettleAll();
                     }}
                     disabled={
                       isPending ||
                       remainingTotal <= 0 ||
-                      friendsWithDebts.length === 0
+                      (groupDebtBreakdown.length === 0) // COMMENTED OUT: && friendsWithDebts.length === 0 - focus only on group debts
                     }
                   >
                     {isPending ? (
@@ -891,43 +1046,63 @@ export function SettleDebtsModal({
                     )}
 
                     <div className="relative space-y-3">
-                      {/* Fiat Amount Input */}
-                      <div>
-                        <label className="block text-white mb-2 text-sm">
-                          Debt Amount ({getCurrencySymbol(debtCurrency)})
-                        </label>
-                        <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
-                          <input
-                            type="text"
-                            value={fiatAmount}
-                            onChange={(e) => {
-                              setFiatAmount(e.target.value);
-                              setIndividualAmount(e.target.value); // Keep for compatibility
-                            }}
-                            className="bg-transparent outline-none text-base sm:text-lg w-full"
-                            placeholder="0.00"
-                          />
-                          <span className="text-base sm:text-lg text-white/50">
-                            {getCurrencySymbol(debtCurrency)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Token Amount Display */}
-                      {selectedToken && parseFloat(fiatAmount) > 0 && (
+                      {/* Token Amount to Send - Merged with debt amount functionality */}
+                      {selectedToken && (
                         <div>
                           <label className="block text-white mb-2 text-sm">
-                            Token Amount to Send {(isLoadingTokenPrice || isLoadingRate) && "(Converting...)"}
+                            Token Amount to Send {(isLoadingTokenPrice || isLoadingRate || isLoadingMultiCurrency) && "(Converting...)"}
                           </label>
-                          <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-white/5 border border-white/10 text-white">
-                            <span className="text-base sm:text-lg">
-                              {(isLoadingTokenPrice || isLoadingRate) ? "..." : tokenAmount}
-                            </span>
+                          <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
+                            <input
+                              type="text"
+                              value={multiCurrencyDebts.length > 0 ? totalTokenAmount : (tokenAmount || fiatAmount)}
+                              onChange={(e) => {
+                                if (multiCurrencyDebts.length === 0) {
+                                  setFiatAmount(e.target.value);
+                                  setIndividualAmount(e.target.value); // Keep for compatibility
+                                }
+                              }}
+                              className="bg-transparent outline-none text-base sm:text-lg w-full"
+                              placeholder="0.00"
+                              readOnly={multiCurrencyDebts.length > 0 || (isLoadingTokenPrice || isLoadingRate || isLoadingMultiCurrency)}
+                            />
                             <span className="text-base sm:text-lg text-white/50">
                               {selectedToken?.symbol || "Token"}
                             </span>
                           </div>
-                          {(tokenPriceData || exchangeRateData) && (
+                          
+                          {/* Conversion Breakdown Dropdown */}
+                          {multiCurrencyDebts.length > 0 && (
+                            <details className="mt-3 group">
+                              <summary className="cursor-pointer text-sm text-white/70 hover:text-white transition-colors flex items-center gap-2 list-none [&::-webkit-details-marker]:hidden">
+                                <ChevronDown className="h-4 w-4 transition-transform duration-200 group-open:rotate-180" />
+                                Conversion Breakdown
+                              </summary>
+                              <div className="mt-2 p-3 bg-white/5 rounded-lg">
+                                {multiCurrencyDebts.map((debt, index) => (
+                                  <div key={index} className="flex justify-between items-center text-sm py-1">
+                                    <span className="text-white/80">
+                                      {formatCurrency(debt.amount, debt.currency)}
+                                    </span>
+                                    <span className="text-white/60">
+                                      {debt.tokenAmount.toFixed(6)} {selectedToken?.symbol}
+                                    </span>
+                                  </div>
+                                ))}
+                                <div className="border-t border-white/20 mt-2 pt-2">
+                                  <div className="flex justify-between items-center text-sm font-medium">
+                                    <span className="text-white">Total:</span>
+                                    <span className="text-white">
+                                      {totalTokenAmount} {selectedToken?.symbol}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+                            </details>
+                          )}
+                          
+                          {/* Show pricing info only for single currency conversions */}
+                          {multiCurrencyDebts.length === 0 && (tokenPriceData || exchangeRateData) && (
                             <div className="text-xs text-white/60 mt-1">
                               {tokenPriceData ? (
                                 <>
@@ -943,7 +1118,8 @@ export function SettleDebtsModal({
                               ) : null}
                             </div>
                           )}
-                          {priceError && !exchangeRateData && !isLoadingTokenPrice && !isLoadingRate && (
+                          
+                          {multiCurrencyDebts.length === 0 && priceError && !exchangeRateData && !isLoadingTokenPrice && !isLoadingRate && (
                             <div className="text-xs text-yellow-400 mt-1">
                               Unable to fetch current exchange rate - using fallback conversion
                             </div>
@@ -984,9 +1160,34 @@ export function SettleDebtsModal({
                         </p>
                         <p className="text-mobile-sm sm:text-base text-white/60">
                           You owe{" "}
-                          <span className="text-[#FF4444]">
-                            {formatCurrency(Math.abs(selectedUserBalance), defaultCurrency)}
-                          </span>
+                          {(() => {
+                            console.log('Display logic check:', {
+                              multiCurrencyDebts: multiCurrencyDebts,
+                              multiCurrencyDebtsLength: multiCurrencyDebts.length,
+                              selectedUserBalance,
+                              defaultCurrency,
+                              groupDebtCurrencies,
+                              showIndividualView
+                            });
+                            
+                            return multiCurrencyDebts.length > 0 ? (
+                              <div className="flex flex-wrap gap-1">
+                                {multiCurrencyDebts.map((debt, idx) => (
+                                  <span key={idx} className="text-[#FF4444]">
+                                    {formatCurrency(debt.amount, debt.currency)}
+                                    {idx < multiCurrencyDebts.length - 1 && ", "}
+                                  </span>
+                                ))}
+                                <span className="text-white/60 ml-1">
+                                  worth {totalTokenAmount} {selectedToken?.symbol || "tokens"}
+                                </span>
+                              </div>
+                            ) : (
+                              <span className="text-[#FF4444]">
+                                {formatCurrency(Math.abs(selectedUserBalance), defaultCurrency)}
+                              </span>
+                            );
+                          })()}
                         </p>
                       </div>
                     </div>
@@ -996,9 +1197,6 @@ export function SettleDebtsModal({
                 {/* Show wallet connection component for any chain if not connected */}
                 {!canProceedWithSettlement() && (
                   <div className="mb-6">
-                    <div className="text-base sm:text-lg font-medium text-white mb-3">
-                      {selectedChain === 'aptos' ? 'Connect Your Aptos Wallet' : 'Connect Your Stellar Wallet'}
-                    </div>
                     {selectedChain === 'aptos' && <ShadcnWalletSelector />}
                   </div>
                 )}
@@ -1010,9 +1208,9 @@ export function SettleDebtsModal({
                     disabled={
                       isPending ||
                       !selectedUser ||
-                      parseFloat(fiatAmount) <= 0 ||
+                      (multiCurrencyDebts.length > 0 ? parseFloat(totalTokenAmount) <= 0 : (parseFloat(tokenAmount) <= 0 && parseFloat(fiatAmount) <= 0)) ||
                       !selectedToken ||
-                      (isLoadingTokenPrice || isLoadingRate)
+                      (isLoadingTokenPrice || isLoadingRate || isLoadingMultiCurrency)
                     }
                   >
                     {isPending ? (

@@ -26,11 +26,13 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 
 export default function Page() {
+  const router = useRouter();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isFriendsBreakdownModalOpen, setIsFriendsBreakdownModalOpen] = useState(false);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
@@ -261,7 +263,7 @@ export default function Page() {
             </h2>
             <div className="flex items-center gap-3">
               <button
-                onClick={() => setIsFriendsBreakdownModalOpen(true)}
+                onClick={() => router.push('/groups')}
                 className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
               >
                 <Image
