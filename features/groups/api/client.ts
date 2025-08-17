@@ -136,7 +136,7 @@ export const updateGroup = async (
   try {
     return GroupSchema.parse(response);
   } catch (e) {
-    if (response && response.id) return response;
+    if (response && response.data && response.data.id) return response.data;
     throw e;
   }
 };
