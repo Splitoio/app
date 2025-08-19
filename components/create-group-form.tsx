@@ -330,7 +330,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               </div>
 
               {/* Currency Dropdown */}
-              <div style={{ overflow: 'visible' }}>
+              {/* <div style={{ overflow: 'visible' }}>
                 <label className="block text-base text-white mb-2">Choose Currency</label>
                 <CurrencyDropdown
                   selectedCurrencies={formData.currency ? [formData.currency] : []}
@@ -343,7 +343,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   showFiatCurrencies={true}
                   filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
                 />
-              </div>
+              </div> */}
 
               {/* Invite Members (moved to bottom) */}
               <div className="space-y-2">

@@ -216,7 +216,7 @@ export default function CurrencyDropdown({
               );
             })
           ) : (
-            <span className="py-1 text-white/70">Select currencies...</span>
+            <span className="py-1 text-white/70">Select Payment Token...</span>
           )}
         </div>
         <ChevronDown
