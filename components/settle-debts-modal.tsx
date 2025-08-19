@@ -315,7 +315,7 @@ export function SettleDebtsModal({
 
   // Fetch available tokens
   useEffect(() => {
-    if (isOpen && organizedCurrencies) {
+    if (isOpen && organizedCurrencies && !selectedToken) {
       const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
       let tokenToSelect = chainCurrencies[0];
       
@@ -331,6 +331,11 @@ export function SettleDebtsModal({
           (t) => t.symbol === defaultCurrency
         );
         if (match) tokenToSelect = match;
+      }
+      // Priority 3: Default to XML if available
+      else {
+        const xmlMatch = chainCurrencies.find((t) => t.symbol === "XML");
+        if (xmlMatch) tokenToSelect = xmlMatch;
       }
       
       if (tokenToSelect) {
@@ -587,8 +592,9 @@ export function SettleDebtsModal({
   // Helper to get the correct wallet address based on selected chain
   const getUserWalletAddress = () => {
     if (selectedChain === 'aptos') {
-      const aptosWallet = wallets.find(w => w.chainId === 'aptos');
-      return aptosWallet?.address || null;
+      // Get sender address from connected Aptos wallet, not from saved wallets
+      // Convert to string to ensure type compatibility
+      return aptosWallet?.account?.address?.toString() || null;
     } else if (selectedChain === 'stellar') {
       // First try to get from connected wallet, then fallback to saved address
       return address || userStellarAddress;
@@ -642,11 +648,13 @@ export function SettleDebtsModal({
     if (!canProceedWithSettlement()) {
       if (selectedChain === 'aptos') {
         toast.error("Please connect your Aptos wallet first.");
+        // Don't call connectWallet() for Aptos - user should use the WalletSelector component
+        return;
       } else {
         toast.error("Please connect your Stellar wallet first.");
+        connectWallet();
+        return;
       }
-      connectWallet();
-      return;
     }
     
     if (!userWalletAddress) {
@@ -692,11 +700,13 @@ export function SettleDebtsModal({
     if (!canProceedWithSettlement()) {
       if (selectedChain === 'aptos') {
         toast.error("Please connect your Aptos wallet first.");
+        // Don't call connectWallet() for Aptos - user should use the WalletSelector component
+        return;
       } else {
         toast.error("Please connect your Stellar wallet first.");
+        connectWallet();
+        return;
       }
-      connectWallet();
-      return;
     }
     
     if (!userWalletAddress) {
