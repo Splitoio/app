@@ -79,6 +79,10 @@ export default function SettingsPage() {
 
   // State for wallets
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  
+  // State for wallet removal confirmation
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
+  const [walletToRemove, setWalletToRemove] = useState<string | null>(null);
 
   // Use TanStack Query for API calls
   const { data: currencyData, isLoading: isLoadingCurrencies } =
@@ -238,7 +242,23 @@ export default function SettingsPage() {
 
   // Remove a wallet using the mutation hook
   const handleRemoveWallet = (walletId: string) => {
-    removeWallet(walletId);
+    setWalletToRemove(walletId);
+    setIsRemoveConfirmOpen(true);
+  };
+
+  // Confirm wallet removal
+  const confirmRemoveWallet = () => {
+    if (walletToRemove) {
+      removeWallet(walletToRemove);
+      setIsRemoveConfirmOpen(false);
+      setWalletToRemove(null);
+    }
+  };
+
+  // Cancel wallet removal
+  const cancelRemoveWallet = () => {
+    setIsRemoveConfirmOpen(false);
+    setWalletToRemove(null);
   };
 
   // Handle file upload for profile picture
@@ -799,12 +819,12 @@ export default function SettingsPage() {
                     </p>
                     {!wallet.isDefault ? (
                       <div className="flex items-center">
-                        <button
+                        {/* <button
                           onClick={() => handleSetAsPrimary(wallet.id)}
                           className="border border-white/80 text-white text-sm rounded-full px-4 py-1.5 hover:bg-white/5 transition"
                         >
                           Set as primary
-                        </button>
+                        </button> */}
                         <button
                           onClick={() => handleRemoveWallet(wallet.id)}
                           disabled={isRemovingWallet}
@@ -813,7 +833,7 @@ export default function SettingsPage() {
                           {isRemovingWallet ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
-                            <Minus className="h-5 w-5" />
+                            <Trash2 className="h-5 w-5" />
                           )}
                         </button>
                       </div>
@@ -830,7 +850,7 @@ export default function SettingsPage() {
                           {isRemovingWallet ? (
                             <Loader2 className="h-5 w-5 animate-spin" />
                           ) : (
-                            <Minus className="h-5 w-5" />
+                            <Trash2 className="h-5 w-5" />
                           )}
                         </button>
                       </div>
@@ -861,6 +881,69 @@ export default function SettingsPage() {
           // handleWalletAdded();
         }}
       />
+
+      {/* Remove Wallet Confirmation Modal */}
+      <AnimatePresence>
+        {isRemoveConfirmOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              onClick={cancelRemoveWallet}
+            />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-[#1A1A1D] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-4 bg-red-500/10 rounded-full flex items-center justify-center">
+                  <Trash2 className="h-6 w-6 text-red-500" />
+                </div>
+                
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  Remove Wallet
+                </h3>
+                
+                <p className="text-white/70 mb-6">
+                  Are you sure you want to remove this wallet? This action cannot be undone.
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelRemoveWallet}
+                    disabled={isRemovingWallet}
+                    className="flex-1 px-4 py-2.5 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/5 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  
+                  <button
+                    onClick={confirmRemoveWallet}
+                    disabled={isRemovingWallet}
+                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isRemovingWallet ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Removing...
+                      </>
+                    ) : (
+                      "Remove Wallet"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
      
     </motion.div>
   );
