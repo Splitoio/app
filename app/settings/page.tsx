@@ -38,6 +38,7 @@ import {
   useUserWallets,
   useAddWallet,
   useSetWalletAsPrimary,
+  useRemoveWallet,
 } from "@/features/wallets/hooks/use-wallets";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import {
@@ -88,6 +89,7 @@ export default function SettingsPage() {
   const { data: walletData, isLoading: isLoadingWallets } = useUserWallets();
   const { mutate: addWallet, isPending: isAddingWallet } = useAddWallet();
   const { mutate: setWalletAsPrimary } = useSetWalletAsPrimary();
+  const { mutate: removeWallet, isPending: isRemovingWallet } = useRemoveWallet();
 
   const handleWalletAdded = async () => {
     try {
@@ -234,31 +236,9 @@ export default function SettingsPage() {
     });
   };
 
-  // Remove a wallet
-  const removeWallet = async (walletId: string) => {
-    try {
-      // In a full implementation, we would call an API to remove the wallet
-      // For now, just show a toast since we haven't implemented the delete endpoint
-      toast.error("Wallet removal not implemented in this version");
-
-      // Alternatively, we could make the call to the API if it exists
-      /*
-      const response = await fetch(`/api/multichain/accounts/${walletId}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        // Update local state
-        setWallets(wallets.filter(wallet => wallet.id !== walletId));
-        toast.success("Wallet removed successfully");
-      } else {
-        toast.error("Failed to remove wallet");
-      }
-      */
-    } catch (error) {
-      console.error("Error removing wallet:", error);
-      toast.error("Failed to remove wallet");
-    }
+  // Remove a wallet using the mutation hook
+  const handleRemoveWallet = (walletId: string) => {
+    removeWallet(walletId);
   };
 
   // Handle file upload for profile picture
@@ -826,10 +806,15 @@ export default function SettingsPage() {
                           Set as primary
                         </button>
                         <button
-                          onClick={() => removeWallet(wallet.id)}
-                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
+                          onClick={() => handleRemoveWallet(wallet.id)}
+                          disabled={isRemovingWallet}
+                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Minus className="h-5 w-5" />
+                          {isRemovingWallet ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Minus className="h-5 w-5" />
+                          )}
                         </button>
                       </div>
                     ) : (
@@ -838,10 +823,15 @@ export default function SettingsPage() {
                           Primary Wallet
                         </div>
                         <button
-                          onClick={() => removeWallet(wallet.id)}
-                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
+                          onClick={() => handleRemoveWallet(wallet.id)}
+                          disabled={isRemovingWallet}
+                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Minus className="h-5 w-5" />
+                          {isRemovingWallet ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Minus className="h-5 w-5" />
+                          )}
                         </button>
                       </div>
                     )}
