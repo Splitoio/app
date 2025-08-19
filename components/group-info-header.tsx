@@ -31,6 +31,11 @@ export function GroupInfoHeader({
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
+  // Handle profile click to redirect to settings
+  const handleProfileClick = () => {
+    router.push("/settings");
+  };
+
   if (!group) return null;
 
   // Calculate balances by currency for the current user
@@ -174,7 +179,10 @@ export function GroupInfoHeader({
 
           {/* Right Column - Profile and Settings */}
           <div className="flex flex-col gap-2">
-            <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+            <button
+              onClick={handleProfileClick}
+              className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+            >
               <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
                 {user?.image ? (
                   <Image
@@ -201,7 +209,7 @@ export function GroupInfoHeader({
                   />
                 )}
               </div>
-            </div>
+            </button>
 
             <button
               onClick={onSettingsClick}
@@ -273,7 +281,10 @@ export function GroupInfoHeader({
               )}
             </button> */}
 
-            <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+            <button
+              onClick={handleProfileClick}
+              className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+            >
               <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
                 {user?.image ? (
                   <Image
@@ -300,7 +311,7 @@ export function GroupInfoHeader({
                   />
                 )}
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>
