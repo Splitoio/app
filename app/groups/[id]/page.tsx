@@ -322,11 +322,16 @@ export default function GroupDetailsPage({
 
           {activeTab === "splits" && (
             <div className="space-y-3 sm:space-y-4">
-              {group.groupUsers.map((member) => {
-                // Filter out self-balances
-                const balances = group?.groupBalances.filter(
-                  (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
-                );
+              {group.groupBalances.filter(balance => balance.userId !== balance.firendId && balance.amount !== 0).length === 0 ? (
+                <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
+                  No splits available
+                </div>
+              ) : (
+                group.groupUsers.map((member) => {
+                  // Filter out self-balances
+                  const balances = group?.groupBalances.filter(
+                    (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
+                  );
                 
                 // Correct logic: positive amount means userId owes to firendId
                 // negative amount means firendId owes to userId
@@ -537,7 +542,8 @@ export default function GroupDetailsPage({
                     </div>
                   </div>
                 );
-              })}
+                })
+              )}
             </div>
           )}
 
