@@ -113,35 +113,32 @@ export default function GroupDetailsPage({
     setIsSettleModalOpen(true);
   };
 
-  // Calculate the specific amount owed to a friend in this group
+  // Calculate the specific amount owed to/from a friend in this group
   const getSpecificDebtAmount = (friendId: string) => {
     if (!group || !user) return 0;
     
-    // Find all balance entries for this friend in this group
-    const balances = group.groupBalances.filter(
+    // Find the balance entry for current user and this friend
+    const balance = group.groupBalances.find(
       (balance) => balance.userId === user.id && balance.firendId === friendId
     );
     
-    // Return the total amount owed (could be positive or negative)
-    return balances.reduce((sum, balance) => sum + balance.amount, 0);
+    // Return the amount (positive = user owes friend, negative = friend owes user)
+    return balance ? balance.amount : 0;
   };
 
   // Get currency-specific debt information for a friend
   const getSpecificDebtByCurrency = (friendId: string) => {
     if (!group || !user) return {};
     
-    const balances = group.groupBalances.filter(
+    const balance = group.groupBalances.find(
       (balance) => balance.userId === user.id && balance.firendId === friendId
     );
     
-    // Group by currency
+    // Return debt by currency
     const debtByCurrency: Record<string, number> = {};
-    balances.forEach(balance => {
-      if (!debtByCurrency[balance.currency]) {
-        debtByCurrency[balance.currency] = 0;
-      }
-      debtByCurrency[balance.currency] += balance.amount;
-    });
+    if (balance && balance.amount !== 0) {
+      debtByCurrency[balance.currency] = balance.amount;
+    }
     
     return debtByCurrency;
   };
@@ -322,137 +319,102 @@ export default function GroupDetailsPage({
 
           {activeTab === "splits" && (
             <div className="space-y-3 sm:space-y-4">
-              {group.groupBalances.filter(balance => balance.userId !== balance.firendId && balance.amount !== 0).length === 0 ? (
-                <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
-                  No splits available
-                </div>
-              ) : (
-                group.groupUsers.map((member) => {
-                  // Filter out self-balances
-                  const balances = group?.groupBalances.filter(
-                    (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
-                  );
-                
-                // Correct logic: positive amount means userId owes to firendId
-                // negative amount means firendId owes to userId
-                const owedBalance = balances?.filter(
-                  (balance) => balance.amount > 0  // member owes money (shows as "You owe" for current user)
-                );
-                const oweBalance = balances?.filter(
-                  (balance) => balance.amount < 0  // member is owed money (shows as "Owes you" for current user)
+              {(() => {
+                // Filter balances to only show current user's perspective
+                const currentUserBalances = group.groupBalances.filter(
+                  balance => balance.userId === user?.id && balance.amount !== 0
                 );
 
-                // Group balances by currency
-                const owedByCurrency = owedBalance?.reduce((acc, balance) => {
-                  if (!acc[balance.currency]) {
-                    acc[balance.currency] = 0;
-                  }
-                  acc[balance.currency] += Math.abs(balance.amount);
-                  return acc;
-                }, {} as Record<string, number>) || {};
-
-                const oweByCurrency = oweBalance?.reduce((acc, balance) => {
-                  if (!acc[balance.currency]) {
-                    acc[balance.currency] = 0;
-                  }
-                  acc[balance.currency] += Math.abs(balance.amount);
-                  return acc;
-                }, {} as Record<string, number>) || {};
-
-                // Check if there are any balances at all
-                const hasOwedBalances = Object.keys(owedByCurrency).length > 0;
-                const hasOweBalances = Object.keys(oweByCurrency).length > 0;
-
-                // Skip users that have no debt relationship
-                if (!hasOwedBalances && !hasOweBalances && member.user.id !== user?.id) {
-                  return null;
-                }
-
-                // Determine if this is the current user or someone else
-                const isCurrentUser = member.user.id === user?.id;
-                // Only show the current user if they have debts to settle
-                if (isCurrentUser && !hasOwedBalances && !hasOweBalances) {
-                  return null;
-                }
-
-                return (
-                  <div
-                    key={member.user.id}
-                    className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
-                        <Image
-                          src={
-                            member.user.image ||
-                            `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`
-                          }
-                          alt={member.user.name || "User"}
-                          width={48}
-                          height={48}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            console.error(
-                              `Error loading image for user ${member.user.id}`
-                            );
-                            const target = e.target as HTMLImageElement;
-                            target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`;
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-mobile-base sm:text-lg font-medium text-white">
-                          {isCurrentUser ? "You" : member.user.name}
-                        </p>
-
-                        {/* Show amounts owed by currency */}
-                        {hasOwedBalances && !isCurrentUser && (
-                          <div className="text-mobile-sm sm:text-base text-white/70">
-                            Owes you{" "}
-                            {Object.entries(owedByCurrency).map(([currency, amount], index) => (
-                              <span key={currency}>
-                                <span className="text-green-500">
-                                  {formatCurrency(amount, currency)}
-                                </span>
-                                {index < Object.entries(owedByCurrency).length - 1 && ", "}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {/* Show amounts owed by currency */}
-                        {!isCurrentUser && hasOweBalances && (
-                          <div className="text-mobile-sm sm:text-base text-white/70">
-                            You owe{" "}
-                            {Object.entries(oweByCurrency).map(([currency, amount], index) => (
-                              <span key={currency}>
-                                <span className="text-red-500">
-                                  {formatCurrency(amount, currency)}
-                                </span>
-                                {index < Object.entries(oweByCurrency).length - 1 && ", "}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {!hasOwedBalances && !hasOweBalances && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            No Payment Requirement
-                          </p>
-                        )}
-                      </div>
+                if (currentUserBalances.length === 0) {
+                  return (
+                    <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
+                      No splits available
                     </div>
+                  );
+                }
 
-                    <div className="flex items-center gap-2">
-                      {!isCurrentUser && (
-                        <div className="flex items-center gap-2">
+                // Group balances by friend
+                const balancesByFriend = currentUserBalances.reduce((acc, balance) => {
+                  if (!acc[balance.firendId]) {
+                    acc[balance.firendId] = [];
+                  }
+                  acc[balance.firendId].push(balance);
+                  return acc;
+                }, {} as Record<string, typeof currentUserBalances>);
+
+                return Object.entries(balancesByFriend).map(([friendId, balances]) => {
+                  // Find the friend's details
+                  const friend = group.groupUsers.find(
+                    groupUser => groupUser.user.id === friendId
+                  )?.user;
+
+                  if (!friend) return null;
+
+                  // Separate balances by positive/negative amounts
+                  const owedBalances = balances.filter(b => b.amount > 0); // user owes friend
+                  const oweBalances = balances.filter(b => b.amount < 0);  // friend owes user
+
+                  const hasOwedBalances = owedBalances.length > 0;
+                  const hasOweBalances = oweBalances.length > 0;
+
+                  return (
+                    <div
+                      key={friendId}
+                      className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
+                          <Image
+                            src={
+                              friend.image ||
+                              `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
+                            }
+                            alt={friend.name || "User"}
+                            width={48}
+                            height={48}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              console.error(
+                                `Error loading image for user ${friend.id}`
+                              );
+                              const target = e.target as HTMLImageElement;
+                              target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-mobile-base sm:text-lg font-medium text-white">
+                            {friend.name}
+                          </p>
+
+                          {/* Display balance from current user's perspective */}
                           {hasOwedBalances && (
+                            <div className="text-mobile-sm sm:text-base text-white/70">
+                              <span className="text-red-500">
+                                You owe {owedBalances.map(b => formatCurrency(Math.abs(b.amount), b.currency)).join(", ")}
+                              </span>
+                            </div>
+                          )}
+
+                          {hasOweBalances && (
+                            <div className="text-mobile-sm sm:text-base text-white/70">
+                              <span className="text-green-500">
+                                Owes you {oweBalances.map(b => formatCurrency(Math.abs(b.amount), b.currency)).join(", ")}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          {hasOweBalances && (
                             <button
                               className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
                               onClick={() => {
                                 const latestExpense = expenses && expenses.length > 0 ? expenses[0] : null;
                                 if (latestExpense) {
-                                  handleSendReminder(member.user.id, latestExpense.id);
+                                  handleSendReminder(friend.id, latestExpense.id);
                                 }
                               }}
                               disabled={isSending}
@@ -464,11 +426,11 @@ export default function GroupDetailsPage({
                             </button>
                           )}
 
-                          {hasOweBalances && (
+                          {hasOwedBalances && (
                             <>
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => handleSettleFriendClick(member.user.id)}
+                                onClick={() => handleSettleFriendClick(friend.id)}
                               >
                                 <Image
                                   src="/coins-dollar.svg"
@@ -485,32 +447,32 @@ export default function GroupDetailsPage({
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
                                 onClick={async () => {
-                                  // For simplicity, mark the first currency balance as paid
-                                  const firstCurrency = Object.keys(oweByCurrency)[0];
-                                  const firstAmount = oweByCurrency[firstCurrency];
-                                  
-                                  markAsPaidMutation.mutate(
-                                    {
-                                      groupId,
-                                      payload: {
-                                        payerId: user.id,
-                                        payeeId: member.user.id,
-                                        amount: firstAmount,
-                                        currency: firstCurrency,
-                                        currencyType: "FIAT",
+                                  // Mark the first owed balance as paid (can be enhanced later for multi-currency)
+                                  const firstBalance = owedBalances[0];
+                                  if (firstBalance) {
+                                    markAsPaidMutation.mutate(
+                                      {
+                                        groupId,
+                                        payload: {
+                                          payerId: user.id,
+                                          payeeId: friend.id,
+                                          amount: Math.abs(firstBalance.amount),
+                                          currency: firstBalance.currency,
+                                          currencyType: "FIAT",
+                                        },
                                       },
-                                    },
-                                    {
-                                      onSuccess: () => {
-                                        toast.success(`Marked payment to ${member.user.name} as paid`, {
-                                          description: "This will be recorded in your activity.",
-                                        });
-                                      },
-                                      onError: (error) => {
-                                        toast.error("Failed to mark as paid");
-                                      },
-                                    }
-                                  );
+                                      {
+                                        onSuccess: () => {
+                                          toast.success(`Marked payment to ${friend.name} as paid`, {
+                                            description: "This will be recorded in your activity.",
+                                          });
+                                        },
+                                        onError: (error) => {
+                                          toast.error("Failed to mark as paid");
+                                        },
+                                      }
+                                    );
+                                  }
                                 }}
                                 disabled={markAsPaidMutation.isPending}
                               >
@@ -528,22 +490,11 @@ export default function GroupDetailsPage({
                             </>
                           )}
                         </div>
-                      )}
-
-                      {/* Only show delete button if not current user and current user is group creator */}
-                      {!isCurrentUser && group.createdBy.id === user.id && (
-                        <button
-                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                          onClick={() => handleRemoveMember(member.user.id)}
-                        >
-                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
-                        </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                );
-                })
-              )}
+                  );
+                });
+              })()}
             </div>
           )}
 
