@@ -100,6 +100,7 @@ export function GroupInfoHeader({
           </h1>
           <p className="text-mobile-base sm:text-lg text-white/70">
             {owed.length > 0 ? (
+
               <>
                 Overall, you owe {" "}
                 <span className="text-[#FF4444]">
