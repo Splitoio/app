@@ -16,19 +16,11 @@ const dropdownVariants = {
     opacity: 1,
     y: 0,
     scale: 1,
-    transition: {
-      duration: 0.2,
-      ease: "easeOut",
-    },
   },
   exit: {
     opacity: 0,
     y: -5,
     scale: 0.95,
-    transition: {
-      duration: 0.15,
-      ease: "easeIn",
-    },
   },
 };
 
@@ -54,15 +46,18 @@ export default function CurrencyDropdown({
   const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
   const chainGroups = organizedCurrencies?.chainGroups || {};
   const chainCurrencies = Object.values(chainGroups).flat();
-  
+
   // Apply filter if provided
-  const filteredFiatCurrencies = filterCurrencies ? fiatCurrencies.filter(filterCurrencies) : fiatCurrencies;
-  const filteredChainCurrencies = filterCurrencies ? chainCurrencies.filter(filterCurrencies) : chainCurrencies;
-  
+  const filteredFiatCurrencies = filterCurrencies
+    ? fiatCurrencies.filter(filterCurrencies)
+    : fiatCurrencies;
+  const filteredChainCurrencies = filterCurrencies
+    ? chainCurrencies.filter(filterCurrencies)
+    : chainCurrencies;
+
   const currencies = [...filteredChainCurrencies, ...filteredFiatCurrencies];
 
-
-  console.log(currencies)
+  console.log(currencies);
 
   const toggleDropdown = (dropdown: string) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
@@ -93,14 +88,18 @@ export default function CurrencyDropdown({
     // Use the cached organized currencies from our hook
     const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
     const chainGroups = organizedCurrencies?.chainGroups || {};
-    
+
     // Apply filter if provided
-    const filteredFiatCurrencies = filterCurrencies ? fiatCurrencies.filter(filterCurrencies) : fiatCurrencies;
-    
+    const filteredFiatCurrencies = filterCurrencies
+      ? fiatCurrencies.filter(filterCurrencies)
+      : fiatCurrencies;
+
     // Filter chain groups
     const filteredChainGroups: Record<string, Currency[]> = {};
     Object.entries(chainGroups).forEach(([chainId, currencies]) => {
-      const filteredCurrencies = filterCurrencies ? currencies.filter(filterCurrencies) : currencies;
+      const filteredCurrencies = filterCurrencies
+        ? currencies.filter(filterCurrencies)
+        : currencies;
       if (filteredCurrencies.length > 0) {
         filteredChainGroups[chainId] = filteredCurrencies;
       }

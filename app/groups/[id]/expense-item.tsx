@@ -18,9 +18,7 @@ export default function ExpenseItem({
   const { data: conversion } = useConvertCurrency(
     expense.amount,
     expense.currency,
-    currentUser?.currency || "USD",
-    // Only enable the query if time lock-in is false and the currencies are different
-    !expense.timeLockIn && expense.currency !== (currentUser?.currency || "USD")
+    currentUser?.currency || "USD"
   );
 
   const displayAmount = expense.amount;
@@ -87,7 +85,7 @@ export default function ExpenseItem({
           <p className="text-mobile-xs sm:text-sm text-white/60 text-right">
             ≈{" "}
             {formatCurrency(
-              conversion.convertedAmount,
+              conversion.toAmount,
               currentUser?.currency || "USD"
             )}
           </p>

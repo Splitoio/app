@@ -25,7 +25,13 @@ export function ConnectWalletModal({
   isOpen,
   onClose,
 }: ConnectWalletModalProps) {
-  const { address, connectWallet, disconnectWallet, isConnected, isConnecting } = useWallet();
+  const {
+    address,
+    connectWallet,
+    disconnectWallet,
+    isConnected,
+    isConnecting,
+  } = useWallet();
   const { mutate: addWallet } = useAddWallet();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const updateUser = useUpdateUser();
@@ -33,17 +39,19 @@ export function ConnectWalletModal({
 
   useEffect(() => {
     if (isOpen) {
-      console.log('[ConnectWalletModal] Modal opened');
+      console.log("[ConnectWalletModal] Modal opened");
     }
   }, [isOpen]);
 
   const handleConnectClick = async () => {
-    console.log('[ConnectWalletModal] Connect button clicked, calling connectWallet');
+    console.log(
+      "[ConnectWalletModal] Connect button clicked, calling connectWallet"
+    );
     try {
       await connectWallet();
-      console.log('[ConnectWalletModal] connectWallet resolved');
+      console.log("[ConnectWalletModal] connectWallet resolved");
     } catch (err) {
-      console.error('[ConnectWalletModal] connectWallet threw error:', err);
+      console.error("[ConnectWalletModal] connectWallet threw error:", err);
     }
   };
 

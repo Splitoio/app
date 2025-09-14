@@ -24,7 +24,10 @@ import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { ConnectWalletModal } from "./connect-wallet-modal";
 import ResolverSelector from "./ResolverSelector";
 import type { Option } from "./ResolverSelector";
-import { useUserWallets, useAddWallet } from "@/features/wallets/hooks/use-wallets";
+import {
+  useUserWallets,
+  useAddWallet,
+} from "@/features/wallets/hooks/use-wallets";
 
 // Currency options
 const CURRENCIES = [
@@ -48,13 +51,14 @@ interface UserDetailsWithTimeLock extends UserDetails {
 
 export function UserSettingsForm({ user }: { user: User }) {
   const { mutate: updateUser, isPending } = useUpdateUser();
+  const walletHook = useWallet();
   const {
     isConnected,
     address,
     isConnecting,
     connectWallet,
     disconnectWallet,
-  } = useWallet();
+  } = walletHook;
   const router = useRouter();
   const setUser = useAuthStore((state) => state.setUser);
   const uploadFileMutation = useUploadFile();
@@ -104,9 +108,7 @@ export function UserSettingsForm({ user }: { user: User }) {
     e.preventDefault();
 
     // Validate Stellar account before submission
-    if (
-      !validateStellarAccount(address)
-    ) {
+    if (!validateStellarAccount(address)) {
       toast.error("Invalid Stellar account format", {
         description: stellarError,
       });
@@ -140,7 +142,10 @@ export function UserSettingsForm({ user }: { user: User }) {
       updateData.currency = formData.currency;
     }
 
-    if (formData.timeLockInDefault !== undefined && formData.timeLockInDefault !== null) {
+    if (
+      formData.timeLockInDefault !== undefined &&
+      formData.timeLockInDefault !== null
+    ) {
       updateData.timeLockInDefault = formData.timeLockInDefault;
     }
 
@@ -156,7 +161,7 @@ export function UserSettingsForm({ user }: { user: User }) {
         console.log("Profile updated successfully:", updatedUser);
         toast.dismiss(loadingToast);
         toast.success("Profile updated successfully!");
-        
+
         // Update the auth store with the new user data by merging with existing user
         setUser({
           ...user,
@@ -455,14 +460,27 @@ export function UserSettingsForm({ user }: { user: User }) {
 
             {/* Time Lock-In Default Toggle */}
             <div className="flex items-center justify-between mt-4">
-              <span className="text-white text-base">Lock exchange rate by default</span>
+              <span className="text-white text-base">
+                Lock exchange rate by default
+              </span>
               <button
                 type="button"
-                onClick={() => setFormData((prev) => ({ ...prev, timeLockInDefault: !prev.timeLockInDefault }))}
-                className={`w-12 h-6 rounded-full p-1 transition-colors ${formData.timeLockInDefault ? "bg-blue-500" : "bg-white/10"}`}
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    timeLockInDefault: !prev.timeLockInDefault,
+                  }))
+                }
+                className={`w-12 h-6 rounded-full p-1 transition-colors ${
+                  formData.timeLockInDefault ? "bg-blue-500" : "bg-white/10"
+                }`}
               >
                 <div
-                  className={`h-4 w-4 rounded-full bg-white transform transition-transform ${formData.timeLockInDefault ? "translate-x-6" : "translate-x-0"}`}
+                  className={`h-4 w-4 rounded-full bg-white transform transition-transform ${
+                    formData.timeLockInDefault
+                      ? "translate-x-6"
+                      : "translate-x-0"
+                  }`}
                 />
               </button>
             </div>

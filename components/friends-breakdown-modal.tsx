@@ -9,7 +9,10 @@ import { apiClient } from "@/api-helpers/client";
 import { toast } from "sonner";
 import Image from "next/image";
 import { formatCurrency } from "@/utils/formatters";
-import { User as ApiUser, GroupBalance as ApiGroupBalance } from "@/api-helpers/modelSchema";
+import {
+  User as ApiUser,
+  GroupBalance as ApiGroupBalance,
+} from "@/api-helpers/modelSchema";
 
 interface User {
   id: string;
@@ -68,7 +71,7 @@ const scaleIn = {
   initial: { scale: 0.9, opacity: 0 },
   animate: { scale: 1, opacity: 1 },
   exit: { scale: 0.9, opacity: 0 },
-  transition: { duration: 0.2, ease: "easeOut" },
+  transition: { duration: 0.2 },
 };
 
 export function FriendsBreakdownModal({
@@ -105,15 +108,19 @@ export function FriendsBreakdownModal({
     setIsLoading(true);
     try {
       // Fetch user details
-      const userData = await apiClient.get("/users/me") as User;
+      const userData = (await apiClient.get("/users/me")) as User;
       setUser(userData);
 
       // Fetch friends data
-      const friendsResponse = await apiClient.get("/users/friends") as FriendData[];
+      const friendsResponse = (await apiClient.get(
+        "/users/friends"
+      )) as FriendData[];
       setFriendsData(friendsResponse);
 
       // Fetch group balances
-      const balancesData = await apiClient.get("/groups/balances") as GroupData[];
+      const balancesData = (await apiClient.get(
+        "/groups/balances"
+      )) as GroupData[];
       setGroupsData(balancesData);
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -143,15 +150,21 @@ export function FriendsBreakdownModal({
         // Only include positive amounts (debts user owes)
         if (balance.userId === user.id && balance.amount > 0) {
           // Find friend from the friends API data first
-          const friendFromAPI = friendsData.find(friend => friend.id === balance.firendId);
-          
+          const friendFromAPI = friendsData.find(
+            (friend) => friend.id === balance.firendId
+          );
+
           // Fall back to group users if not found in friends API
           const friendUser = group.groupUsers?.find(
             (gu) => gu.user.id === balance.firendId
           )?.user;
 
           // Use friend data from API if available, otherwise use group user data
-          const friendName = friendFromAPI?.name || friendUser?.name || friendUser?.email || balance.firendId;
+          const friendName =
+            friendFromAPI?.name ||
+            friendUser?.name ||
+            friendUser?.email ||
+            balance.firendId;
           const friendEmail = friendFromAPI?.email || friendUser?.email || "";
           const friendImage = friendFromAPI?.image || friendUser?.image || null;
 
@@ -175,21 +188,28 @@ export function FriendsBreakdownModal({
   // Group debts by friend
   const groupDebtsByFriend = () => {
     const debts = calculateDebts();
-    const groupedDebts = new Map<string, {
-      friendId: string;
-      friendName: string;
-      friendEmail: string;
-      friendImage: string | null;
-      debtsByCurrency: Map<string, number>;
-      debts: typeof debts;
-    }>();
+    const groupedDebts = new Map<
+      string,
+      {
+        friendId: string;
+        friendName: string;
+        friendEmail: string;
+        friendImage: string | null;
+        debtsByCurrency: Map<string, number>;
+        debts: typeof debts;
+      }
+    >();
 
-    debts.forEach(debt => {
+    debts.forEach((debt) => {
       const existing = groupedDebts.get(debt.friendId);
       if (existing) {
         // Add debt amount to the appropriate currency
-        const currentAmountForCurrency = existing.debtsByCurrency.get(debt.currency) || 0;
-        existing.debtsByCurrency.set(debt.currency, currentAmountForCurrency + debt.amount);
+        const currentAmountForCurrency =
+          existing.debtsByCurrency.get(debt.currency) || 0;
+        existing.debtsByCurrency.set(
+          debt.currency,
+          currentAmountForCurrency + debt.amount
+        );
         existing.debts.push(debt);
       } else {
         const debtsByCurrency = new Map<string, number>();
@@ -217,7 +237,7 @@ export function FriendsBreakdownModal({
     friendName: string;
   }) => {
     // Find the specific group to get proper balance and member data
-    const group = groupsData.find(g => g.id === debt.groupId);
+    const group = groupsData.find((g) => g.id === debt.groupId);
     if (!group) {
       toast.error("Group not found");
       return;
@@ -246,10 +266,7 @@ export function FriendsBreakdownModal({
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div
-              className="absolute inset-0 bg-black/80"
-              onClick={onClose}
-            />
+            <div className="absolute inset-0 bg-black/80" onClick={onClose} />
             <motion.div
               className="relative w-full max-w-2xl max-h-[90vh] overflow-auto rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
               {...scaleIn}
@@ -312,14 +329,18 @@ export function FriendsBreakdownModal({
                                   {friendGroup.friendName}
                                 </p>
                                 <div className="text-white/60 text-sm">
-                                  Total owed: {
-                                    Array.from(friendGroup.debtsByCurrency.entries()).map(([currency, amount], index) => (
-                                      <span key={currency} className="text-red-400 font-medium">
-                                        {index > 0 && ', '}
-                                        {formatCurrency(amount, currency)}
-                                      </span>
-                                    ))
-                                  }
+                                  Total owed:{" "}
+                                  {Array.from(
+                                    friendGroup.debtsByCurrency.entries()
+                                  ).map(([currency, amount], index) => (
+                                    <span
+                                      key={currency}
+                                      className="text-red-400 font-medium"
+                                    >
+                                      {index > 0 && ", "}
+                                      {formatCurrency(amount, currency)}
+                                    </span>
+                                  ))}
                                 </div>
                               </div>
                             </div>
@@ -337,17 +358,23 @@ export function FriendsBreakdownModal({
                                     Group: {debt.groupName}
                                   </p>
                                   <p className="text-white/60 text-xs">
-                                    Amount: <span className="text-red-400 font-medium">
-                                      {formatCurrency(debt.amount, debt.currency)}
+                                    Amount:{" "}
+                                    <span className="text-red-400 font-medium">
+                                      {formatCurrency(
+                                        debt.amount,
+                                        debt.currency
+                                      )}
                                     </span>
                                   </p>
                                 </div>
 
                                 <button
-                                  onClick={() => handleSettleDebt({
-                                    ...debt,
-                                    friendName: friendGroup.friendName,
-                                  })}
+                                  onClick={() =>
+                                    handleSettleDebt({
+                                      ...debt,
+                                      friendName: friendGroup.friendName,
+                                    })
+                                  }
                                   className="flex items-center gap-2 px-3 py-1 rounded-full bg-white text-black text-xs font-medium hover:bg-white/90 transition-colors"
                                 >
                                   <Image
@@ -408,25 +435,31 @@ export function FriendsBreakdownModal({
             setSelectedDebt(null);
             onClose(); // Close the friends breakdown modal as well
           }}
-          balances={selectedDebt.group?.groupBalances?.map(balance => ({
-            ...balance,
-            updatedAt: new Date(balance.updatedAt)
-          })) || []}
+          balances={
+            selectedDebt.group?.groupBalances?.map((balance) => ({
+              ...balance,
+              updatedAt: new Date(balance.updatedAt),
+            })) || []
+          }
           groupId={selectedDebt.groupId}
-          members={selectedDebt.group?.groupUsers?.map(gu => ({
-            id: gu.user.id,
-            name: gu.user.name || gu.user.email,
-            email: gu.user.email || "",
-            emailVerified: false,
-            image: gu.user.image,
-            currency: "USD", // Default currency
-            stellarAccount: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          })) as ApiUser[] || []}
+          members={
+            (selectedDebt.group?.groupUsers?.map((gu) => ({
+              id: gu.user.id,
+              name: gu.user.name || gu.user.email,
+              email: gu.user.email || "",
+              emailVerified: false,
+              image: gu.user.image,
+              currency: "USD", // Default currency
+              stellarAccount: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            })) as ApiUser[]) || []
+          }
           defaultCurrency={selectedDebt.currency}
           showIndividualView={selectedDebt.friendName !== "all"}
-          selectedFriendId={selectedDebt.friendName !== "all" ? selectedDebt.friendId : null}
+          selectedFriendId={
+            selectedDebt.friendName !== "all" ? selectedDebt.friendId : null
+          }
           specificAmount={selectedDebt.specificAmount} // Pass the specific amount
         />
       )}
