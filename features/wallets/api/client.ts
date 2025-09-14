@@ -136,3 +136,30 @@ export const getUserWallets = async () => {
     throw error;
   }
 };
+
+// Remove a wallet
+export const removeWallet = async (walletId: string) => {
+  try {
+    const response = await fetch(`${API_URL}/api/multichain/accounts/${walletId}`, {
+      method: "DELETE",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      credentials: "include",
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      const errorMessage = errorData.error || "Failed to remove wallet";
+      throw new Error(errorMessage);
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error("Error removing wallet:", error);
+    toast.error(
+      error instanceof Error ? error.message : "Failed to remove wallet"
+    );
+    throw error;
+  }
+};

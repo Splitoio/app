@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
+import { FriendsBreakdownModal } from "@/components/friends-breakdown-modal";
 import { AddFriendsModal } from "@/components/add-friends-modal";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
@@ -25,12 +26,15 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 
 export default function Page() {
+  const router = useRouter();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [isFriendsBreakdownModalOpen, setIsFriendsBreakdownModalOpen] = useState(false);
   const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [settleFriendGroupId, setSettleFriendGroupId] = useState<string | null>(null);
@@ -87,27 +91,8 @@ export default function Page() {
   };
 
   const handleSettleFriendClick = (friendId: string) => {
-    // Find the group where the user owes this friend
-    let foundGroupId: string | null = null;
-    if (groups && groups.length > 0) {
-      for (const group of groups) {
-        if (group.groupBalances && user) {
-          const userBalance = group.groupBalances.find(
-            (b) => b.userId === user.id && b.firendId === friendId && b.amount > 0
-          );
-          if (userBalance) {
-            foundGroupId = group.id;
-            break;
-          }
-        }
-      }
-    }
-    setSettleFriendId(friendId);
-    setSettleFriendGroupId(foundGroupId);
-    setIsSettleModalOpen(true);
-    setTimeout(() => {
-      queryClient.invalidateQueries({ queryKey: [QueryKeys.FRIENDS] });
-    }, 500);
+    // Open the friends breakdown modal first
+    setIsFriendsBreakdownModalOpen(true);
   };
 
   return (
@@ -144,7 +129,8 @@ export default function Page() {
             )}
           </h2>
           <div className="flex items-center gap-3 sm:gap-4">
-            <button
+            {/* Settle all debt button - commented out */}
+            {/* <button
               onClick={handleSettleAllClick}
               disabled={isSettling || isBalanceLoading}
               className="group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/10 bg-white px-4 sm:px-6 text-mobile-sm sm:text-base font-medium text-black transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-70 disabled:cursor-not-allowed"
@@ -166,33 +152,35 @@ export default function Page() {
                   <span className="truncate">Settle all debts</span>
                 </>
               )}
-            </button>
-            <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                {user?.image ? (
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={56}
-                    height={56}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                    alt="Profile"
-                    width={56}
-                    height={56}
-                    className="h-full w-full"
-                    onError={(e) => {
-                      console.error(`Error loading identicon for user`);
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                    }}
-                  />
-                )}
+            </button> */}
+            <Link href="/settings" className="cursor-pointer">
+              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                  {user?.image ? (
+                    <Image
+                      src={user.image}
+                      alt="Profile"
+                      width={56}
+                      height={56}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    <Image
+                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
+                      alt="Profile"
+                      width={56}
+                      height={56}
+                      className="h-full w-full"
+                      onError={(e) => {
+                        console.error(`Error loading identicon for user`);
+                        const target = e.target as HTMLImageElement;
+                        target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                      }}
+                    />
+                  )}
+                </div>
               </div>
-            </div>
+            </Link>
           </div>
         </div>
       </div>
@@ -273,21 +261,38 @@ export default function Page() {
             <h2 className="text-xl sm:text-2xl font-semibold text-white">
               Your Friends
             </h2>
-            <button
-              onClick={() => setIsAddFriendModalOpen(true)}
-              className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
-            >
-              <Image
-                src="/plus-sign-circle.svg"
-                alt="Add"
-                width={20}
-                height={20}
-                className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
-              />
-              <span className="font-medium text-mobile-sm sm:text-base">
-                Add Friends
-              </span>
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={() => router.push('/groups')}
+                className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
+              >
+                <Image
+                  src="/coins-dollar.svg"
+                  alt="Manage Debts"
+                  width={20}
+                  height={20}
+                  className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
+                />
+                <span className="font-medium text-mobile-sm sm:text-base">
+                  Manage Debts
+                </span>
+              </button>
+              <button
+                onClick={() => setIsAddFriendModalOpen(true)}
+                className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
+              >
+                <Image
+                  src="/plus-sign-circle.svg"
+                  alt="Add"
+                  width={20}
+                  height={20}
+                  className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
+                />
+                <span className="font-medium text-mobile-sm sm:text-base">
+                  Add Friends
+                </span>
+              </button>
+            </div>
           </div>
 
           <div className="space-y-4 sm:space-y-8">
@@ -300,14 +305,20 @@ export default function Page() {
               </div>
             ) : friends && friends.length > 0 ? (
               friends.map((friend) => {
-                // Find if there's a balance with this friend
-                const hasPositiveBalance = friend.balances.some(
-                  (balance) => balance.amount > 0
-                );
-                const hasNegativeBalance = friend.balances.some(
-                  (balance) => balance.amount < 0
-                );
-                const friendBalance = friend.balances[0]; // Just use the first balance for now
+                // Group balances by positive/negative and currency
+                const oweBalances: Record<string, number> = {};
+                const owedBalances: Record<string, number> = {};
+
+                friend.balances.forEach((balance) => {
+                  if (balance.amount > 0) {
+                    oweBalances[balance.currency] = balance.amount;
+                  } else if (balance.amount < 0) {
+                    owedBalances[balance.currency] = Math.abs(balance.amount);
+                  }
+                });
+
+                const hasOwedBalances = Object.keys(owedBalances).length > 0;
+                const hasOweBalances = Object.keys(oweBalances).length > 0;
 
                 return (
                   <div
@@ -338,30 +349,64 @@ export default function Page() {
                         <p className="text-mobile-base sm:text-xl text-white font-medium">
                           {friend.name}
                         </p>
-                        {friendBalance ? (
-                          <p className="text-mobile-sm sm:text-base text-white/60">
-                            {friendBalance.amount > 0 ? (
-                              <>
-                                You owe <span className="text-[#FF4444] font-medium">${Math.abs(friendBalance.amount).toFixed(2)}</span>
-                              </>
-                            ) : friendBalance.amount < 0 ? (
-                              <>
-                                Owes you <span className="text-[#53e45d] font-medium">${Math.abs(friendBalance.amount).toFixed(2)}</span>
-                              </>
+                        {hasOwedBalances || hasOweBalances ? (
+                          <div className="text-mobile-sm sm:text-base text-white/60">
+                            {hasOwedBalances && hasOweBalances ? (
+                              // Show both what you owe and what you're owed
+                              <div>
+                                <div>
+                                  You owe{" "}
+                                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#FF4444] font-medium">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </div>
+                                <div>
+                                  Owes you{" "}
+                                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#53e45d] font-medium">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </div>
+                              </div>
+                            ) : hasOweBalances ? (
+                              // Only show what you owe
+                              <span>
+                                You owe{" "}
+                                {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                  <span key={curr}>
+                                    <span className="text-[#FF4444] font-medium">{formatCurrency(amount, curr)}</span>
+                                    {index < Object.entries(oweBalances).length - 1 && ", "}
+                                  </span>
+                                ))}
+                              </span>
                             ) : (
-                              "All settled up"
+                              // Only show what they owe you
+                              <span>
+                                Owes you{" "}
+                                {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                  <span key={curr}>
+                                    <span className="text-[#53e45d] font-medium">{formatCurrency(amount, curr)}</span>
+                                    {index < Object.entries(owedBalances).length - 1 && ", "}
+                                  </span>
+                                ))}
+                              </span>
                             )}
-                          </p>
+                          </div>
                         ) : (
-                          <p className="text-base text-white/60">
-                            No transactions yet
+                          <p className="text-mobile-sm sm:text-base text-white/60">
+                            All settled up
                           </p>
                         )}
                       </div>
                     </div>
 
                     {/* Show appropriate button based on debt direction */}
-                    {hasNegativeBalance && (
+                    {hasOwedBalances && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => sendReminder({
@@ -382,7 +427,8 @@ export default function Page() {
                       </button>
                     )}
 
-                    {hasPositiveBalance && (
+                    {/* Individual settle debt button - commented out, replaced with single Manage Debts button */}
+                    {/* {hasPositiveBalance && (
                       <button
                         className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
                         onClick={() => handleSettleFriendClick(friend.id)}
@@ -396,7 +442,7 @@ export default function Page() {
                         />
                         <span>Settle Debts</span>
                       </button>
-                    )}
+                    )} */}
                   </div>
                 );
               })
@@ -462,19 +508,83 @@ export default function Page() {
                         <p className="text-mobile-sm sm:text-base text-white/60">
                           {(() => {
                             if (!user || !group.groupBalances) return "No balance";
-                            const currency = group.defaultCurrency || "USD";
+                            
+                            // Group balances by currency for the user in this group
                             const userBalances = group.groupBalances.filter(
-                              (b) => b.userId === user.id && b.currency === currency
+                              (b) => b.userId === user.id
                             );
-                            const netBalance = userBalances.reduce((sum, b) => sum + b.amount, 0);
-                            if (userBalances.length === 0) return "No balance";
-                            if (netBalance > 0) {
+                            
+                            // Group balances by currency
+                            const balancesByCurrency = userBalances.reduce((acc, balance) => {
+                              if (!acc[balance.currency]) {
+                                acc[balance.currency] = 0;
+                              }
+                              acc[balance.currency] += balance.amount;
+                              return acc;
+                            }, {} as Record<string, number>);
+
+                            // Separate positive and negative balances by currency
+                            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
+                            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
+                            
+                            Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
+                              if (amount > 0) {
+                                oweBalances[curr] = amount; // You owe others
+                              } else if (amount < 0) {
+                                owedBalances[curr] = Math.abs(amount); // Others owe you
+                              }
+                            });
+
+                            const hasOwedBalances = Object.keys(owedBalances).length > 0;
+                            const hasOweBalances = Object.keys(oweBalances).length > 0;
+
+                            if (hasOwedBalances && hasOweBalances) {
+                              // Show both what you owe and what you're owed
                               return (
-                                <>You owe <span className="text-[#FF4444]">${netBalance.toFixed(2)}</span></>
+                                <div>
+                                  <div>
+                                    You owe{" "}
+                                    {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                      <span key={curr}>
+                                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                                        {index < Object.entries(oweBalances).length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </div>
+                                  <div>
+                                    Owes you{" "}
+                                    {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                      <span key={curr}>
+                                        <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                                        {index < Object.entries(owedBalances).length - 1 && ", "}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
                               );
-                            } else if (netBalance < 0) {
+                            } else if (hasOweBalances) {
                               return (
-                                <>Owes you <span className="text-[#53e45d]">${Math.abs(netBalance).toFixed(2)}</span></>
+                                <>
+                                  You owe{" "}
+                                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </>
+                              );
+                            } else if (hasOwedBalances) {
+                              return (
+                                <>
+                                  Owes you{" "}
+                                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                                    <span key={curr}>
+                                      <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                                    </span>
+                                  ))}
+                                </>
                               );
                             } else {
                               return "Settled";
@@ -533,6 +643,15 @@ export default function Page() {
         showIndividualView={settleFriendId !== null}
         selectedFriendId={settleFriendId}
         groupId={settleFriendId ? settleFriendGroupId || "" : (groups && groups[0]?.id) || ""}
+      />
+
+      <FriendsBreakdownModal
+        isOpen={isFriendsBreakdownModalOpen}
+        onClose={() => setIsFriendsBreakdownModalOpen(false)}
+        onSettleAll={() => {
+          setIsFriendsBreakdownModalOpen(false);
+          handleSettleAllClick();
+        }}
       />
 
       <AddFriendsModal

@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import axios from "axios";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import TimeLockToggle from "@/components/ui/TimeLockToggle";
@@ -38,14 +39,30 @@ export default function GroupDetailsPage({
   const { address } = useWallet();
   const router = useRouter();
   const { sendReminder, isSending } = useReminders();
+  const { data: allCurrencies } = useGetAllCurrencies();
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isAddingMember, setIsAddingMember] = useState(false);
+  const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<"members" | "splits" | "activity">(
     "splits"
   );
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
 
   // State for group settings form
   const [groupSettings, setGroupSettings] = useState({
@@ -91,6 +108,41 @@ export default function GroupDetailsPage({
     });
   };
 
+  const handleSettleFriendClick = (friendId: string) => {
+    setSettleFriendId(friendId);
+    setIsSettleModalOpen(true);
+  };
+
+  // Calculate the specific amount owed to/from a friend in this group
+  const getSpecificDebtAmount = (friendId: string) => {
+    if (!group || !user) return 0;
+    
+    // Find the balance entry for current user and this friend
+    const balance = group.groupBalances.find(
+      (balance) => balance.userId === user.id && balance.firendId === friendId
+    );
+    
+    // Return the amount (positive = user owes friend, negative = friend owes user)
+    return balance ? balance.amount : 0;
+  };
+
+  // Get currency-specific debt information for a friend
+  const getSpecificDebtByCurrency = (friendId: string) => {
+    if (!group || !user) return {};
+    
+    const balance = group.groupBalances.find(
+      (balance) => balance.userId === user.id && balance.firendId === friendId
+    );
+    
+    // Return debt by currency
+    const debtByCurrency: Record<string, number> = {};
+    if (balance && balance.amount !== 0) {
+      debtByCurrency[balance.currency] = balance.amount;
+    }
+    
+    return debtByCurrency;
+  };
+
   const markAsPaidMutation = useMarkAsPaid();
 
   const handleRemoveMember = async (memberId: string) => {
@@ -112,7 +164,6 @@ export default function GroupDetailsPage({
         payload: {
           name: groupSettings.name,
           currency: groupSettings.currency,
-          lockPrice: groupSettings.lockPrice,
         },
       },
       {
@@ -268,101 +319,102 @@ export default function GroupDetailsPage({
 
           {activeTab === "splits" && (
             <div className="space-y-3 sm:space-y-4">
-              {group.groupUsers.map((member) => {
-                // Filter out self-balances
-                const balances = group?.groupBalances.filter(
-                  (balance) => balance.userId === member.user.id && balance.userId !== balance.firendId
-                );
-                const owedBalance = balances?.filter(
-                  (balance) => balance.amount > 0
-                );
-                const oweBalance = balances?.filter(
-                  (balance) => balance.amount < 0
-                );
-                const owed = Math.abs(
-                  owedBalance?.reduce(
-                    (sum, balance) => sum + balance.amount,
-                    0
-                  ) || 0
-                );
-                const owe = Math.abs(
-                  oweBalance?.reduce(
-                    (sum, balance) => sum + balance.amount,
-                    0
-                  ) || 0
+              {(() => {
+                // Filter balances to only show current user's perspective
+                const currentUserBalances = group.groupBalances.filter(
+                  balance => balance.userId === user?.id && balance.amount !== 0
                 );
 
-                // Skip users that have no debt relationship
-                if (owed === 0 && owe === 0 && member.user.id !== user?.id) {
-                  return null;
-                }
-
-                // Determine if this is the current user or someone else
-                const isCurrentUser = member.user.id === user?.id;
-                // Only show the current user if they have debts to settle
-                if (isCurrentUser && owed === 0 && owe === 0) {
-                  return null;
-                }
-
-                return (
-                  <div
-                    key={member.user.id}
-                    className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
-                  >
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
-                        <Image
-                          src={
-                            member.user.image ||
-                            `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`
-                          }
-                          alt={member.user.name || "User"}
-                          width={48}
-                          height={48}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            console.error(
-                              `Error loading image for user ${member.user.id}`
-                            );
-                            const target = e.target as HTMLImageElement;
-                            target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${member.user.id}`;
-                          }}
-                        />
-                      </div>
-                      <div>
-                        <p className="text-mobile-base sm:text-lg font-medium text-white">
-                          {isCurrentUser ? "You" : member.user.name}
-                        </p>
-
-                        {/* Only one of these will show based on the balance direction */}
-                        {owed > 0 && !isCurrentUser && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            Owes you <span className="text-green-500">${owed.toFixed(2)}</span>
-                          </p>
-                        )}
-                        {!isCurrentUser && owe > 0 && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            You owe <span className="text-red-500">${owe.toFixed(2)}</span>
-                          </p>
-                        )}
-                        {owed === 0 && owe === 0 && (
-                          <p className="text-mobile-sm sm:text-base text-white/70">
-                            No Payment Requirement
-                          </p>
-                        )}
-                      </div>
+                if (currentUserBalances.length === 0) {
+                  return (
+                    <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
+                      No splits available
                     </div>
+                  );
+                }
 
-                    <div className="flex items-center gap-2">
-                      {!isCurrentUser && (
+                // Group balances by friend
+                const balancesByFriend = currentUserBalances.reduce((acc, balance) => {
+                  if (!acc[balance.firendId]) {
+                    acc[balance.firendId] = [];
+                  }
+                  acc[balance.firendId].push(balance);
+                  return acc;
+                }, {} as Record<string, typeof currentUserBalances>);
+
+                return Object.entries(balancesByFriend).map(([friendId, balances]) => {
+                  // Find the friend's details
+                  const friend = group.groupUsers.find(
+                    groupUser => groupUser.user.id === friendId
+                  )?.user;
+
+                  if (!friend) return null;
+
+                  // Separate balances by positive/negative amounts
+                  const owedBalances = balances.filter(b => b.amount > 0); // user owes friend
+                  const oweBalances = balances.filter(b => b.amount < 0);  // friend owes user
+
+                  const hasOwedBalances = owedBalances.length > 0;
+                  const hasOweBalances = oweBalances.length > 0;
+
+                  return (
+                    <div
+                      key={friendId}
+                      className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
+                    >
+                      <div className="flex items-center gap-3 sm:gap-4">
+                        <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
+                          <Image
+                            src={
+                              friend.image ||
+                              `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
+                            }
+                            alt={friend.name || "User"}
+                            width={48}
+                            height={48}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              console.error(
+                                `Error loading image for user ${friend.id}`
+                              );
+                              const target = e.target as HTMLImageElement;
+                              target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
+                            }}
+                          />
+                        </div>
+                        <div>
+                          <p className="text-mobile-base sm:text-lg font-medium text-white">
+                            {friend.name}
+                          </p>
+
+                          {/* Display balance from current user's perspective */}
+                          {hasOwedBalances && (
+                            <div className="text-mobile-sm sm:text-base text-white/70">
+                              <span className="text-red-500">
+                                You owe {owedBalances.map(b => formatCurrency(Math.abs(b.amount), b.currency)).join(", ")}
+                              </span>
+                            </div>
+                          )}
+
+                          {hasOweBalances && (
+                            <div className="text-mobile-sm sm:text-base text-white/70">
+                              <span className="text-green-500">
+                                Owes you {oweBalances.map(b => formatCurrency(Math.abs(b.amount), b.currency)).join(", ")}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2">
                         <div className="flex items-center gap-2">
-                          {owed > 0 && (
+                          {hasOweBalances && (
                             <button
                               className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
                               onClick={() => {
                                 const latestExpense = expenses && expenses.length > 0 ? expenses[0] : null;
                                 if (latestExpense) {
-                                  handleSendReminder(member.user.id, latestExpense.id);
+                                  handleSendReminder(friend.id, latestExpense.id);
                                 }
                               }}
                               disabled={isSending}
@@ -374,14 +426,11 @@ export default function GroupDetailsPage({
                             </button>
                           )}
 
-                          {owe > 0 && (
+                          {hasOwedBalances && (
                             <>
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => {
-                                  // Set the friend to settle with
-                                  setIsSettleModalOpen(true);
-                                }}
+                                onClick={() => handleSettleFriendClick(friend.id)}
                               >
                                 <Image
                                   src="/coins-dollar.svg"
@@ -398,28 +447,32 @@ export default function GroupDetailsPage({
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
                                 onClick={async () => {
-                                  markAsPaidMutation.mutate(
-                                    {
-                                      groupId,
-                                      payload: {
-                                        payerId: user.id,
-                                        payeeId: member.user.id,
-                                        amount: owe,
-                                        currency: group.defaultCurrency || "USD",
-                                        currencyType: "FIAT",
+                                  // Mark the first owed balance as paid (can be enhanced later for multi-currency)
+                                  const firstBalance = owedBalances[0];
+                                  if (firstBalance) {
+                                    markAsPaidMutation.mutate(
+                                      {
+                                        groupId,
+                                        payload: {
+                                          payerId: user.id,
+                                          payeeId: friend.id,
+                                          amount: Math.abs(firstBalance.amount),
+                                          currency: firstBalance.currency,
+                                          currencyType: "FIAT",
+                                        },
                                       },
-                                    },
-                                    {
-                                      onSuccess: () => {
-                                        toast.success(`Marked payment to ${member.user.name} as paid`, {
-                                          description: "This will be recorded in your activity.",
-                                        });
-                                      },
-                                      onError: (error) => {
-                                        toast.error("Failed to mark as paid");
-                                      },
-                                    }
-                                  );
+                                      {
+                                        onSuccess: () => {
+                                          toast.success(`Marked payment to ${friend.name} as paid`, {
+                                            description: "This will be recorded in your activity.",
+                                          });
+                                        },
+                                        onError: (error) => {
+                                          toast.error("Failed to mark as paid");
+                                        },
+                                      }
+                                    );
+                                  }
                                 }}
                                 disabled={markAsPaidMutation.isPending}
                               >
@@ -437,21 +490,11 @@ export default function GroupDetailsPage({
                             </>
                           )}
                         </div>
-                      )}
-
-                      {/* Only show delete button if not current user and current user is group creator */}
-                      {!isCurrentUser && group.createdBy.id === user.id && (
-                        <button
-                          className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/5 ml-1 sm:ml-2"
-                          onClick={() => handleRemoveMember(member.user.id)}
-                        >
-                          <Trash2 className="h-4 w-4 sm:h-5 sm:w-5 text-white/70" />
-                        </button>
-                      )}
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           )}
 
@@ -536,7 +579,7 @@ export default function GroupDetailsPage({
                         </div>
                       </div>
                       <div className="text-mobile-base sm:text-base text-white font-medium">
-                        ${expense.amount.toFixed(2)}
+                        {formatCurrency(expense.amount, expense.currency || 'USD')}
                       </div>
                     </div>
                   );
@@ -553,10 +596,18 @@ export default function GroupDetailsPage({
 
       <SettleDebtsModal
         isOpen={isSettleModalOpen}
-        onClose={() => setIsSettleModalOpen(false)}
+        onClose={() => {
+          setIsSettleModalOpen(false);
+          setSettleFriendId(null);
+        }}
         balances={group.groupBalances}
         groupId={params.id}
         members={group.groupUsers.map((user) => user.user)}
+        defaultCurrency={group.defaultCurrency}
+        showIndividualView={settleFriendId !== null}
+        selectedFriendId={settleFriendId}
+        specificAmount={settleFriendId ? getSpecificDebtAmount(settleFriendId) : undefined}
+        specificDebtByCurrency={settleFriendId ? getSpecificDebtByCurrency(settleFriendId) : undefined}
       />
 
       <AddMemberModal

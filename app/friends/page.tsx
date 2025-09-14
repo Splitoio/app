@@ -7,11 +7,13 @@ import { AddFriendsModal } from "@/components/add-friends-modal";
 import { motion } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
 import { useAuthStore } from "@/stores/authStore";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 
 export default function FriendsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const { user } = useAuthStore();
+  const router = useRouter();
 
   // Listen for custom event to open the add friend modal
   useEffect(() => {
@@ -22,6 +24,11 @@ export default function FriendsPage() {
       document.removeEventListener("open-add-friend-modal", handleOpenModal);
     };
   }, []);
+
+  // Handle profile click to redirect to settings
+  const handleProfileClick = () => {
+    router.push("/settings");
+  };
 
   return (
     <motion.div
@@ -42,7 +49,10 @@ export default function FriendsPage() {
             <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" strokeWidth={1.5} />
             <span>Add Friend</span>
           </button>
-          <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+          <button
+            onClick={handleProfileClick}
+            className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+          >
             <div className="h-full w-full rounded-full overflow-hidden bg-[#0f0f10]">
               {user?.image ? (
                 <Image
@@ -69,7 +79,7 @@ export default function FriendsPage() {
                 />
               )}
             </div>
-          </div>
+          </button>
         </div>
       </div>
 

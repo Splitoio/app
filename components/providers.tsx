@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { queryClient } from "@/api-helpers/client";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { AuthProvider } from "./AuthProvider";
+import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react";
 export function Providers({ children }: { children: React.ReactNode }) {
   const [isHydrated, setIsHydrated] = useState(false);
 
@@ -17,7 +18,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={queryClient}>
+       <AptosWalletAdapterProvider>
       <AuthProvider>{children}</AuthProvider>
+      </AptosWalletAdapterProvider>
     </QueryClientProvider>
   );
 }

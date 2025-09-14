@@ -7,6 +7,7 @@ import {
   useCreateGroup,
   useAddMembersToGroup,
 } from "@/features/groups/hooks/use-create-group";
+import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useRouter } from "next/navigation";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { toast } from "sonner";
@@ -17,6 +18,7 @@ import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
 import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
 import CurrencyDropdown from "./currency-dropdown";
+import type { Currency } from "@/features/currencies/api/client";
 
 interface CreateGroupFormProps {
   isOpen: boolean;
@@ -64,6 +66,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const { user } = useAuthStore();
   const createGroupMutation = useCreateGroup();
   const addMembersMutation = useAddMembersToGroup();
+  const addFriendMutation = useAddFriend();
   const uploadFileMutation = useUploadFile();
   const router = useRouter();
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
@@ -134,11 +137,21 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
         })
     );
 
+    // Also add members as friends
+    const friendPromises = members.map((member) =>
+      addFriendMutation
+        .mutateAsync(member.email)
+        .catch((error) => {
+          console.error(`Failed to add friend ${member.email}:`, error);
+          return null;
+        })
+    );
+
     try {
-      await Promise.all(invitationPromises);
-      console.log(`Successfully invited members to group ${groupId}`);
+      await Promise.all([...invitationPromises, ...friendPromises]);
+      console.log(`Successfully invited members to group ${groupId} and added as friends`);
     } catch (error) {
-      console.error("Error inviting members:", error);
+      console.error("Error inviting members or adding friends:", error);
     }
   };
 
@@ -317,7 +330,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               </div>
 
               {/* Currency Dropdown */}
-              <div style={{ overflow: 'visible' }}>
+              {/* <div style={{ overflow: 'visible' }}>
                 <label className="block text-base text-white mb-2">Choose Currency</label>
                 <CurrencyDropdown
                   selectedCurrencies={formData.currency ? [formData.currency] : []}
@@ -328,8 +341,9 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     }));
                   }}
                   showFiatCurrencies={true}
+                  filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
                 />
-              </div>
+              </div> */}
 
               {/* Invite Members (moved to bottom) */}
               <div className="space-y-2">

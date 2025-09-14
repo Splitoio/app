@@ -73,9 +73,11 @@ function useAllChainsTokens() {
         chains.forEach((chain: any) => {
           (chain.tokens || []).forEach((token: any) => {
             opts.push({
+              id: token.id || token.symbol,
+              symbol: token.symbol,
+              name: token.name,
               chainId: chain.chainId,
-              token: token.symbol,
-              label: `${chain.name} - ${token.symbol}`,
+              type: token.type,
             });
           });
         });
@@ -100,6 +102,27 @@ export function AddExpenseModal({
     useGetFiatCurrencies();
   const { data: allCurrencies, isLoading: isLoadingAll } =
     useGetAllCurrencies();
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
+
+  // Helper function to get currency placeholder using actual symbols
+  const getCurrencyPlaceholder = (currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    const amount = currencyId === 'JPY' ? '5000' : '50';
+    return `${symbol}${amount}`;
+  };
 
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
@@ -380,7 +403,7 @@ export function AddExpenseModal({
                       amount: e.target.value,
                     }))
                   }
-                  placeholder="$50"
+                  placeholder={getCurrencyPlaceholder(formData.currency)}
                   className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
                   required
                 />
@@ -574,12 +597,12 @@ export function AddExpenseModal({
                         />
                         <span className="text-white/70 text-sm">%</span>
                         <span className="text-white/70 text-sm ml-1">
-                          (${amount.toFixed(2)})
+                          ({formatCurrency(amount, formData.currency)})
                         </span>
                       </div>
                     ) : (
                       <div className="bg-[#17171A] rounded-lg px-3 py-1 min-w-[60px] text-white">
-                        ${amount.toFixed(2)}
+                        {formatCurrency(amount, formData.currency)}
                       </div>
                     )}
                   </div>
@@ -597,11 +620,11 @@ export function AddExpenseModal({
                         validateSplits() ? "" : "text-red-500"
                       }`}
                     >
-                      $
-                      {splits
-                        .reduce((sum, split) => sum + (split.amount || 0), 0)
-                        .toFixed(2)}{" "}
-                      / ${Number(formData.amount).toFixed(2)}
+                      {formatCurrency(
+                        splits.reduce((sum, split) => sum + (split.amount || 0), 0),
+                        formData.currency
+                      )}{" "}
+                      / {formatCurrency(Number(formData.amount), formData.currency)}
                     </span>
 
                     {formData.splitType === "percentage" && (

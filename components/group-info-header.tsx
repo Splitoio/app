@@ -31,6 +31,11 @@ export function GroupInfoHeader({
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
 
+  // Handle profile click to redirect to settings
+  const handleProfileClick = () => {
+    router.push("/settings");
+  };
+
   if (!group) return null;
 
   // Calculate balances by currency for the current user
@@ -96,7 +101,7 @@ export function GroupInfoHeader({
           <p className="text-mobile-base sm:text-lg text-white/70">
             {owed.length > 0 ? (
               <>
-                Overall, you are owed {" "}
+                Overall, you owe {" "}
                 <span className="text-[#FF4444]">
                   {owed
                     .map((b) => formatCurrency(b.amount, b.currency))
@@ -105,7 +110,7 @@ export function GroupInfoHeader({
               </>
             ) : owe.length > 0 ? (
               <>
-                Overall, you owe {" "}
+                Overall, you are owed {" "}
                 <span className="text-[#53e45d]">
                   {owe
                     .map((b) => formatCurrency(b.amount, b.currency))
@@ -146,7 +151,8 @@ export function GroupInfoHeader({
               )}
             </button>
 
-            <button
+            {/* Settle all debts button - mobile version - commented out */}
+            {/* <button
               onClick={handleSettleClick}
               disabled={isSettling}
               className="flex h-10 items-center justify-center gap-1 rounded-full border border-white/80 bg-transparent px-4 text-mobile-sm font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
@@ -168,12 +174,15 @@ export function GroupInfoHeader({
                   <span className="truncate">Settle all debts</span>
                 </>
               )}
-            </button>
+            </button> */}
           </div>
 
           {/* Right Column - Profile and Settings */}
           <div className="flex flex-col gap-2">
-            <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+            <button
+              onClick={handleProfileClick}
+              className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+            >
               <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
                 {user?.image ? (
                   <Image
@@ -200,7 +209,7 @@ export function GroupInfoHeader({
                   />
                 )}
               </div>
-            </div>
+            </button>
 
             <button
               onClick={onSettingsClick}
@@ -247,7 +256,8 @@ export function GroupInfoHeader({
               )}
             </button>
 
-            <button
+            {/* Settle all debts button - desktop version - commented out */}
+            {/* <button
               onClick={handleSettleClick}
               disabled={isSettling}
               className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 text-base font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
@@ -269,9 +279,12 @@ export function GroupInfoHeader({
                   <span>Settle all debts</span>
                 </>
               )}
-            </button>
+            </button> */}
 
-            <div className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
+            <button
+              onClick={handleProfileClick}
+              className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+            >
               <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
                 {user?.image ? (
                   <Image
@@ -298,7 +311,7 @@ export function GroupInfoHeader({
                   />
                 )}
               </div>
-            </div>
+            </button>
           </div>
         </div>
       </div>

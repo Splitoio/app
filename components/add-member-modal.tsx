@@ -4,6 +4,7 @@ import {
   useAddMembersToGroup,
   useGetGroupById,
 } from "@/features/groups/hooks/use-create-group";
+import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { X, Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -24,6 +25,7 @@ export function AddMemberModal({
 }: AddMemberModalProps) {
   const [email, setEmail] = useState("");
   const { mutate: addMembersToGroup, isPending } = useAddMembersToGroup();
+  const { mutate: addFriend, isPending: isAddingFriend } = useAddFriend();
   const queryClient = useQueryClient();
 
   useEffect(() => {
@@ -48,26 +50,52 @@ export function AddMemberModal({
       return;
     }
 
+    const memberEmail = email.trim();
+
+    // First add the member to the group
     addMembersToGroup(
       {
         groupId: groupId,
-        memberIdentifier: email.trim(),
+        memberIdentifier: memberEmail,
       },
       {
         onSuccess: () => {
-          toast.success("Member added successfully");
-          setEmail("");
+          // Then add as friend
+          addFriend(memberEmail, {
+            onSuccess: () => {
+              toast.success("Member added to group and as friend successfully");
+              setEmail("");
 
-          // refetch the specific group data
-          queryClient.invalidateQueries({
-            queryKey: [QueryKeys.GROUPS, groupId],
+              // refetch the specific group data
+              queryClient.invalidateQueries({
+                queryKey: [QueryKeys.GROUPS, groupId],
+              });
+
+              // refetch the general groups list
+              queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+
+              // refetch friends list
+              queryClient.invalidateQueries({ queryKey: [QueryKeys.FRIENDS] });
+
+              // Close the modal after successful addition
+              onClose();
+            },
+            onError: (friendError) => {
+              // Member was added to group but friend addition failed
+              console.error("Failed to add as friend:", friendError);
+              toast.success("Member added to group successfully");
+              toast.warning("Could not add as friend - they may already be your friend");
+              setEmail("");
+
+              // refetch queries
+              queryClient.invalidateQueries({
+                queryKey: [QueryKeys.GROUPS, groupId],
+              });
+              queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+
+              onClose();
+            },
           });
-
-          // refetch the general groups list
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-
-          // Close the modal after successful addition
-          onClose();
         },
         onError: (error) => {
           toast.error(error.message || "Failed to add member");
@@ -77,7 +105,7 @@ export function AddMemberModal({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isPending && email.trim()) {
+    if (e.key === "Enter" && !(isPending || isAddingFriend) && email.trim()) {
       handleAddMember();
     }
   };
@@ -120,17 +148,17 @@ export function AddMemberModal({
                   transition-all duration-300
                   placeholder:text-white/30
                   focus:outline-none focus:border-white/20 focus:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-                  disabled={isPending}
+                  disabled={isPending || isAddingFriend}
                 />
               </div>
 
               <Button
                 onClick={handleAddMember}
-                disabled={isPending || !email.trim()}
+                disabled={(isPending || isAddingFriend) || !email.trim()}
                 className="w-full h-14 rounded-full bg-[#fff] text-black text-base font-bold mt-8 shadow-none border-none"
                 style={{ backgroundColor: '#fff', color: '#000' }}
               >
-                {isPending ? (
+                {(isPending || isAddingFriend) ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Adding...

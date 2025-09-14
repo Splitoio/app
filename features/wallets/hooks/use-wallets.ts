@@ -6,6 +6,7 @@ import {
   addWallet,
   getAvailableChains,
   getUserWallets,
+  removeWallet,
   Wallet,
   ChainResponse,
 } from "../api/client";
@@ -79,6 +80,27 @@ export const useSetWalletAsPrimary = () => {
     onError: (error) => {
       console.error("Error setting primary wallet:", error);
       toast.error("Failed to update primary wallet");
+    },
+  });
+};
+
+// Hook to remove a wallet
+export const useRemoveWallet = () => {
+  const queryClient = useQueryClient();
+  const { setUser } = useAuthStore();
+
+  return useMutation({
+    mutationFn: removeWallet,
+    onSuccess: async () => {
+      toast.success("Wallet removed successfully");
+      await queryClient.invalidateQueries({ queryKey: [WALLET_QUERY_KEYS.WALLETS] });
+      // Refresh user data to update the UI
+      const user = await getUser();
+      setUser(user);
+    },
+    onError: (error) => {
+      console.error("Error removing wallet:", error);
+      // Error is already handled and displayed by the removeWallet function
     },
   });
 };

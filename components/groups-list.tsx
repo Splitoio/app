@@ -25,6 +25,7 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
 
 type APIGroup = {
@@ -54,6 +55,21 @@ export function GroupsList() {
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
   const { user } = useAuthStore();
+  const { data: allCurrencies } = useGetAllCurrencies();
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
 
   useEffect(() => {
     if (error) {
@@ -197,27 +213,85 @@ export function GroupsList() {
         animate="animate"
       >
         {groupsData.map((group) => {
-          // Calculate the net balance for the current user in this group
+          // Calculate the balances by currency for the current user in this group
           let balanceDisplay = null;
-          let netBalance = 0;
-          let currency = group.defaultCurrency || "USD";
+          const currency = group.defaultCurrency || "USD";
           if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
-            // Sum all balances for the user in this group (across all currencies)
+            // Group balances by currency for the user in this group
             const userBalances = group.groupBalances.filter(
               (b) => b.userId === user.id
             );
-            netBalance = userBalances.reduce((sum, b) => sum + b.amount, 0);
-            // If you want to show currency, you could pick the first or show all, but for now just show the net
-            if (netBalance > 0) {
+            
+            // Group balances by currency
+            const balancesByCurrency = userBalances.reduce((acc, balance) => {
+              if (!acc[balance.currency]) {
+                acc[balance.currency] = 0;
+              }
+              acc[balance.currency] += balance.amount;
+              return acc;
+            }, {} as Record<string, number>);
+
+            // Separate positive and negative balances by currency
+            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
+            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
+            
+            Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
+              if (amount > 0) {
+                oweBalances[curr] = amount; // You owe others
+              } else if (amount < 0) {
+                owedBalances[curr] = Math.abs(amount); // Others owe you
+              }
+            });
+
+            const hasOwedBalances = Object.keys(owedBalances).length > 0;
+            const hasOweBalances = Object.keys(oweBalances).length > 0;
+
+            if (hasOwedBalances && hasOweBalances) {
+              // Show both what you owe and what you're owed
+              balanceDisplay = (
+                <div className="text-mobile-xs sm:text-sm">
+                  <div>
+                    You owe{" "}
+                    {Object.entries(oweBalances).map(([curr, amount], index) => (
+                      <span key={curr}>
+                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                        {index < Object.entries(oweBalances).length - 1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                  <div>
+                    Owes you{" "}
+                    {Object.entries(owedBalances).map(([curr, amount], index) => (
+                      <span key={curr}>
+                        <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                        {index < Object.entries(owedBalances).length - 1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            } else if (hasOweBalances) {
               balanceDisplay = (
                 <span>
-                  You owe <span className="text-[#FF4444]">${netBalance.toFixed(2)}</span>
+                  You owe{" "}
+                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                    <span key={curr}>
+                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                    </span>
+                  ))}
                 </span>
               );
-            } else if (netBalance < 0) {
+            } else if (hasOwedBalances) {
               balanceDisplay = (
                 <span>
-                  Owes you <span className="text-[#53e45d]">${Math.abs(netBalance).toFixed(2)}</span>
+                  Owes you{" "}
+                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                    <span key={curr}>
+                      <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                    </span>
+                  ))}
                 </span>
               );
             } else {

@@ -15,6 +15,7 @@ import {
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
+import { easeIn, easeOut } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
@@ -32,10 +33,12 @@ import {
   useGetAllCurrencies,
   useOrganizedCurrencies,
 } from "@/features/currencies/hooks/use-currencies";
+import type { Currency } from "@/features/currencies/api/client";
 import {
   useUserWallets,
   useAddWallet,
   useSetWalletAsPrimary,
+  useRemoveWallet,
 } from "@/features/wallets/hooks/use-wallets";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import {
@@ -76,6 +79,10 @@ export default function SettingsPage() {
 
   // State for wallets
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
+  
+  // State for wallet removal confirmation
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
+  const [walletToRemove, setWalletToRemove] = useState<string | null>(null);
 
   // Use TanStack Query for API calls
   const { data: currencyData, isLoading: isLoadingCurrencies } =
@@ -86,6 +93,7 @@ export default function SettingsPage() {
   const { data: walletData, isLoading: isLoadingWallets } = useUserWallets();
   const { mutate: addWallet, isPending: isAddingWallet } = useAddWallet();
   const { mutate: setWalletAsPrimary } = useSetWalletAsPrimary();
+  const { mutate: removeWallet, isPending: isRemovingWallet } = useRemoveWallet();
 
   const handleWalletAdded = async () => {
     try {
@@ -103,8 +111,11 @@ export default function SettingsPage() {
   // Process wallet data for UI
   const wallets = walletData?.accounts || [];
 
-  // Get all currencies from the API response
-  const currencies = currencyData?.currencies || [];
+  // Get all currencies from the API response and filter out ETH and USDC
+  const allCurrencies = currencyData?.currencies || [];
+  const currencies = allCurrencies.filter(
+    (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+  );
 
   // Separate currencies by type for UI organization
   const fiatCurrencies = currencies.filter((c) => c.type === "FIAT");
@@ -229,31 +240,25 @@ export default function SettingsPage() {
     });
   };
 
-  // Remove a wallet
-  const removeWallet = async (walletId: string) => {
-    try {
-      // In a full implementation, we would call an API to remove the wallet
-      // For now, just show a toast since we haven't implemented the delete endpoint
-      toast.error("Wallet removal not implemented in this version");
+  // Remove a wallet using the mutation hook
+  const handleRemoveWallet = (walletId: string) => {
+    setWalletToRemove(walletId);
+    setIsRemoveConfirmOpen(true);
+  };
 
-      // Alternatively, we could make the call to the API if it exists
-      /*
-      const response = await fetch(`/api/multichain/accounts/${walletId}`, {
-        method: 'DELETE',
-      });
-      
-      if (response.ok) {
-        // Update local state
-        setWallets(wallets.filter(wallet => wallet.id !== walletId));
-        toast.success("Wallet removed successfully");
-      } else {
-        toast.error("Failed to remove wallet");
-      }
-      */
-    } catch (error) {
-      console.error("Error removing wallet:", error);
-      toast.error("Failed to remove wallet");
+  // Confirm wallet removal
+  const confirmRemoveWallet = () => {
+    if (walletToRemove) {
+      removeWallet(walletToRemove);
+      setIsRemoveConfirmOpen(false);
+      setWalletToRemove(null);
     }
+  };
+
+  // Cancel wallet removal
+  const cancelRemoveWallet = () => {
+    setIsRemoveConfirmOpen(false);
+    setWalletToRemove(null);
   };
 
   // Handle file upload for profile picture
@@ -370,7 +375,7 @@ export default function SettingsPage() {
       scale: 1,
       transition: {
         duration: 0.2,
-        ease: "easeOut",
+        ease: easeOut,
       },
     },
     exit: {
@@ -379,7 +384,7 @@ export default function SettingsPage() {
       scale: 0.95,
       transition: {
         duration: 0.15,
-        ease: "easeIn",
+        ease: easeIn,
       },
     },
   };
@@ -398,12 +403,28 @@ export default function SettingsPage() {
     // Use the cached organized currencies from our hook
     const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
     const chainGroups = organizedCurrencies?.chainGroups || {};
+    
+    // Filter out ETH and USDC from fiat currencies
+    const filteredFiatCurrencies = fiatCurrencies.filter(
+      (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+    );
+    
+    // Filter out ETH and USDC from chain currencies
+    const filteredChainGroups: Record<string, Currency[]> = {};
+    Object.entries(chainGroups).forEach(([chainId, currencies]) => {
+      const filteredCurrencies = currencies.filter(
+        (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
+      );
+      if (filteredCurrencies.length > 0) {
+        filteredChainGroups[chainId] = filteredCurrencies;
+      }
+    });
 
     return (
       <>
         {/* Fiat Currencies */}
         <div className="px-4 py-2 text-sm text-white/50 font-medium">Fiat</div>
-        {fiatCurrencies.map((currency) => (
+        {filteredFiatCurrencies.map((currency) => (
           <button
             key={`fiat-${currency.id}`}
             type="button"
@@ -434,7 +455,7 @@ export default function SettingsPage() {
         ))}
 
         {/* Chain Currencies */}
-        {Object.entries(chainGroups).map(([chainId, currencies]) => (
+        {Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
           <div key={`chain-${chainId}`}>
             <div className="px-4 py-2 mt-2 text-sm text-white/50 font-medium">
               {chainId}
@@ -645,6 +666,7 @@ export default function SettingsPage() {
           <CurrencyDropdown
             selectedCurrencies={selectedCurrencies}
             setSelectedCurrencies={setSelectedCurrencies}
+            filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
           />
         </div>
 
@@ -797,17 +819,22 @@ export default function SettingsPage() {
                     </p>
                     {!wallet.isDefault ? (
                       <div className="flex items-center">
-                        <button
+                        {/* <button
                           onClick={() => handleSetAsPrimary(wallet.id)}
                           className="border border-white/80 text-white text-sm rounded-full px-4 py-1.5 hover:bg-white/5 transition"
                         >
                           Set as primary
-                        </button>
+                        </button> */}
                         <button
-                          onClick={() => removeWallet(wallet.id)}
-                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
+                          onClick={() => handleRemoveWallet(wallet.id)}
+                          disabled={isRemovingWallet}
+                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Minus className="h-5 w-5" />
+                          {isRemovingWallet ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-5 w-5" />
+                          )}
                         </button>
                       </div>
                     ) : (
@@ -816,10 +843,15 @@ export default function SettingsPage() {
                           Primary Wallet
                         </div>
                         <button
-                          onClick={() => removeWallet(wallet.id)}
-                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2"
+                          onClick={() => handleRemoveWallet(wallet.id)}
+                          disabled={isRemovingWallet}
+                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Minus className="h-5 w-5" />
+                          {isRemovingWallet ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-5 w-5" />
+                          )}
                         </button>
                       </div>
                     )}
@@ -843,9 +875,76 @@ export default function SettingsPage() {
       {/* Add Wallet Modal */}
       <AddWalletModal
         isOpen={isWalletModalOpen}
-        onClose={() => setIsWalletModalOpen(false)}
-        onWalletAdded={handleWalletAdded}
+        onClose={() => {
+          setIsWalletModalOpen(false);
+          // Optionally, refetch user wallets or user profile here if needed
+          // handleWalletAdded();
+        }}
       />
+
+      {/* Remove Wallet Confirmation Modal */}
+      <AnimatePresence>
+        {isRemoveConfirmOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+              onClick={cancelRemoveWallet}
+            />
+            
+            {/* Modal */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative bg-[#1A1A1D] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
+            >
+              <div className="text-center">
+                <div className="w-12 h-12 mx-auto mb-4 bg-red-500/10 rounded-full flex items-center justify-center">
+                  <Trash2 className="h-6 w-6 text-red-500" />
+                </div>
+                
+                <h3 className="text-xl font-semibold text-white mb-2">
+                  Remove Wallet
+                </h3>
+                
+                <p className="text-white/70 mb-6">
+                  Are you sure you want to remove this wallet? This action cannot be undone.
+                </p>
+                
+                <div className="flex gap-3">
+                  <button
+                    onClick={cancelRemoveWallet}
+                    disabled={isRemovingWallet}
+                    className="flex-1 px-4 py-2.5 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/5 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
+                  >
+                    Cancel
+                  </button>
+                  
+                  <button
+                    onClick={confirmRemoveWallet}
+                    disabled={isRemovingWallet}
+                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  >
+                    {isRemovingWallet ? (
+                      <>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        Removing...
+                      </>
+                    ) : (
+                      "Remove Wallet"
+                    )}
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+     
     </motion.div>
   );
 }

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, ChevronDown, Check, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
+import type { Currency } from "@/features/currencies/api/client";
 
 const dropdownVariants = {
   hidden: {
@@ -35,12 +36,14 @@ type Props = {
   selectedCurrencies: string[];
   setSelectedCurrencies: (currencies: string[]) => void;
   showFiatCurrencies?: boolean;
+  filterCurrencies?: (currency: Currency) => boolean;
 };
 
 export default function CurrencyDropdown({
   selectedCurrencies,
   setSelectedCurrencies,
   showFiatCurrencies,
+  filterCurrencies,
 }: Props) {
   // const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
@@ -51,7 +54,12 @@ export default function CurrencyDropdown({
   const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
   const chainGroups = organizedCurrencies?.chainGroups || {};
   const chainCurrencies = Object.values(chainGroups).flat();
-  const currencies = [...chainCurrencies, ...fiatCurrencies];
+  
+  // Apply filter if provided
+  const filteredFiatCurrencies = filterCurrencies ? fiatCurrencies.filter(filterCurrencies) : fiatCurrencies;
+  const filteredChainCurrencies = filterCurrencies ? chainCurrencies.filter(filterCurrencies) : chainCurrencies;
+  
+  const currencies = [...filteredChainCurrencies, ...filteredFiatCurrencies];
 
 
   console.log(currencies)
@@ -85,6 +93,18 @@ export default function CurrencyDropdown({
     // Use the cached organized currencies from our hook
     const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
     const chainGroups = organizedCurrencies?.chainGroups || {};
+    
+    // Apply filter if provided
+    const filteredFiatCurrencies = filterCurrencies ? fiatCurrencies.filter(filterCurrencies) : fiatCurrencies;
+    
+    // Filter chain groups
+    const filteredChainGroups: Record<string, Currency[]> = {};
+    Object.entries(chainGroups).forEach(([chainId, currencies]) => {
+      const filteredCurrencies = filterCurrencies ? currencies.filter(filterCurrencies) : currencies;
+      if (filteredCurrencies.length > 0) {
+        filteredChainGroups[chainId] = filteredCurrencies;
+      }
+    });
 
     return (
       <>
@@ -93,7 +113,7 @@ export default function CurrencyDropdown({
             <div className="px-4 py-2 text-sm text-white/50 font-medium">
               Fiat
             </div>
-            {fiatCurrencies.map((currency) => (
+            {filteredFiatCurrencies.map((currency) => (
               <button
                 key={`fiat-${currency.id}`}
                 type="button"
@@ -123,7 +143,7 @@ export default function CurrencyDropdown({
         )}
 
         {/* Chain Currencies */}
-        {Object.entries(chainGroups).map(([chainId, currencies]) => (
+        {Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
           <div key={`chain-${chainId}`}>
             <div className="px-4 py-2 text-sm text-white/50 font-medium">
               {chainId}
@@ -196,7 +216,7 @@ export default function CurrencyDropdown({
               );
             })
           ) : (
-            <span className="py-1 text-white/70">Select currencies...</span>
+            <span className="py-1 text-white/70">Select Payment Token...</span>
           )}
         </div>
         <ChevronDown
