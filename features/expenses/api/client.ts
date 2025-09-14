@@ -1,5 +1,6 @@
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/api-helpers/client";
 import { z } from "zod";
+import { CurrencyType } from "@/api-helpers/types";
 
 // const ExpenseSchema = z.object({
 //   id: z.string(),
@@ -15,34 +16,37 @@ import { z } from "zod";
 //   ),
 // });
 
+// Define a comprehensive type for the expense payload
+export interface EnhancedExpensePayload {
+  name: string;
+  category: string;
+  amount: number;
+  splitType: string;
+  currency: string;
+  currencyType: CurrencyType;
+  chainId?: string;
+  tokenId?: string;
+  timeLockIn: boolean;
+  participants: Array<{ userId: string; amount: number }>;
+  paidBy: string;
+  description?: string;
+  groupId?: string;
+}
+
 export const createExpense = async (
   groupId: string,
-  payload: {
-    // paidBy: string;w
-    // name: string;
-    // category: string;
-    // amount: number;
-    // splitType: string;
-    // currency: string;
-    // participants: Array<{ userId: string; amount: number }>;
-    // description: string;
-    // members: Array<string>;
-    // shares: Array<number>;
-
-    name: string;
-    category: string;
-    amount: number;
-    splitType: string;
-    currency: string;
-    participants: Array<{ userId: string; amount: number }>;
-  }
-) => {
+  payload: EnhancedExpensePayload
+): Promise<any> => {
   const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
-  return response;
-  // return ExpenseSchema.parse(response);
+  return response.data;
 };
 
 export const getExpenses = async (groupId: string) => {
+  const response = await apiClient.get(`/groups/${groupId}/expenses`);
+  return response.data;
+};
+
+export const getLegacyExpenses = async (groupId: string) => {
   const response = await apiClient.get(`/groups/${groupId}/expenses`);
   return response.data;
 };

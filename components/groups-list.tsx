@@ -1,14 +1,23 @@
 "use client";
 
 import { type Group } from "@/stores/groups";
-import { MoreVertical, Pencil, Trash2 } from "lucide-react";
+import {
+  MoreVertical,
+  Pencil,
+  Trash2,
+  Loader2,
+  AlertTriangle,
+  X,
+  CheckCircle,
+  Plus,
+} from "lucide-react";
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useRouter } from "next/navigation";
-import { getAllGroups } from "@/features/groups/api/client";
+import { getAllGroupsWithBalances } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import dayjs from "dayjs";
@@ -16,6 +25,8 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
+import { useAuthStore } from "@/stores/authStore";
 
 type APIGroup = {
   id: string;
@@ -39,10 +50,26 @@ export function GroupsList() {
     error,
   } = useQuery({
     queryKey: [QueryKeys.GROUPS],
-    queryFn: getAllGroups,
+    queryFn: getAllGroupsWithBalances,
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
+  const { user } = useAuthStore();
+  const { data: allCurrencies } = useGetAllCurrencies();
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
 
   useEffect(() => {
     if (error) {
@@ -61,6 +88,14 @@ export function GroupsList() {
   }, [error, router]);
 
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
+  const [groupToDelete, setGroupToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -77,107 +112,313 @@ export function GroupsList() {
     };
   }, []);
 
+  const handleDeleteGroup = (
+    e: React.MouseEvent,
+    groupId: string,
+    groupName: string
+  ) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    // Show delete modal
+    setGroupToDelete({ id: groupId, name: groupName });
+    setShowDeleteModal(true);
+    setIsDeleting(false);
+    setDeleteError(null);
+    setDeleteSuccess(false);
+  };
+
+  const confirmDelete = () => {
+    if (!groupToDelete) return;
+
+    setIsDeleting(true);
+    setDeleteError(null);
+
+    deleteGroupMutation.mutate(groupToDelete.id, {
+      onSuccess: () => {
+        setIsDeleting(false);
+        setDeleteSuccess(true);
+        setEditingId(null);
+        // We'll close the modal after a short delay
+        setTimeout(() => {
+          setShowDeleteModal(false);
+          setGroupToDelete(null);
+          setDeleteSuccess(false);
+        }, 1500);
+      },
+      onError: (error: unknown) => {
+        setIsDeleting(false);
+
+        // Cast to a modified error type to handle the API error format
+        type ExtendedApiError = ApiError & {
+          data?: {
+            error?: string;
+          };
+        };
+
+        const apiError = error as ExtendedApiError;
+
+        if (
+          apiError?.message?.includes("non-zero balance") ||
+          apiError?.data?.error?.includes("non-zero balance")
+        ) {
+          setDeleteError(
+            "You have unsettled balances in this group. Please clear all dues before deleting."
+          );
+        } else {
+          setDeleteError(apiError?.message || "Failed to delete group");
+        }
+      },
+    });
+  };
+
   if (isGroupsLoading || !groupsData) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <div className="text-white/50">Loading groups...</div>
+      <div className="flex items-center justify-center py-8 sm:py-12">
+        <div className="text-mobile-base sm:text-base text-white/50">
+          Loading groups...
+        </div>
+      </div>
+    );
+  }
+
+  if (groupsData.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl bg-[#101012] p-6 sm:p-12 min-h-[calc(100vh-160px)] sm:min-h-[calc(100vh-180px)]">
+        <div className="text-mobile-lg sm:text-xl text-white/70 mb-3 sm:mb-4">
+          No groups created yet
+        </div>
+        <p className="text-mobile-sm sm:text-base text-white/50 text-center max-w-md mb-6 sm:mb-8">
+          Create a group to start tracking expenses and settle debts with your
+          friends
+        </p>
+        <button
+          onClick={() =>
+            document.dispatchEvent(new CustomEvent("open-create-group-modal"))
+          }
+          className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
+        >
+          <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
+          <span>Create New Group</span>
+        </button>
       </div>
     );
   }
 
   return (
-    <motion.div
-      className="py-12"
-      variants={staggerContainer}
-      initial="initial"
-      animate="animate"
-    >
-      <div className="space-y-4">
-        {groupsData?.map((group) => (
-          <motion.div key={group.id} variants={slideUp} className="relative">
-            <Link
-              href={`/groups/${group.id}`}
-              className="flex items-center justify-between rounded-xl bg-zinc-950/50 p-3 transition-all duration-300 hover:bg-[#1a1a1c] relative group"
-              onMouseMove={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                const x = e.clientX - rect.left;
-                const y = e.clientY - rect.top;
-                e.currentTarget.style.background = `radial-gradient(1000px circle at ${x}px ${y}px, rgba(255,255,255,0.05), transparent 40%)`;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = "#09090b";
-                e.currentTarget.style.transition = "background 0.3s ease";
-              }}
+    <div className="bg-[#0f0f10] rounded-2xl sm:rounded-[20px] min-h-[calc(100vh-120px)] mt-2">
+      <motion.div
+        variants={staggerContainer}
+        initial="initial"
+        animate="animate"
+      >
+        {groupsData.map((group) => {
+          // Calculate the balances by currency for the current user in this group
+          let balanceDisplay = null;
+          const currency = group.defaultCurrency || "USD";
+          if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
+            // Group balances by currency for the user in this group
+            const userBalances = group.groupBalances.filter(
+              (b) => b.userId === user.id
+            );
+            
+            // Group balances by currency
+            const balancesByCurrency = userBalances.reduce((acc, balance) => {
+              if (!acc[balance.currency]) {
+                acc[balance.currency] = 0;
+              }
+              acc[balance.currency] += balance.amount;
+              return acc;
+            }, {} as Record<string, number>);
+
+            // Separate positive and negative balances by currency
+            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
+            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
+            
+            Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
+              if (amount > 0) {
+                oweBalances[curr] = amount; // You owe others
+              } else if (amount < 0) {
+                owedBalances[curr] = Math.abs(amount); // Others owe you
+              }
+            });
+
+            const hasOwedBalances = Object.keys(owedBalances).length > 0;
+            const hasOweBalances = Object.keys(oweBalances).length > 0;
+
+            if (hasOwedBalances && hasOweBalances) {
+              // Show both what you owe and what you're owed
+              balanceDisplay = (
+                <div className="text-mobile-xs sm:text-sm">
+                  <div>
+                    You owe{" "}
+                    {Object.entries(oweBalances).map(([curr, amount], index) => (
+                      <span key={curr}>
+                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                        {index < Object.entries(oweBalances).length - 1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                  <div>
+                    Owes you{" "}
+                    {Object.entries(owedBalances).map(([curr, amount], index) => (
+                      <span key={curr}>
+                        <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                        {index < Object.entries(owedBalances).length - 1 && ", "}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              );
+            } else if (hasOweBalances) {
+              balanceDisplay = (
+                <span>
+                  You owe{" "}
+                  {Object.entries(oweBalances).map(([curr, amount], index) => (
+                    <span key={curr}>
+                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
+                      {index < Object.entries(oweBalances).length - 1 && ", "}
+                    </span>
+                  ))}
+                </span>
+              );
+            } else if (hasOwedBalances) {
+              balanceDisplay = (
+                <span>
+                  Owes you{" "}
+                  {Object.entries(owedBalances).map(([curr, amount], index) => (
+                    <span key={curr}>
+                      <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                      {index < Object.entries(owedBalances).length - 1 && ", "}
+                    </span>
+                  ))}
+                </span>
+              );
+            } else {
+              balanceDisplay = <span className="text-white/60">Settled</span>;
+            }
+          } else {
+            balanceDisplay = <span className="text-white/60">No balance</span>;
+          }
+          return (
+            <motion.div
+              key={group.id}
+              variants={slideUp}
+              className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0"
             >
-              <div className="flex items-center gap-2">
-                <div className="h-10 w-10 overflow-hidden rounded-full">
-                  <Image
-                    src={group.image || "/group_icon_placeholder.png"}
-                    alt={group.name}
-                    className="h-full w-full object-cover"
-                    width={80}
-                    height={80}
-                  />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
+                    <Image
+                      src={group.image || "/group_icon_placeholder.png"}
+                      alt={group.name}
+                      className="h-full w-full object-cover"
+                      width={48}
+                      height={48}
+                      onError={(e) => {
+                        console.error(
+                          `Error loading image for group ${group.name}:`,
+                          group.image
+                        );
+                        const target = e.target as HTMLImageElement;
+                        target.src = "/group_icon_placeholder.png";
+                      }}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-mobile-base sm:text-xl font-medium text-white">
+                      {group.name}
+                    </p>
+                    <p className="text-mobile-sm sm:text-sm text-white/60">
+                      {balanceDisplay}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-lg font-normal text-white/90">
-                    {group.name}
-                  </p>
-                  <p className="text-[13px] text-white/50">
-                    Created by {group.createdBy.name} •{" "}
-                    {dayjs(group.createdAt).format("DD/MM/YYYY")}
-                  </p>
-                </div>
+
+                <Link
+                  href={`/groups/${group.id}`}
+                  className="text-white text-mobile-sm sm:text-base rounded-full border border-white px-3 sm:px-5 py-1.5 sm:py-2.5 hover:bg-white/5 transition-colors font-medium"
+                >
+                  View Group
+                </Link>
               </div>
+            </motion.div>
+          );
+        })}
+      </motion.div>
 
-              <div className="flex items-center gap-3">
-                <div className="relative" data-group-id={group.id}>
-                  <button
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      setEditingId(editingId === group.id ? null : group.id);
-                    }}
-                    className="group-menu p-2 hover:bg-white/5 rounded-full"
-                  >
-                    <MoreVertical className="h-5 w-5 text-white/70" />
-                  </button>
+      {/* Delete Confirmation Modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 brightness-50 p-4">
+          <div className="relative z-10 w-full max-w-[360px] sm:max-w-[400px] rounded-xl bg-[#101012] p-4 sm:p-6">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg sm:text-xl font-medium text-white">
+                Delete Group
+              </h3>
+              <button
+                onClick={() => {
+                  setShowDeleteModal(false);
+                  setGroupToDelete(null);
+                }}
+                className="rounded-full p-1 hover:bg-white/10"
+              >
+                <X className="h-5 w-5 text-white/70" />
+              </button>
+            </div>
 
-                  {editingId === group.id && (
-                    <div
-                      className="absolute right-0 top-full mt-2 w-48 rounded-xl border border-white/10 bg-[#1F1F23] p-1 shadow-lg"
-                      style={{ zIndex: 9999 }}
-                    >
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          router.push(`/groups/${group.id}/edit`);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white hover:bg-white/5"
-                      >
-                        <Pencil className="h-4 w-4" />
-                        Edit Group
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          deleteGroupMutation.mutate(group.id);
-                        }}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-[#FF4444] hover:bg-white/5"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete Group
-                      </button>
+            {deleteSuccess ? (
+              <div className="flex flex-col items-center justify-center py-4">
+                <CheckCircle className="mb-3 sm:mb-4 h-8 sm:h-10 w-8 sm:w-10 text-green-500" />
+                <p className="text-center text-mobile-base sm:text-base text-white">
+                  Group "{groupToDelete?.name}" has been deleted.
+                </p>
+              </div>
+            ) : (
+              <>
+                {deleteError ? (
+                  <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-red-400">
+                    <div className="flex items-start gap-2">
+                      <AlertTriangle className="mt-0.5 h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
+                      <p className="text-mobile-sm sm:text-sm">{deleteError}</p>
                     </div>
-                  )}
+                  </div>
+                ) : (
+                  <p className="mb-4 text-mobile-base sm:text-base text-white/70">
+                    Are you sure you want to delete "{groupToDelete?.name}"?
+                    This action cannot be undone.
+                  </p>
+                )}
+
+                <div className="flex justify-end gap-2">
+                  <button
+                    onClick={() => {
+                      setShowDeleteModal(false);
+                      setGroupToDelete(null);
+                    }}
+                    className="rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-mobile-sm sm:text-sm text-white/70 hover:bg-white/5"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={confirmDelete}
+                    disabled={isDeleting}
+                    className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-red-500/10 px-3 sm:px-4 py-1.5 sm:py-2 text-mobile-sm sm:text-sm text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+                  >
+                    {isDeleting ? (
+                      <>
+                        <Loader2 className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin" />
+                        <span>Deleting...</span>
+                      </>
+                    ) : (
+                      <span>Delete</span>
+                    )}
+                  </button>
                 </div>
-              </div>
-            </Link>
-          </motion.div>
-        ))}
-      </div>
-    </motion.div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

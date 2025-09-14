@@ -4,55 +4,67 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, CreditCard, Wallet, Settings } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
+import { useAuthStore } from "@/stores/authStore";
+import { formatCurrency } from "@/utils/formatters";
 
 export function GroupInfoHeader({
   groupId,
   onSettleClick,
   group,
   onAddExpenseClick,
+  onSettingsClick,
 }: {
   groupId: string;
   onSettleClick: () => void;
   group: DetailGroup;
   onAddExpenseClick: () => void;
+  onSettingsClick: () => void;
 }) {
   const router = useRouter();
   const { address } = useWallet();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
+  const { user } = useAuthStore();
+
+  // Handle profile click to redirect to settings
+  const handleProfileClick = () => {
+    router.push("/settings");
+  };
 
   if (!group) return null;
 
-  // const getMyDebtInfo = () => {
-  //   if (!address) return { amount: 0, type: "none" };
-
-  //   // If I'm the payer, find how much others owe me
-  //   if (group.paidBy === address) {
-  //     const othersOweMe = group.debts.reduce(
-  //       (sum, debt) => sum + debt.amount,
-  //       0
-  //     );
-  //     return { amount: othersOweMe, type: "owed" };
-  //   }
-
-  //   // If someone else paid, find how much I owe them
-  //   const myDebt = group.debts.find((debt) => debt.from === address);
-  //   return {
-  //     amount: myDebt?.amount || 0,
-  //     type: "owe",
-  //   };
-  // };
-
-  // const debtInfo = getMyDebtInfo();
-  const debtInfo = {
-    amount: 100,
-    type: "owed",
+  // Calculate balances by currency for the current user
+  const getBalancesByCurrency = () => {
+    const userBalances = group.groupBalances.filter(
+      (balance) => balance.userId === user?.id
+    );
+    // Group by currency
+    const currencyMap: Record<string, number> = {};
+    userBalances.forEach((balance) => {
+      if (!currencyMap[balance.currency]) {
+        currencyMap[balance.currency] = 0;
+      }
+      currencyMap[balance.currency] += balance.amount;
+    });
+    return currencyMap;
   };
+
+  const balancesByCurrency = getBalancesByCurrency();
+  // Split into positive (owed to user) and negative (user owes)
+  const owed: { currency: string; amount: number }[] = [];
+  const owe: { currency: string; amount: number }[] = [];
+  Object.entries(balancesByCurrency).forEach(([currency, amount]) => {
+    if (amount > 0) {
+      owed.push({ currency, amount });
+    } else if (amount < 0) {
+      owe.push({ currency, amount: Math.abs(amount) });
+    }
+  });
 
   const handleAddExpenseClick = () => {
     setIsAddingExpense(true);
@@ -79,83 +91,229 @@ export function GroupInfoHeader({
   };
 
   return (
-    <div className="mb-8">
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-        <div className="flex items-start gap-6">
-          <div className="h-32 w-32 overflow-hidden rounded-full">
-            <Image
-              src={group.image || "/group_icon_placeholder.svg"}
-              alt={group.name}
-              width={1000}
-              height={1000}
-              quality={100}
-              priority={true}
-              className="h-full w-auto object-cover"
-            />
-          </div>
-          <div className="flex flex-col gap-2">
-            <h1 className="text-h1 text-white">{group.name}</h1>
-            <div className="inline-flex items-center rounded-xl bg-[#1F1F23]/50 px-3 py-1">
-              {/* <span className="text-body text-white/70">
-                {debtInfo.type === "owed" ? "You are owed" : "You owe"}{" "}
-                <span
-                  className={
-                    debtInfo.type === "owed"
-                      ? "text-[#53e45d]"
-                      : "text-[#FF4444]"
-                  }
-                >
-                  ${debtInfo.amount.toFixed(2)}
+    <div className="mb-6">
+      <div className="flex justify-between items-start">
+        {/* Group Info */}
+        <div className="flex-1 min-w-0 pr-2">
+          <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1 truncate">
+            {group.name}
+          </h1>
+          <p className="text-mobile-base sm:text-lg text-white/70">
+            {owed.length > 0 ? (
+
+              <>
+                Overall, you owe {" "}
+                <span className="text-[#FF4444]">
+                  {owed
+                    .map((b) => formatCurrency(b.amount, b.currency))
+                    .join(", ")}
                 </span>
-              </span> */}
-            </div>
+              </>
+            ) : owe.length > 0 ? (
+              <>
+                Overall, you are owed {" "}
+                <span className="text-[#53e45d]">
+                  {owe
+                    .map((b) => formatCurrency(b.amount, b.currency))
+                    .join(", ")}
+                </span>
+              </>
+            ) : (
+              <>You're all settled up!</>
+            )}
+          </p>
+        </div>
+
+        {/* 2x2 Button Grid for Mobile / Row for Desktop */}
+        <div className="sm:hidden flex gap-3 flex-shrink-0">
+          {/* Left Column - Action Buttons */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleAddExpenseClick}
+              disabled={isAddingExpense}
+              className="flex h-10 items-center justify-center gap-1 rounded-full bg-white text-black px-4 text-mobile-sm font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
+            >
+              {isAddingExpense ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  <span className="truncate">Adding...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/plus-sign-circle.svg"
+                    alt="Add Expense"
+                    width={20}
+                    height={20}
+                    className="invert h-4 w-4 flex-shrink-0"
+                  />
+                  <span className="truncate">Add Expense</span>
+                </>
+              )}
+            </button>
+
+            {/* Settle all debts button - mobile version - commented out */}
+            {/* <button
+              onClick={handleSettleClick}
+              disabled={isSettling}
+              className="flex h-10 items-center justify-center gap-1 rounded-full border border-white/80 bg-transparent px-4 text-mobile-sm font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
+            >
+              {isSettling ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
+                  <span className="truncate">Settling...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/coins-dollar.svg"
+                    alt="Settle Debts"
+                    width={20}
+                    height={20}
+                    className="h-4 w-4 flex-shrink-0"
+                  />
+                  <span className="truncate">Settle all debts</span>
+                </>
+              )}
+            </button> */}
+          </div>
+
+          {/* Right Column - Profile and Settings */}
+          <div className="flex flex-col gap-2">
+            <button
+              onClick={handleProfileClick}
+              className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+            >
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                {user?.image ? (
+                  <Image
+                    src={user.image}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                      user?.id || user?.email || "user"
+                    }`}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full"
+                    onError={(e) => {
+                      console.error(`Error loading identicon for user`);
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                    }}
+                  />
+                )}
+              </div>
+            </button>
+
+            <button
+              onClick={onSettingsClick}
+              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
+              aria-label="Group Settings"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
           </div>
         </div>
-        <div className="flex flex-col gap-3 -mt-2">
+
+        {/* Horizontal layout for desktop */}
+        <div className="hidden sm:flex items-center gap-3">
           <button
-            onClick={handleAddExpenseClick}
-            disabled={isAddingExpense}
-            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] disabled:opacity-70 disabled:cursor-not-allowed"
+            onClick={onSettingsClick}
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
+            aria-label="Group Settings"
           >
-            {isAddingExpense ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Image
-                  src={"/addExpenseIcon.svg"}
-                  alt="Add"
-                  width={20}
-                  height={20}
-                />
-                Add Expense
-              </>
-            )}
+            <Settings className="h-5 w-5" />
           </button>
-          <button
-            onClick={handleSettleClick}
-            disabled={isSettling}
-            className="group relative flex h-10 sm:h-12 justify-center items-center gap-2 rounded-full border border-white/10 bg-transparent px-3 sm:px-4 !pl-1 text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)] disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-            {isSettling ? (
-              <>
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Settling...
-              </>
-            ) : (
-              <>
-                <Image
-                  src={"/moneySend.svg"}
-                  alt="Settle"
-                  width={20}
-                  height={20}
-                />
-                Settle Debts
-              </>
-            )}
-          </button>
+
+          <div className="flex items-center gap-3">
+            <button
+              onClick={handleAddExpenseClick}
+              disabled={isAddingExpense}
+              className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-black px-5 text-base font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isAddingExpense ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Adding...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/plus-sign-circle.svg"
+                    alt="Add Expense"
+                    width={20}
+                    height={20}
+                    className="invert h-5 w-5"
+                  />
+                  <span>Add Expense</span>
+                </>
+              )}
+            </button>
+
+            {/* Settle all debts button - desktop version - commented out */}
+            {/* <button
+              onClick={handleSettleClick}
+              disabled={isSettling}
+              className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 text-base font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {isSettling ? (
+                <>
+                  <Loader2 className="h-5 w-5 animate-spin" />
+                  <span>Settling...</span>
+                </>
+              ) : (
+                <>
+                  <Image
+                    src="/coins-dollar.svg"
+                    alt="Settle Debts"
+                    width={20}
+                    height={20}
+                    className="h-5 w-5"
+                  />
+                  <span>Settle all debts</span>
+                </>
+              )}
+            </button> */}
+
+            <button
+              onClick={handleProfileClick}
+              className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+            >
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                {user?.image ? (
+                  <Image
+                    src={user.image}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <Image
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                      user?.id || user?.email || "user"
+                    }`}
+                    alt="Profile"
+                    width={48}
+                    height={48}
+                    className="h-full w-full"
+                    onError={(e) => {
+                      console.error(`Error loading identicon for user`);
+                      const target = e.target as HTMLImageElement;
+                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                    }}
+                  />
+                )}
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -3,30 +3,134 @@
 import { GroupsList } from "@/components/groups-list";
 import { motion } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
-import { Plus } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
+import { useAuthStore } from "@/stores/authStore";
+import { useState, useEffect } from "react";
+import { CreateGroupForm } from "@/components/create-group-form";
+import { toast } from "sonner";
 
 export default function GroupsPage() {
   const router = useRouter();
+  const { user } = useAuthStore();
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+
+  // Listen for custom event to open the create group modal
+  useEffect(() => {
+    const handleOpenModal = () => {
+      // Check if user has a connected wallet
+      // if (!user?.stellarAccount) {
+      //   toast.error("You need to connect a wallet before creating a group", {
+      //     description: "Add a wallet in your settings to continue",
+      //     action: {
+      //       label: "Add Wallet",
+      //       onClick: () => router.push("/settings"),
+      //     },
+      //     duration: 8000,
+      //   });
+      //   return;
+      // }
+
+      // If they have a wallet, open the modal
+      setIsCreateModalOpen(true);
+    };
+
+    document.addEventListener("open-create-group-modal", handleOpenModal);
+
+    return () => {
+      document.removeEventListener("open-create-group-modal", handleOpenModal);
+    };
+  }, [user, router]);
+
+  // Function to handle clicking the "Add Group" button
+  const handleAddGroupClick = () => {
+    // Check if user has a connected wallet
+    // if (!user?.stellarAccount) {
+    //   toast.error("You need to connect a wallet before creating a group", {
+    //     description: "Add a wallet in your settings to continue",
+    //     action: {
+    //       label: "Add Wallet",
+    //       onClick: () => router.push("/settings"),
+    //     },
+    //     duration: 8000,
+    //   });
+    //   return;
+    // }
+
+    // If they have a wallet, open the modal
+    setIsCreateModalOpen(true);
+  };
+
+  // Handle profile click to redirect to settings
+  const handleProfileClick = () => {
+    router.push("/settings");
+  };
 
   return (
     <motion.div
       variants={fadeIn}
       initial="initial"
       animate="animate"
-      className="w-full"
+      className="w-full -mt-2"
     >
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-display text-white capitalize">Groups</h1>
-        <button
-          onClick={() => router.push("/create")}
-          className="group relative flex h-10 sm:h-12 items-center gap-2 rounded-full border border-white/10 bg-transparent px-2 text-sm sm:text-base font-normal text-white/90 transition-all duration-300 hover:border-white/20 hover:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-        >
-          <Plus className="h-5 w-5 opacity-70" strokeWidth={1.2} />
-          <span className="pr-1">Create Group</span>
-        </button>
+      <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4">
+        <h1 className="text-mobile-base sm:text-xl font-medium text-white">
+          My Groups
+        </h1>
+        <div className="flex items-center gap-3 sm:gap-4">
+          <button
+            onClick={handleAddGroupClick}
+            className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-all"
+          >
+            <Image
+              alt="Add Group"
+              src="/plus-sign-circle.svg"
+              width={20}
+              height={20}
+              className="h-4 w-4 sm:h-5 sm:w-5 invert"
+            />
+            <span>Add Group</span>
+          </button>
+          <button
+            onClick={handleProfileClick}
+            className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
+          >
+            <div className="h-full w-full rounded-full overflow-hidden bg-[#0f0f10]">
+              {user?.image ? (
+                <Image
+                  src={user.image}
+                  alt="Profile"
+                  width={56}
+                  height={56}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <Image
+                  src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
+                    user?.id || user?.email || "user"
+                  }`}
+                  alt="Profile"
+                  width={56}
+                  height={56}
+                  className="h-full w-full"
+                  onError={(e) => {
+                    console.error(`Error loading identicon for user`);
+                    const target = e.target as HTMLImageElement;
+                    target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+                  }}
+                />
+              )}
+            </div>
+          </button>
+        </div>
       </div>
       <GroupsList />
+
+      {/* Create Group Modal */}
+      <CreateGroupForm
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+      />
     </motion.div>
   );
 }

@@ -1,4 +1,4 @@
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/api-helpers/client";
 import { z } from "zod";
 import axios from "axios";
 const uploadRequestSchema = z.object({
@@ -22,22 +22,26 @@ export const generateUploadUrl = async (
 };
 
 export const uploadFile = async (file: File) => {
-  const uploadData = await generateUploadUrl({
-    fileType: file.type,
-    fileName: file.name,
-  });
+  try {
+    const uploadData = await generateUploadUrl({
+      fileType: file.type,
+      fileName: file.name,
+    });
 
-  await axios.put(uploadData.uploadUrl, file, {
-    headers: {
-      "Content-Type": file.type,
-    },
-  });
+    await axios.put(uploadData.uploadUrl, file, {
+      headers: {
+        "Content-Type": file.type,
+      },
+    });
 
-  return {
-    success: true,
-    data: {
-      downloadUrl: uploadData.downloadUrl,
-      filePath: uploadData.filePath,
-    },
-  };
+    return {
+      success: true,
+      data: {
+        downloadUrl: uploadData.downloadUrl,
+        filePath: uploadData.filePath,
+      },
+    };
+  } catch (error) {
+    throw error;
+  }
 };

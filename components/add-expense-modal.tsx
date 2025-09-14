@@ -19,17 +19,72 @@ import { Loader2 } from "lucide-react";
 import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 import { useAuthStore } from "@/stores/authStore";
 import { X } from "lucide-react";
-import { User } from "@/api/modelSchema";
+import { User } from "@/api-helpers/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
+import type { CreateExpenseParams } from "@/features/expenses/hooks/use-create-expense";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
+import Image from "next/image";
+import {
+  useGetFiatCurrencies,
+  useGetAllCurrencies,
+} from "@/features/currencies/hooks/use-currencies";
+import { CurrencyType } from "@/api-helpers/types";
+import ResolverSelector from "./ResolverSelector";
+import axios from "axios";
+import CurrencyDropdown from "./currency-dropdown";
+import TimeLockToggle from "./ui/TimeLockToggle";
 
 interface AddExpenseModalProps {
   isOpen: boolean;
   onClose: () => void;
   members: User[];
   groupId: string;
+}
+
+interface ExpenseFormData {
+  name: string;
+  description: string;
+  amount: string;
+  splitType: string;
+  currency: string;
+  currencyType: CurrencyType;
+  chainId?: string;
+  tokenId?: string;
+  timeLockIn: boolean;
+  paidBy: string;
+}
+
+// Define an interface for the expense payload (matches CreateExpenseParams)
+type ExpensePayload = CreateExpenseParams;
+
+type Option = import("./ResolverSelector").Option;
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+function useAllChainsTokens() {
+  const [options, setOptions] = useState<Option[]>([]);
+  useEffect(() => {
+    fetch(`${API_URL}/api/multichain/all-chains-tokens`, { credentials: "include" })
+      .then(res => res.json())
+      .then((data: any) => {
+        const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
+        const opts: Option[] = [];
+        chains.forEach((chain: any) => {
+          (chain.tokens || []).forEach((token: any) => {
+            opts.push({
+              id: token.id || token.symbol,
+              symbol: token.symbol,
+              name: token.name,
+              chainId: chain.chainId,
+              type: token.type,
+            });
+          });
+        });
+        setOptions(opts);
+      });
+  }, []);
+  return options;
 }
 
 export function AddExpenseModal({
@@ -40,18 +95,63 @@ export function AddExpenseModal({
 }: AddExpenseModalProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const queryClient = useQueryClient();
+  const user = useAuthStore((state) => state.user);
 
-  const [formData, setFormData] = useState({
+  // Fetch supported currencies
+  const { data: fiatCurrencies, isLoading: isLoadingFiat } =
+    useGetFiatCurrencies();
+  const { data: allCurrencies, isLoading: isLoadingAll } =
+    useGetAllCurrencies();
+
+  // Helper function to get currency symbol from the currencies data
+  const getCurrencySymbol = (currencyId: string): string => {
+    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    return currency?.symbol || currencyId;
+  };
+
+  // Helper function to format currency using actual symbols from API
+  const formatCurrency = (amount: number, currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    // For currencies like JPY, don't show decimals
+    const decimals = currencyId === 'JPY' ? 0 : 2;
+    return `${symbol}${amount.toFixed(decimals)}`;
+  };
+
+  // Helper function to get currency placeholder using actual symbols
+  const getCurrencyPlaceholder = (currencyId: string): string => {
+    const symbol = getCurrencySymbol(currencyId);
+    const amount = currencyId === 'JPY' ? '5000' : '50';
+    return `${symbol}${amount}`;
+  };
+
+  const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     description: "",
     amount: "",
     splitType: "equal",
     currency: "USD",
+    currencyType: "FIAT", // Default to FIAT
+    timeLockIn: false, // Default to not locked in
+    paidBy: user?.id || "",
   });
 
+  const [lockPrice, setLockPrice] = useState(true);
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
   const expenseMutation = useCreateExpense(groupId);
+
+  const allChainTokenOptions = useAllChainsTokens();
+  const [resolver, setResolver] = useState<Option | undefined>(undefined);
+
+  // Set default paid by user when the component loads
+  useEffect(() => {
+    if (user && members.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        paidBy: user.id,
+      }));
+    }
+  }, [user, members]);
 
   useEffect(() => {
     const allMembers = members.map((m) => m.id);
@@ -140,90 +240,98 @@ export function AddExpenseModal({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!isAuthenticated) {
-      toast.error("Please sign in first!");
+    if (
+      !formData.amount ||
+      !formData.currency ||
+      !formData.paidBy ||
+      !groupId ||
+      !splits.length
+    ) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
-    const memberIds = members.map((m) => m.id);
-    if (!formData.amount || Number(formData.amount) <= 0) {
-      toast.error("Please enter a valid amount");
+    // Validate split amounts
+    if (!validateSplits()) {
+      toast.error("Split amounts must equal the total amount");
       return;
     }
 
-    if (!formData.description.trim()) {
-      toast.error("Please enter a description");
+    // Ensure proper fields are included based on currency type
+    if (
+      formData.currencyType === "TOKEN" &&
+      (!formData.chainId || !formData.tokenId)
+    ) {
+      toast.error("Please select both blockchain and token for token expenses");
       return;
     }
 
-    let shares: number[] = [];
-    let splitType = "EQUAL";
+    // Create a properly typed payload
+    const payload: ExpensePayload = {
+      category: "OTHER",
+      name: formData.description || "Expense",
+      description: formData.description || "",
+      amount: parseFloat(formData.amount),
+      currency: formData.currency,
+      currencyType: formData.currencyType,
+      timeLockIn: formData.timeLockIn,
+      paidBy: formData.paidBy,
+      splitType: formData.splitType.toUpperCase(),
+      participants: splits.map((split) => ({
+        userId: split.address,
+        amount: split.amount,
+      })),
+      groupId: groupId,
+    };
 
-    switch (formData.splitType) {
-      case "equal":
-        // For equal split, each member gets equal amount
-        const equalAmount = Number(formData.amount) / members.length;
-        shares = members.map((_, index) =>
-          index === members.length - 1
-            ? Number(formData.amount) - equalAmount * (members.length - 1) // Last member gets remaining to ensure total matches
-            : equalAmount
-        );
-        splitType = "EQUAL";
-        break;
+    // Add optional fields based on currency type
+    if (formData.currencyType === "TOKEN") {
+      payload.chainId = formData.chainId;
+      payload.tokenId = formData.tokenId;
+    }
 
-      case "percentage":
-        // Convert percentages to actual amounts
-        shares = members.map((member) => {
-          const percentage = percentages[member.id] || 0;
-          return (percentage / 100) * Number(formData.amount);
+    expenseMutation.mutate(payload, {
+      onSuccess: async (data: any) => {
+        // If a resolver is selected, set accepted tokens for this expense
+        if (resolver && data?.expense?.id) {
+          if (!resolver.id || !resolver.chainId) {
+            toast.error("Please select a valid token resolver (not fiat)");
+            return;
+          }
+          try {
+            await axios.put(
+              `${API_URL}/api/expenses/${data.expense.id}/accepted-tokens`,
+              {
+                acceptedTokenIds: [resolver.id],
+              },
+              { withCredentials: true }
+            );
+          } catch (err) {
+            toast.error("Failed to set accepted token for this expense");
+          }
+        }
+
+        toast.success("Expense added successfully");
+
+        // refetch the specific group data
+        queryClient.invalidateQueries({
+          queryKey: [QueryKeys.GROUPS, groupId],
         });
-        splitType = "PERCENTAGE";
-        break;
 
-      case "custom":
-        // Use the exact amounts from splits
-        shares = splits.map((split) => split.amount);
-        splitType = "EXACT";
-        break;
-    }
+        // refetch the general groups list and balances
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
+        queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
 
-    expenseMutation.mutate(
-      {
-        category: "OTHER",
-        name: formData.description,
-        participants: memberIds.map((id, index) => ({
-          userId: id,
-          amount: shares[index],
-        })),
-        splitType: splitType,
-        amount: Number(formData.amount),
-        currency: formData.currency,
+        onClose();
       },
-      {
-        onSuccess: () => {
-          toast.success("Expense added successfully");
-
-          // refetch the specific group data
-          queryClient.invalidateQueries({
-            queryKey: [QueryKeys.GROUPS, groupId],
-          });
-
-          // refetch the general groups list and balances
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
-          queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
-
-          onClose();
-        },
-        onError: (error) => {
-          toast.error(
-            error.message || "Failed to add expense. Please try again."
-          );
-          console.error("Error adding expense:", error);
-        },
-      }
-    );
+      onError: (error) => {
+        toast.error(
+          error.message || "Failed to add expense. Please try again."
+        );
+        console.error("Error adding expense:", error);
+      },
+    });
   };
 
   useEffect(() => {
@@ -256,345 +364,409 @@ export function AddExpenseModal({
 
   if (!isOpen) return null;
 
+  // Find user details for the paid by dropdown
+  const getPaidByUserName = (userId: string) => {
+    const member = members.find((m) => m.id === userId);
+    return member?.name || "You";
+  };
+
+  // Only allow tokens (with chainId) as resolver
+  const handleResolverChange = (option: Option | undefined) => {
+    if (option && !option.chainId) {
+      toast.error("Please select a blockchain token as resolver (not fiat)");
+      setResolver(undefined);
+      return;
+    }
+    setResolver(option);
+  };
+
   return (
     <div className="fixed inset-0 z-50 h-screen w-screen">
       <div
-        className="fixed inset-0 bg-black/30 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-black/80 brightness-50"
         onClick={onClose}
       />
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px]">
-        <div className="animate-border-light">
-          <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
-            <div className="flex items-center justify-between mb-6 lg:mb-8">
-              <h2 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em] font-instrument-sans">
-                Add Expense
-              </h2>
-              <button
-                onClick={onClose}
-                className="rounded-full p-1.5 lg:p-2 hover:bg-white/10 transition-colors"
-              >
-                <X className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
-              </button>
-            </div>
+      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] max-h-[90vh] overflow-auto">
+        <div className="relative z-10 rounded-[20px] bg-black p-6 border border-white/20">
+          <h2 className="text-2xl font-medium text-white mb-6">Add Expense</h2>
 
-            <div className="space-y-4 lg:space-y-6">
-              <div>
-                <form onSubmit={handleSubmit} className="space-y-8">
-                  <div className="grid grid-cols-1 md:grid-cols-1 gap-8">
-                    {/* <div>
-                      <Label htmlFor="members" className="text-white">
-                        Members (Email Addresses)
-                      </Label>
-                      <Textarea
-                        id="members"
-                        value={formData.members}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            members: e.target.value,
-                          }))
-                        }
-                        placeholder="Enter email addresses separated by commas"
-                        rows={3}
-                        className="mt-2 bg-zinc-900 border-white/10 text-white placeholder:text-white/50"
-                        required
-                      />
-                    </div> */}
-
-                    <div className="space-y-6">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <Label htmlFor="amount" className="text-white">
-                            Amount
-                          </Label>
-                          <div className="relative mt-2">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/50 pointer-events-none select-none">
-                              {formData.currency === "USD" ? "$" : ""}
-                            </span>
-                            <Input
-                              type="number"
-                              id="amount"
-                              value={formData.amount}
-                              onChange={(e) =>
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  amount: e.target.value,
-                                }))
-                              }
-                              className="pl-8 bg-zinc-900 border-white/10 text-white"
-                              placeholder="0.00"
-                              required
-                              disabled={expenseMutation.isPending}
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <Label htmlFor="currency" className="text-white">
-                            Currency
-                          </Label>
-                          <Select
-                            value={formData.currency}
-                            onValueChange={(value) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                currency: value,
-                              }))
-                            }
-                          >
-                            <SelectTrigger className="mt-2 bg-zinc-900 border-white/10 text-white">
-                              <SelectValue
-                                placeholder="Select currency"
-                                className="text-white/70"
-                              />
-                            </SelectTrigger>
-                            <SelectContent className="bg-zinc-900 border-white/10">
-                              <SelectItem
-                                value="USD"
-                                className="text-white hover:bg-white/10"
-                              >
-                                USD
-                              </SelectItem>
-                              <SelectItem
-                                value="XLM"
-                                className="text-white hover:bg-white/10"
-                              >
-                                XLM
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="amount" className="text-white">
-                          Note
-                        </Label>
-                        <div className="relative mt-2">
-                          <Input
-                            type="text"
-                            id="description"
-                            value={formData.description}
-                            onChange={(e) =>
-                              setFormData((prev) => ({
-                                ...prev,
-                                description: e.target.value,
-                              }))
-                            }
-                            className="bg-zinc-900 border-white/10 text-white"
-                            placeholder="Enter split description"
-                            disabled={expenseMutation.isPending}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <Label htmlFor="splitType" className="text-white">
-                          Split Type
-                        </Label>
-                        <Select
-                          value={formData.splitType}
-                          onValueChange={(value) =>
-                            setFormData((prev) => ({
-                              ...prev,
-                              splitType: value,
-                            }))
-                          }
-                        >
-                          <SelectTrigger className="mt-2 bg-zinc-900 border-white/10 text-white">
-                            <SelectValue
-                              placeholder="Select split type"
-                              className="text-white/70"
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-white/10">
-                            <SelectItem
-                              value="equal"
-                              className="text-white hover:bg-white/10"
-                            >
-                              Equal Split
-                            </SelectItem>
-                            <SelectItem
-                              value="percentage"
-                              className="text-white hover:bg-white/10"
-                            >
-                              Percentage Split
-                            </SelectItem>
-                            <SelectItem
-                              value="custom"
-                              className="text-white hover:bg-white/10"
-                            >
-                              Custom Split
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      {/* <div>
-                        <Label htmlFor="paidBy" className="text-white">Paid By</Label>
-                        <Select
-                          value={formData.paidBy || address || ""}
-                          onValueChange={(value) =>
-                            setFormData((prev) => ({ ...prev, paidBy: value }))
-                          }
-                        >
-                          <SelectTrigger className="mt-2 bg-zinc-900 border-white/10 text-white">
-                            <SelectValue
-                              placeholder="Select who paid"
-                              className="text-white/70"
-                            />
-                          </SelectTrigger>
-                          <SelectContent className="bg-zinc-900 border-white/10">
-                            {address && (
-                              <SelectItem
-                                value={address}
-                                className="text-white hover:bg-white/10"
-                              >
-                                You
-                              </SelectItem>
-                            )}
-                            {formData.members.split(",").map(
-                              (member) =>
-                                member.trim() && (
-                                  <SelectItem
-                                    key={member.trim()}
-                                    value={member.trim()}
-                                    className="text-white hover:bg-white/10"
-                                  >
-                                    {member.trim()}
-                                  </SelectItem>
-                                )
-                            )}
-                          </SelectContent>
-                        </Select>
-                      </div> */}
-                    </div>
-                  </div>
-
-                  {formData.splitType !== "percentage" && (
-                    <div className="mt-6 space-y-4">
-                      {members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center gap-4"
-                        >
-                          <span className="text-sm text-muted-foreground w-40 truncate">
-                            {member.name}
-                          </span>
-                          <Input
-                            disabled={formData.splitType === "equal"}
-                            type="number"
-                            value={
-                              splits.find((s) => s.address === member.id)
-                                ?.amount
-                            }
-                            onChange={(e) =>
-                              updateCustomSplit(
-                                member.id,
-                                Number(e.target.value)
-                              )
-                            }
-                            className="w-32 text-white"
-                            placeholder="Amount"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            {formData.currency}
-                          </span>
-                        </div>
-                      ))}
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        Total:{" "}
-                        {splits.reduce((sum, split) => sum + split.amount, 0)}{" "}
-                        {formData.currency}
-                        {Math.abs(
-                          splits.reduce((sum, split) => sum + split.amount, 0) -
-                            Number(formData.amount)
-                        ) > 0.01 && (
-                          <span className="text-destructive ml-2">
-                            (Must equal total amount: {formData.amount}{" "}
-                            {formData.currency})
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {formData.splitType === "percentage" && (
-                    <div className="mt-6 space-y-4">
-                      {members.map((member) => (
-                        <div
-                          key={member.id}
-                          className="flex items-center gap-4"
-                        >
-                          <span className="text-sm text-muted-foreground w-40 truncate">
-                            {member.name}
-                          </span>
-                          <Input
-                            type="number"
-                            value={percentages[member.id] || ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              if (/^\d*$/.test(value) && Number(value) <= 100) {
-                                updatePercentage(member.id, Number(value));
-                              }
-                            }}
-                            className="w-32 bg-[#1F1F23] text-white/90"
-                            placeholder="Percentage"
-                          />
-                          <span className="text-sm text-muted-foreground">
-                            %
-                          </span>
-                        </div>
-                      ))}
-                      <div className="mt-2 text-sm text-muted-foreground">
-                        Total:{" "}
-                        {Object.values(percentages).reduce(
-                          (sum, p) => sum + p,
-                          0
-                        )}
-                        %
-                        {Math.abs(
-                          Object.values(percentages).reduce(
-                            (sum, p) => sum + p,
-                            0
-                          ) - 100
-                        ) > 0.01 && (
-                          <span className="text-destructive ml-2">
-                            (Must equal 100%)
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex gap-4 pt-4">
-                    <Button
-                      type="submit"
-                      className="flex-1 bg-zinc-900 text-white hover:bg-zinc-800"
-                      disabled={expenseMutation.isPending}
-                    >
-                      {expenseMutation.isPending ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Adding...
-                        </>
-                      ) : (
-                        "Add Expense"
-                      )}
-                    </Button>
-                    <Button
-                      type="button"
-                      onClick={onClose}
-                      variant="outline"
-                      className="flex-1 border-white/10 text-white bg-zinc-900 hover:bg-zinc-800"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div>
+              <label className="text-white mb-2 block">Split Amount</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  value={formData.amount}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      amount: e.target.value,
+                    }))
+                  }
+                  placeholder={getCurrencyPlaceholder(formData.currency)}
+                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                  required
+                />
               </div>
             </div>
-          </div>
+
+            <div>
+              <label className="text-white mb-2 block">Choose Payment Token</label>
+              {formData.currencyType === "FIAT" ? (
+                <CurrencyDropdown
+                  selectedCurrencies={formData.currency ? [formData.currency] : []}
+                  setSelectedCurrencies={(currencies) => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      currency: currencies[0] || "",
+                    }));
+                  }}
+                  showFiatCurrencies={true}
+                />
+              ) : (
+                <Select
+                  value={formData.currency}
+                  onValueChange={(value) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      currency: value,
+                    }))
+                  }
+                >
+                  <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                    <SelectValue placeholder="Select currency" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#17171A] border-white/10">
+                    {isLoadingAll ? (
+                      <SelectItem value="loading">Loading...</SelectItem>
+                    ) : (() => {
+                      const tokens =
+                        allCurrencies?.currencies?.filter(
+                          (c) => c.type === "token" && c.chainId === formData.chainId
+                        ) || [];
+                      return tokens.length > 0 ? (
+                        tokens.map((token) => (
+                          <SelectItem key={token.id} value={token.id}>
+                            {token.symbol} - {token.name}
+                          </SelectItem>
+                        ))
+                      ) : (
+                        <span className="block px-4 py-2 text-white/60">
+                          No tokens found
+                        </span>
+                      );
+                    })()}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+
+            {/* Time Lock-In toggle */}
+            <TimeLockToggle
+              value={formData.timeLockIn}
+              onChange={val => setFormData(prev => ({ ...prev, timeLockIn: val }))}
+              label="Lock exchange rate (Fix the value at current exchange rate)"
+            />
+
+            <div>
+              <label className="text-white mb-2 block">Who Paid</label>
+              <Select
+                value={formData.paidBy}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    paidBy: value,
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                  <SelectValue placeholder="Select who paid" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#17171A] border-white/10">
+                  {members.map((member) => (
+                    <SelectItem
+                      key={member.id}
+                      value={member.id}
+                      className="text-white hover:bg-white/10"
+                    >
+                      {member.id === user?.id ? "You" : member.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <label className="text-white mb-2 block">Choose Split Type</label>
+              <Select
+                value={formData.splitType}
+                onValueChange={(value) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    splitType: value,
+                  }))
+                }
+              >
+                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
+                  <SelectValue placeholder="Select split type" />
+                </SelectTrigger>
+                <SelectContent className="bg-[#17171A] border-white/10">
+                  <SelectItem
+                    value="equal"
+                    className="text-white hover:bg-white/10"
+                  >
+                    Equal Split
+                  </SelectItem>
+                  <SelectItem
+                    value="percentage"
+                    className="text-white hover:bg-white/10"
+                  >
+                    Percentage Split
+                  </SelectItem>
+                  <SelectItem
+                    value="custom"
+                    className="text-white hover:bg-white/10"
+                  >
+                    Custom Split
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Member splits list */}
+            <div className="max-h-[200px] overflow-y-auto space-y-4 pr-2">
+              {members.map((member) => {
+                const split = splits.find((s) => s.address === member.id);
+                const amount = split?.amount || 0;
+                const percentage = percentages[member.id] || 0;
+                return (
+                  <div
+                    key={member.id}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center space-x-3">
+                      <div className="h-10 w-10 overflow-hidden rounded-full">
+                        <Image
+                          src={
+                            member.image ||
+                            `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`
+                          }
+                          alt={member.name || "User"}
+                          width={40}
+                          height={40}
+                          className="h-full w-full object-cover"
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`;
+                          }}
+                        />
+                      </div>
+                      <span className="text-white">
+                        {member.id === user?.id ? "You" : member.name}
+                      </span>
+                    </div>
+
+                    {formData.splitType === "custom" ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={amount || ""}
+                          onChange={(e) =>
+                            updateCustomSplit(member.id, Number(e.target.value))
+                          }
+                          className="w-20 h-8 px-2 rounded-lg bg-[#17171A] text-white border border-white/20 focus:outline-none focus:ring-1 focus:ring-white/40"
+                          placeholder="0.00"
+                        />
+                        <span className="text-white/70 text-sm">
+                          {formData.currency}
+                        </span>
+                      </div>
+                    ) : formData.splitType === "percentage" ? (
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          value={percentage || ""}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
+                            if (value >= 0 && value <= 100) {
+                              updatePercentage(member.id, value);
+                            }
+                          }}
+                          className="w-16 h-8 px-2 rounded-lg bg-[#17171A] text-white border border-white/20 focus:outline-none focus:ring-1 focus:ring-white/40"
+                          placeholder="0"
+                        />
+                        <span className="text-white/70 text-sm">%</span>
+                        <span className="text-white/70 text-sm ml-1">
+                          ({formatCurrency(amount, formData.currency)})
+                        </span>
+                      </div>
+                    ) : (
+                      <div className="bg-[#17171A] rounded-lg px-3 py-1 min-w-[60px] text-white">
+                        {formatCurrency(amount, formData.currency)}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+
+              {/* Total summary for custom and percentage splits */}
+              {(formData.splitType === "custom" ||
+                formData.splitType === "percentage") && (
+                <div className="flex justify-between items-center mt-4 border-t border-white/10 pt-3">
+                  <span className="text-white">Total Split</span>
+                  <div className="flex items-center">
+                    <span
+                      className={`text-white ${
+                        validateSplits() ? "" : "text-red-500"
+                      }`}
+                    >
+                      {formatCurrency(
+                        splits.reduce((sum, split) => sum + (split.amount || 0), 0),
+                        formData.currency
+                      )}{" "}
+                      / {formatCurrency(Number(formData.amount), formData.currency)}
+                    </span>
+
+                    {formData.splitType === "percentage" && (
+                      <span
+                        className={`ml-3 text-sm ${
+                          Math.abs(
+                            Object.values(percentages).reduce(
+                              (sum, p) => sum + p,
+                              0
+                            ) - 100
+                          ) < 0.01
+                            ? "text-green-500"
+                            : "text-red-500"
+                        }`}
+                      >
+                        (
+                        {Object.values(percentages)
+                          .reduce((sum, p) => sum + p, 0)
+                          .toFixed(0)}
+                        %)
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Quick actions for distribution */}
+              {(formData.splitType === "custom" ||
+                formData.splitType === "percentage") && (
+                <div className="flex gap-2 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (formData.splitType === "custom") {
+                        // Distribute equally
+                        const equalAmount =
+                          Number(formData.amount) / members.length;
+                        members.forEach((member) => {
+                          updateCustomSplit(member.id, equalAmount);
+                        });
+                      } else {
+                        // Reset to equal percentages
+                        const equalPercentage = 100 / members.length;
+                        members.forEach((member) => {
+                          updatePercentage(member.id, equalPercentage);
+                        });
+                      }
+                    }}
+                    className="text-xs text-white/70 px-2 py-1 bg-[#17171A] rounded hover:bg-[#252525] transition-colors"
+                  >
+                    Equal
+                  </button>
+                  {formData.paidBy && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (formData.splitType === "custom") {
+                          // Paid by one, rest split the amount
+                          const otherMembers = members.filter(
+                            (m) => m.id !== formData.paidBy
+                          );
+                          const equalAmount =
+                            Number(formData.amount) / otherMembers.length;
+
+                          members.forEach((member) => {
+                            if (member.id === formData.paidBy) {
+                              updateCustomSplit(member.id, 0);
+                            } else {
+                              updateCustomSplit(member.id, equalAmount);
+                            }
+                          });
+                        } else {
+                          // Percentage version
+                          const otherMembers = members.filter(
+                            (m) => m.id !== formData.paidBy
+                          );
+                          const equalPercentage = 100 / otherMembers.length;
+
+                          members.forEach((member) => {
+                            if (member.id === formData.paidBy) {
+                              updatePercentage(member.id, 0);
+                            } else {
+                              updatePercentage(member.id, equalPercentage);
+                            }
+                          });
+                        }
+                      }}
+                      className="text-xs text-white/70 px-2 py-1 bg-[#17171A] rounded hover:bg-[#252525] transition-colors"
+                    >
+                      Paid by{" "}
+                      {formData.paidBy === user?.id
+                        ? "you"
+                        : getPaidByUserName(formData.paidBy)}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="text-white mb-2 block">Description</label>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      description: e.target.value,
+                    }))
+                  }
+                  placeholder="What's this expense for?"
+                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
+                  required
+                />
+              </div>
+            </div>
+
+            {/* Resolver Selector */}
+            <div>
+              <label className="text-white mb-2 block text-base font-semibold">Choose a resolver for your expense</label>
+              <ResolverSelector
+                value={resolver}
+                onChange={handleResolverChange}
+              />
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full h-12 rounded-full bg-white text-black font-medium hover:bg-white/90 transition-colors mt-6"
+              disabled={expenseMutation.isPending}
+            >
+              {expenseMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Adding...
+                </>
+              ) : (
+                "Add Expense"
+              )}
+            </Button>
+          </form>
         </div>
       </div>
     </div>

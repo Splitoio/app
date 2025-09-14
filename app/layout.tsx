@@ -2,7 +2,7 @@
 
 import { Instrument_Sans } from "next/font/google";
 import { Sidebar } from "@/components/sidebar";
-import { Header } from "@/components/header";
+import { MobileMenuToggle } from "@/components/mobile-menu-toggle";
 import { MobileMenuProvider } from "@/contexts/mobile-menu";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -24,18 +24,17 @@ export default function RootLayout({
 
   return (
     <html lang="en">
-      <body className={instrumentSans.className}>
+      <body>
         <MobileMenuProvider>
           <Providers>
             {isAuthPage ? (
               children
             ) : (
-              <div className="min-h-screen bg-[#101012]">
+              <div className="min-h-screen bg-[#09090B]">
                 <Sidebar />
-                <div className="min-[1025px]:pl-[240px] min-h-screen flex flex-col">
-                  <Header />
-                  <main className="flex-1 mt-[110px] bg-zinc-950 p-4 min-[1125px]:p-8 min-[1025px]:rounded-tl-[24px] relative">
-                    <div className="absolute top-0 left-0 w-[50px] h-[110px] bg-[#101012] min-[1025px]:rounded-tr-[50px] -z-10" />
+                <MobileMenuToggle />
+                <div className="min-[1025px]:pl-[260px] min-h-screen flex flex-col">
+                  <main className="flex-1 bg-[#09090B] p-4 pt-16 min-[1025px]:pt-4 min-[1125px]:p-8 relative">
                     <div className="w-full">{children}</div>
                   </main>
                 </div>

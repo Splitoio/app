@@ -11,12 +11,16 @@ import {
   useGetGroupById,
   useUpdateGroup,
 } from "@/features/groups/hooks/use-create-group";
+import { useUploadFile } from "@/features/files/hooks/use-balances";
+import { toast } from "sonner";
+import TimeLockToggle from "@/components/ui/TimeLockToggle";
 
 export default function EditGroupPage({ params }: { params: { id: string } }) {
   const router = useRouter();
   const { data: group, isLoading } = useGetGroupById(params.id);
   const updateGroupMutation = useUpdateGroup();
   const { address } = useWallet();
+  const uploadFileMutation = useUploadFile();
 
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
@@ -28,9 +32,10 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     amount: "",
     members: "",
     splitType: "equal" as "equal" | "percentage" | "custom",
-    currency: "USD" as "USD" | "XLM",
+    currency: "USD",
     paidBy: "",
-    image: null as File | null,
+    imageUrl: "",
+    lockPrice: false,
   });
 
   useEffect(() => {
@@ -43,11 +48,10 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
         amount: "0", // Amount is not stored in the group anymore
         members: "", // Members are now in a different format
         splitType: "equal", // Not sure if this is stored in the API
-        currency: (group.defaultCurrency === "XLM" ? "XLM" : "USD") as
-          | "USD"
-          | "XLM",
+        currency: group.defaultCurrency || "USD",
         paidBy: "", // Not sure if this is stored in the API
-        image: null,
+        imageUrl: group.image || "",
+        lockPrice: group.lockPrice ?? false,
       });
       setImagePreview(group.image || null);
     }
@@ -113,26 +117,43 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
 
     if (!group) return;
 
-    let imageUrl = group.image || "";
-    if (formData.image) {
-      // In a real app, you'd upload to a storage service
-      // For now, we'll use the data URL
-      imageUrl = URL.createObjectURL(formData.image);
+    const payload: {
+      name: string;
+      description: string;
+      currency: string;
+      imageUrl?: string;
+      lockPrice: boolean;
+    } = {
+      name: formData.name,
+      description: formData.description,
+      currency: formData.currency,
+      lockPrice: formData.lockPrice,
+    };
+
+    // Only include imageUrl if it's not empty and not the placeholder
+    if (
+      formData.imageUrl &&
+      formData.imageUrl !== "/group_icon_placeholder.png"
+    ) {
+      payload.imageUrl = formData.imageUrl;
     }
+
+    console.log("Sending update payload:", payload);
+    console.log("Current image preview:", imagePreview);
 
     updateGroupMutation.mutate(
       {
         groupId: params.id,
-        payload: {
-          name: formData.name,
-          description: formData.description,
-          currency: formData.currency,
-          imageUrl,
-        },
+        payload,
       },
       {
-        onSuccess: () => {
-          router.push(`/groups/${params.id}`);
+        onSuccess: (data) => {
+          toast.success("Group settings updated successfully");
+          // Optionally, redirect after a short delay
+          setTimeout(() => router.push(`/groups/${params.id}`), 1200);
+        },
+        onError: (error) => {
+          toast.error("Failed to update group");
         },
       }
     );
@@ -165,15 +186,31 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     );
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setFormData((prev) => ({ ...prev, image: file }));
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setImagePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+
+    try {
+      // Show loading state
+      toast.loading("Uploading image...");
+
+      // Upload the file to Google Cloud Storage
+      const response = await uploadFileMutation.mutateAsync(file);
+
+      if (response.success) {
+        // Update form data with the image URL
+        setFormData((prev) => ({
+          ...prev,
+          imageUrl: response.data.downloadUrl,
+        }));
+        setImagePreview(response.data.downloadUrl);
+        toast.dismiss();
+        toast.success("Image uploaded successfully");
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.dismiss();
+      toast.error("Failed to upload image. Please try again.");
     }
   };
 
@@ -298,7 +335,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       onChange={(e) =>
                         setFormData((prev) => ({
                           ...prev,
-                          currency: e.target.value as "USD" | "XLM",
+                          currency: e.target.value,
                         }))
                       }
                       className="mt-2 block w-full rounded-lg border border-white/10 bg-[#1F1F23] px-4 py-2 text-white"
@@ -307,6 +344,15 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
                       <option value="XLM">XLM</option>
                     </select>
                   </div>
+                </div>
+
+                {/* Lock Price Toggle */}
+                <div className="mb-4 flex items-center gap-4">
+                  <TimeLockToggle
+                    value={formData.lockPrice}
+                    onChange={(val) => setFormData((prev) => ({ ...prev, lockPrice: val }))}
+                    label="Lock exchange rate (Fix the value at current exchange rate)"
+                  />
                 </div>
 
                 <div>

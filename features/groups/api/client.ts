@@ -1,12 +1,13 @@
-import { apiClient } from "@/api/client";
+import { apiClient } from "@/api-helpers/client";
 import {
   ExpenseSchema,
   GroupBalanceSchema,
   GroupSchema,
   GroupUserSchema,
   UserSchema,
-} from "@/api/modelSchema";
+} from "@/api-helpers/modelSchema";
 import { z } from "zod";
+import { CurrencyType } from "@/api-helpers/types";
 
 export const GenericResponseSchema = z.object({
   message: z.string(),
@@ -83,10 +84,19 @@ export const addMembersToGroup = async (
 
 export interface ExpensePayload {
   amount: number;
+  name: string;
   description: string;
   paidBy: string;
-  splitAmong: string[];
-  date?: string;
+  splitType: string;
+  participants: Array<{ userId: string; amount: number }>;
+  currency: string;
+  currencyType: CurrencyType;
+  chainId?: string;
+  tokenId?: string;
+  timeLockIn: boolean;
+  convertedAmount?: number;
+  category?: string;
+  groupId?: string;
 }
 
 export const addOrEditExpense = async (
@@ -109,8 +119,32 @@ export const updateGroup = async (
     description?: string;
     currency?: string;
     imageUrl?: string;
+    lockPrice?: boolean;
   }
 ) => {
-  const response = await apiClient.put(`/groups/${groupId}`, payload);
-  return GroupSchema.parse(response);
+  // Only include fields that are defined
+  const filteredPayload: any = {};
+  if (payload.name !== undefined) filteredPayload.name = payload.name;
+  if (payload.currency !== undefined) filteredPayload.currency = payload.currency;
+  if (payload.lockPrice !== undefined) filteredPayload.lockPrice = payload.lockPrice;
+  if (payload.imageUrl !== undefined) filteredPayload.imageUrl = payload.imageUrl;
+  if (payload.description !== undefined) filteredPayload.description = payload.description;
+
+  const response = await apiClient.put(`/groups/${groupId}`, filteredPayload);
+
+  // Try to parse, but fallback to raw response if parsing fails
+  try {
+    return GroupSchema.parse(response);
+  } catch (e) {
+    if (response && response.data && response.data.id) return response.data;
+    throw e;
+  }
+};
+
+export const markAsPaid = async (
+  groupId: string,
+  payload: { payerId: string; payeeId: string; amount: number; currency?: string; currencyType?: string }
+) => {
+  const response = await apiClient.post(`/groups/${groupId}/mark-paid`, payload);
+  return response;
 };

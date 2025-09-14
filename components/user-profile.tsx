@@ -23,11 +23,16 @@ export function UserProfile() {
       <div className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
         <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
           <Image
-            src={`https://api.dicebear.com/7.x/identicon/svg?seed=${address}`}
+            src={`https://api.dicebear.com/9.x/identicon/svg?seed=${address}`}
             alt="Profile"
             width={40}
             height={40}
             className="h-full w-full"
+            onError={(e) => {
+              console.error(`Error loading identicon for address`);
+              // @ts-expect-error - fallback to a simpler seed
+              e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
+            }}
           />
         </div>
       </div>
