@@ -132,33 +132,6 @@ export default function SignupPage() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="phoneNumber-desktop" className="form-label">
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    id="phoneNumber-desktop"
-                    className="form-input !rounded-[19px] !bg-[#0D0D0F] !pl-12"
-                    placeholder="00000 00000"
-                    value={formData.phoneNumber}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, "");
-                      setFormData({ ...formData, phoneNumber: value });
-                    }}
-                    maxLength={10}
-                    required
-                    disabled={isLoadingEmail || isLoadingGoogle}
-                  />
-                  <div className="absolute left-4 top-0 h-full flex items-center text-white/70">
-                    +91
-                  </div>
-                </div>
-              </div>
-
-              <div className="form-group">
                 <label htmlFor="password-desktop" className="form-label">
                   Password
                 </label>
@@ -308,36 +281,6 @@ export default function SignupPage() {
                     required
                     disabled={isLoadingEmail || isLoadingGoogle}
                   />
-                </div>
-              </div>
-
-              <div className="form-group">
-                <label
-                  htmlFor="phoneNumber-mobile"
-                  className="text-mobile-sm font-medium text-white/80 mb-2 block"
-                >
-                  Phone Number
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    pattern="[0-9]*"
-                    id="phoneNumber-mobile"
-                    className="w-full bg-transparent border-0 border-b border-white/20 pl-8 py-2 text-mobile-base text-white focus:ring-0 focus:border-white/40 placeholder-white/30"
-                    placeholder="00000 00000"
-                    value={formData.phoneNumber}
-                    onChange={(e) => {
-                      const value = e.target.value.replace(/\D/g, "");
-                      setFormData({ ...formData, phoneNumber: value });
-                    }}
-                    maxLength={10}
-                    required
-                    disabled={isLoadingEmail || isLoadingGoogle}
-                  />
-                  <div className="absolute left-0 top-0 h-full flex items-center text-white/70 text-mobile-sm">
-                    +91
-                  </div>
                 </div>
               </div>
 
