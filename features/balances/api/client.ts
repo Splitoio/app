@@ -26,5 +26,5 @@ export type UserBalance = z.infer<typeof BalanceSchema>;
 
 export const getBalances = async () => {
   const response = await apiClient.get("/users/balances");
-  return BalanceSchema.parse(response);
+  return BalanceSchema.safeParse(response);
 };

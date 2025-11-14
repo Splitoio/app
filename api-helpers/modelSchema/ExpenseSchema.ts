@@ -1,17 +1,15 @@
-import { z } from "zod";
-import { SplitTypeSchema } from "../inputTypeSchemas/SplitTypeSchema";
-import { CurrencyType } from "../types";
+import { z } from 'zod';
+import { SplitTypeSchema } from '../inputTypeSchemas/SplitTypeSchema'
+import { CurrencyTypeSchema } from '../inputTypeSchemas/CurrencyTypeSchema'
 
 /////////////////////////////////////////
 // EXPENSE SCHEMA
 /////////////////////////////////////////
 
-// Define the currency type schema
-export const CurrencyTypeSchema = z.enum(["FIAT", "TOKEN"]);
-
 export const ExpenseSchema = z.object({
   splitType: SplitTypeSchema,
-  id: z.string(),
+  currencyType: CurrencyTypeSchema,
+  id: z.string().cuid(),
   paidBy: z.string(),
   addedBy: z.string(),
   name: z.string(),
@@ -21,20 +19,18 @@ export const ExpenseSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   currency: z.string(),
-  // New multi-currency fields
-  currencyType: CurrencyTypeSchema.default("FIAT"),
-  chainId: z.string().nullable().optional(),
-  tokenId: z.string().nullable().optional(),
-  timeLockIn: z.boolean().default(false),
-  convertedAmount: z.number().nullable().optional(),
-  exchangeRate: z.number().nullable().optional(),
+  tokenId: z.string().nullable(),
+  chainId: z.string().nullable(),
+  acceptedTokenIds: z.string().array(),
+  exchangeRate: z.number().nullable(),
+  timeLockIn: z.boolean(),
   fileKey: z.string().nullable(),
   groupId: z.string().nullable(),
   deletedAt: z.coerce.date().nullable(),
   deletedBy: z.string().nullable(),
   updatedBy: z.string().nullable(),
-});
+})
 
-export type Expense = z.infer<typeof ExpenseSchema>;
+export type Expense = z.infer<typeof ExpenseSchema>
 
 export default ExpenseSchema;
