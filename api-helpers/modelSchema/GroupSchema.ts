@@ -14,6 +14,13 @@ export const GroupSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   lockPrice: z.boolean(),
+  groupBalances: z.array(
+    z.object({
+      currency: z.string(),
+      amount: z.number(),
+      userId: z.string(),
+    })
+  ),
 });
 
 export type Group = z.infer<typeof GroupSchema>;
