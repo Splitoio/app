@@ -21,6 +21,9 @@ export const GetAllGroupsScheama = z.object({
     id: z.string(),
     name: z.string(),
   }),
+  groupBalances: z.array(GroupBalanceSchema),
+  groupUsers: z.array(GroupUserSchema),
+  expenses: z.array(ExpenseSchema),
 });
 
 export const DetailGroupSchema = z.object({

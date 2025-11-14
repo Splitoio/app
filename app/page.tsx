@@ -55,8 +55,8 @@ export default function Page() {
     isSending
   } = useReminders();
   const { user } = useAuthStore();
-  const youOwe = balanceData?.youOwe || [];
-  const youGet = balanceData?.youGet || [];
+  const youOwe = balanceData?.data?.youOwe || [];
+  const youGet = balanceData?.data?.youGet || [];
   const queryClient = useQueryClient();
 
   // Add debug logging
