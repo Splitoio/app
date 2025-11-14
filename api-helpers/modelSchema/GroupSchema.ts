@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /////////////////////////////////////////
 // GROUP SCHEMA
 /////////////////////////////////////////
 
 export const GroupSchema = z.object({
-  id: z.string().cuid(),
+  id: z.string(),
   name: z.string(),
   userId: z.string(),
   description: z.string().nullable(),
@@ -14,8 +14,8 @@ export const GroupSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   lockPrice: z.boolean(),
-})
+});
 
-export type Group = z.infer<typeof GroupSchema>
+export type Group = z.infer<typeof GroupSchema>;
 
 export default GroupSchema;

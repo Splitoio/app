@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /////////////////////////////////////////
 // USER SCHEMA
 /////////////////////////////////////////
 
 export const UserSchema = z.object({
-  id: z.string().cuid(),
+  id: z.string(),
   name: z.string().nullable(),
   email: z.string().nullable(),
   emailVerified: z.boolean(),
@@ -19,8 +19,8 @@ export const UserSchema = z.object({
   reminderFrequency: z.string().nullable(),
   lastReminderSentAt: z.coerce.date().nullable(),
   timeLockInDefault: z.boolean(),
-})
+});
 
-export type User = z.infer<typeof UserSchema>
+export type User = z.infer<typeof UserSchema>;
 
 export default UserSchema;

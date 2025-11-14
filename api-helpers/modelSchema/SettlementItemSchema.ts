@@ -1,11 +1,11 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 /////////////////////////////////////////
 // SETTLEMENT ITEM SCHEMA
 /////////////////////////////////////////
 
 export const SettlementItemSchema = z.object({
-  id: z.string().cuid(),
+  id: z.string(),
   settlementTransactionId: z.string(),
   userId: z.string(),
   friendId: z.string(),
@@ -14,8 +14,8 @@ export const SettlementItemSchema = z.object({
   currency: z.string(),
   groupId: z.string().nullable(),
   afterSettlementBalance: z.number().nullable(),
-})
+});
 
-export type SettlementItem = z.infer<typeof SettlementItemSchema>
+export type SettlementItem = z.infer<typeof SettlementItemSchema>;
 
 export default SettlementItemSchema;

@@ -7,7 +7,12 @@ import { useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
-import { useGetGroupById, useMarkAsPaid, useDeleteGroup, useUpdateGroup } from "@/features/groups/hooks/use-create-group";
+import {
+  useGetGroupById,
+  useMarkAsPaid,
+  useDeleteGroup,
+  useUpdateGroup,
+} from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
 
 import { useAuthStore } from "@/stores/authStore";
@@ -25,6 +30,7 @@ import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies"
 import axios from "axios";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import TimeLockToggle from "@/components/ui/TimeLockToggle";
+import { Button } from "@/components/ui/button";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -52,7 +58,9 @@ export default function GroupDetailsPage({
 
   // Helper function to get currency symbol from the currencies data
   const getCurrencySymbol = (currencyId: string): string => {
-    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    const currency = allCurrencies?.currencies?.find(
+      (c) => c.id === currencyId
+    );
     return currency?.symbol || currencyId;
   };
 
@@ -60,7 +68,7 @@ export default function GroupDetailsPage({
   const formatCurrency = (amount: number, currencyId: string): string => {
     const symbol = getCurrencySymbol(currencyId);
     // For currencies like JPY, don't show decimals
-    const decimals = currencyId === 'JPY' ? 0 : 2;
+    const decimals = currencyId === "JPY" ? 0 : 2;
     return `${symbol}${amount.toFixed(decimals)}`;
   };
 
@@ -104,7 +112,7 @@ export default function GroupDetailsPage({
       receiverId,
       reminderType: "SPLIT",
       splitId,
-      content: "Please settle your balance in the group."
+      content: "Please settle your balance in the group.",
     });
   };
 
@@ -116,12 +124,12 @@ export default function GroupDetailsPage({
   // Calculate the specific amount owed to/from a friend in this group
   const getSpecificDebtAmount = (friendId: string) => {
     if (!group || !user) return 0;
-    
+
     // Find the balance entry for current user and this friend
     const balance = group.groupBalances.find(
       (balance) => balance.userId === user.id && balance.firendId === friendId
     );
-    
+
     // Return the amount (positive = user owes friend, negative = friend owes user)
     return balance ? balance.amount : 0;
   };
@@ -129,17 +137,17 @@ export default function GroupDetailsPage({
   // Get currency-specific debt information for a friend
   const getSpecificDebtByCurrency = (friendId: string) => {
     if (!group || !user) return {};
-    
+
     const balance = group.groupBalances.find(
       (balance) => balance.userId === user.id && balance.firendId === friendId
     );
-    
+
     // Return debt by currency
     const debtByCurrency: Record<string, number> = {};
     if (balance && balance.amount !== 0) {
       debtByCurrency[balance.currency] = balance.amount;
     }
-    
+
     return debtByCurrency;
   };
 
@@ -147,7 +155,10 @@ export default function GroupDetailsPage({
 
   const handleRemoveMember = async (memberId: string) => {
     try {
-      await axios.delete(`${BACKEND_URL}/api/groups/${groupId}/members/${memberId}`, { withCredentials: true });
+      await axios.delete(
+        `${BACKEND_URL}/api/groups/${groupId}/members/${memberId}`,
+        { withCredentials: true }
+      );
       toast.success("Member removed from group");
       window.location.reload();
     } catch (error: any) {
@@ -322,178 +333,222 @@ export default function GroupDetailsPage({
               {(() => {
                 // Filter balances to only show current user's perspective
                 const currentUserBalances = group.groupBalances.filter(
-                  balance => balance.userId === user?.id && balance.amount !== 0
+                  (balance) =>
+                    balance.userId === user?.id && balance.amount !== 0
                 );
 
                 if (currentUserBalances.length === 0) {
                   return (
                     <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
-                      No splits available
+                      Start by adding your first split
+                      <Button
+                        onClick={() => setIsAddExpenseModalOpen(true)}
+                        className="mt-4"
+                      >
+                        Add Split
+                      </Button>
                     </div>
                   );
                 }
 
                 // Group balances by friend
-                const balancesByFriend = currentUserBalances.reduce((acc, balance) => {
-                  if (!acc[balance.firendId]) {
-                    acc[balance.firendId] = [];
-                  }
-                  acc[balance.firendId].push(balance);
-                  return acc;
-                }, {} as Record<string, typeof currentUserBalances>);
+                const balancesByFriend = currentUserBalances.reduce(
+                  (acc, balance) => {
+                    if (!acc[balance.firendId]) {
+                      acc[balance.firendId] = [];
+                    }
+                    acc[balance.firendId].push(balance);
+                    return acc;
+                  },
+                  {} as Record<string, typeof currentUserBalances>
+                );
 
-                return Object.entries(balancesByFriend).map(([friendId, balances]) => {
-                  // Find the friend's details
-                  const friend = group.groupUsers.find(
-                    groupUser => groupUser.user.id === friendId
-                  )?.user;
+                return Object.entries(balancesByFriend).map(
+                  ([friendId, balances]) => {
+                    // Find the friend's details
+                    const friend = group.groupUsers.find(
+                      (groupUser) => groupUser.user.id === friendId
+                    )?.user;
 
-                  if (!friend) return null;
+                    if (!friend) return null;
 
-                  // Separate balances by positive/negative amounts
-                  const owedBalances = balances.filter(b => b.amount > 0); // user owes friend
-                  const oweBalances = balances.filter(b => b.amount < 0);  // friend owes user
+                    // Separate balances by positive/negative amounts
+                    const owedBalances = balances.filter((b) => b.amount > 0); // user owes friend
+                    const oweBalances = balances.filter((b) => b.amount < 0); // friend owes user
 
-                  const hasOwedBalances = owedBalances.length > 0;
-                  const hasOweBalances = oweBalances.length > 0;
+                    const hasOwedBalances = owedBalances.length > 0;
+                    const hasOweBalances = oweBalances.length > 0;
 
-                  return (
-                    <div
-                      key={friendId}
-                      className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
-                    >
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
-                          <Image
-                            src={
-                              friend.image ||
-                              `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
-                            }
-                            alt={friend.name || "User"}
-                            width={48}
-                            height={48}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              console.error(
-                                `Error loading image for user ${friend.id}`
-                              );
-                              const target = e.target as HTMLImageElement;
-                              target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-mobile-base sm:text-lg font-medium text-white">
-                            {friend.name}
-                          </p>
-
-                          {/* Display balance from current user's perspective */}
-                          {hasOwedBalances && (
-                            <div className="text-mobile-sm sm:text-base text-white/70">
-                              <span className="text-red-500">
-                                You owe {owedBalances.map(b => formatCurrency(Math.abs(b.amount), b.currency)).join(", ")}
-                              </span>
-                            </div>
-                          )}
-
-                          {hasOweBalances && (
-                            <div className="text-mobile-sm sm:text-base text-white/70">
-                              <span className="text-green-500">
-                                Owes you {oweBalances.map(b => formatCurrency(Math.abs(b.amount), b.currency)).join(", ")}
-                              </span>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          {hasOweBalances && (
-                            <button
-                              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                              onClick={() => {
-                                const latestExpense = expenses && expenses.length > 0 ? expenses[0] : null;
-                                if (latestExpense) {
-                                  handleSendReminder(friend.id, latestExpense.id);
-                                }
+                    return (
+                      <div
+                        key={friendId}
+                        className="flex items-center justify-between p-3 sm:p-4 rounded-xl"
+                      >
+                        <div className="flex items-center gap-3 sm:gap-4">
+                          <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full">
+                            <Image
+                              src={
+                                friend.image ||
+                                `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
+                              }
+                              alt={friend.name || "User"}
+                              width={48}
+                              height={48}
+                              className="h-full w-full object-cover"
+                              onError={(e) => {
+                                console.error(
+                                  `Error loading image for user ${friend.id}`
+                                );
+                                const target = e.target as HTMLImageElement;
+                                target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
                               }}
-                              disabled={isSending}
-                            >
-                              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-                              <span className="hidden sm:inline">
-                                {isSending ? "Sending..." : "Send a Reminder"}
-                              </span>
-                            </button>
-                          )}
+                            />
+                          </div>
+                          <div>
+                            <p className="text-mobile-base sm:text-lg font-medium text-white">
+                              {friend.name}
+                            </p>
 
-                          {hasOwedBalances && (
-                            <>
-                              <button
-                                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={() => handleSettleFriendClick(friend.id)}
-                              >
-                                <Image
-                                  src="/coins-dollar.svg"
-                                  alt="Settle Debts"
-                                  width={16}
-                                  height={16}
-                                  className="h-3 w-3 sm:h-4 sm:w-4"
-                                />
-                                <span className="hidden sm:inline">
-                                  Settle Debts
+                            {/* Display balance from current user's perspective */}
+                            {hasOwedBalances && (
+                              <div className="text-mobile-sm sm:text-base text-white/70">
+                                <span className="text-red-500">
+                                  You owe{" "}
+                                  {owedBalances
+                                    .map((b) =>
+                                      formatCurrency(
+                                        Math.abs(b.amount),
+                                        b.currency
+                                      )
+                                    )
+                                    .join(", ")}
                                 </span>
-                              </button>
+                              </div>
+                            )}
 
+                            {hasOweBalances && (
+                              <div className="text-mobile-sm sm:text-base text-white/70">
+                                <span className="text-green-500">
+                                  Owes you{" "}
+                                  {oweBalances
+                                    .map((b) =>
+                                      formatCurrency(
+                                        Math.abs(b.amount),
+                                        b.currency
+                                      )
+                                    )
+                                    .join(", ")}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2">
+                            {hasOweBalances && (
                               <button
                                 className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                                onClick={async () => {
-                                  // Mark the first owed balance as paid (can be enhanced later for multi-currency)
-                                  const firstBalance = owedBalances[0];
-                                  if (firstBalance) {
-                                    markAsPaidMutation.mutate(
-                                      {
-                                        groupId,
-                                        payload: {
-                                          payerId: user.id,
-                                          payeeId: friend.id,
-                                          amount: Math.abs(firstBalance.amount),
-                                          currency: firstBalance.currency,
-                                          currencyType: "FIAT",
-                                        },
-                                      },
-                                      {
-                                        onSuccess: () => {
-                                          toast.success(`Marked payment to ${friend.name} as paid`, {
-                                            description: "This will be recorded in your activity.",
-                                          });
-                                        },
-                                        onError: (error) => {
-                                          toast.error("Failed to mark as paid");
-                                        },
-                                      }
+                                onClick={() => {
+                                  const latestExpense =
+                                    expenses && expenses.length > 0
+                                      ? expenses[0]
+                                      : null;
+                                  if (latestExpense) {
+                                    handleSendReminder(
+                                      friend.id,
+                                      latestExpense.id
                                     );
                                   }
                                 }}
-                                disabled={markAsPaidMutation.isPending}
+                                disabled={isSending}
                               >
-                                <Image
-                                  src="/checkmark-circle.svg"
-                                  alt="Mark as Paid"
-                                  width={16}
-                                  height={16}
-                                  className="h-3 w-3 sm:h-4 sm:w-4"
-                                />
+                                <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span className="hidden sm:inline">
-                                  Mark as Paid
+                                  {isSending ? "Sending..." : "Send a Reminder"}
                                 </span>
                               </button>
-                            </>
-                          )}
+                            )}
+
+                            {hasOwedBalances && (
+                              <>
+                                <button
+                                  className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
+                                  onClick={() =>
+                                    handleSettleFriendClick(friend.id)
+                                  }
+                                >
+                                  <Image
+                                    src="/coins-dollar.svg"
+                                    alt="Settle Debts"
+                                    width={16}
+                                    height={16}
+                                    className="h-3 w-3 sm:h-4 sm:w-4"
+                                  />
+                                  <span className="hidden sm:inline">
+                                    Settle Debts
+                                  </span>
+                                </button>
+
+                                <button
+                                  className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
+                                  onClick={async () => {
+                                    // Mark the first owed balance as paid (can be enhanced later for multi-currency)
+                                    const firstBalance = owedBalances[0];
+                                    if (firstBalance) {
+                                      markAsPaidMutation.mutate(
+                                        {
+                                          groupId,
+                                          payload: {
+                                            payerId: user.id,
+                                            payeeId: friend.id,
+                                            amount: Math.abs(
+                                              firstBalance.amount
+                                            ),
+                                            currency: firstBalance.currency,
+                                            currencyType: "FIAT",
+                                          },
+                                        },
+                                        {
+                                          onSuccess: () => {
+                                            toast.success(
+                                              `Marked payment to ${friend.name} as paid`,
+                                              {
+                                                description:
+                                                  "This will be recorded in your activity.",
+                                              }
+                                            );
+                                          },
+                                          onError: (error) => {
+                                            toast.error(
+                                              "Failed to mark as paid"
+                                            );
+                                          },
+                                        }
+                                      );
+                                    }
+                                  }}
+                                  disabled={markAsPaidMutation.isPending}
+                                >
+                                  <Image
+                                    src="/checkmark-circle.svg"
+                                    alt="Mark as Paid"
+                                    width={16}
+                                    height={16}
+                                    className="h-3 w-3 sm:h-4 sm:w-4"
+                                  />
+                                  <span className="hidden sm:inline">
+                                    Mark as Paid
+                                  </span>
+                                </button>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                });
+                    );
+                  }
+                );
               })()}
             </div>
           )}
@@ -517,9 +572,9 @@ export default function GroupDetailsPage({
                   let settlementPayee = null;
                   if (expense.splitType === "SETTLEMENT") {
                     // The payee is the participant with amount > 0
-                    const payeeParticipant = (expense.expenseParticipants || []).find(
-                      (p: any) => p.amount > 0
-                    );
+                    const payeeParticipant = (
+                      expense.expenseParticipants || []
+                    ).find((p: any) => p.amount > 0);
                     if (payeeParticipant) {
                       settlementPayee = group?.groupUsers.find(
                         (user) => user.user.id === payeeParticipant.userId
@@ -553,15 +608,17 @@ export default function GroupDetailsPage({
                           />
                         </div>
                         <div>
-                          {expense.splitType === "SETTLEMENT" && settlementPayee ? (
+                          {expense.splitType === "SETTLEMENT" &&
+                          settlementPayee ? (
                             <p className="text-mobile-base sm:text-base text-white">
                               <span className="font-medium">
                                 {paidBy.id === user?.id ? "You" : paidBy.name}
                               </span>{" "}
-                              marked payment to
-                              {" "}
+                              marked payment to{" "}
                               <span className="font-medium">
-                                {settlementPayee.id === user?.id ? "you" : settlementPayee.name}
+                                {settlementPayee.id === user?.id
+                                  ? "you"
+                                  : settlementPayee.name}
                               </span>{" "}
                               as settled
                             </p>
@@ -579,7 +636,10 @@ export default function GroupDetailsPage({
                         </div>
                       </div>
                       <div className="text-mobile-base sm:text-base text-white font-medium">
-                        {formatCurrency(expense.amount, expense.currency || 'USD')}
+                        {formatCurrency(
+                          expense.amount,
+                          expense.currency || "USD"
+                        )}
                       </div>
                     </div>
                   );
@@ -606,8 +666,12 @@ export default function GroupDetailsPage({
         defaultCurrency={group.defaultCurrency}
         showIndividualView={settleFriendId !== null}
         selectedFriendId={settleFriendId}
-        specificAmount={settleFriendId ? getSpecificDebtAmount(settleFriendId) : undefined}
-        specificDebtByCurrency={settleFriendId ? getSpecificDebtByCurrency(settleFriendId) : undefined}
+        specificAmount={
+          settleFriendId ? getSpecificDebtAmount(settleFriendId) : undefined
+        }
+        specificDebtByCurrency={
+          settleFriendId ? getSpecificDebtByCurrency(settleFriendId) : undefined
+        }
       />
 
       <AddMemberModal
@@ -639,7 +703,10 @@ export default function GroupDetailsPage({
                 Group settings
               </h2>
 
-              <form className="space-y-4 sm:space-y-6" onSubmit={handleSettingsSubmit}>
+              <form
+                className="space-y-4 sm:space-y-6"
+                onSubmit={handleSettingsSubmit}
+              >
                 <div>
                   <label
                     htmlFor="groupName"
@@ -669,7 +736,9 @@ export default function GroupDetailsPage({
                     Default Currency
                   </label>
                   <CurrencyDropdown
-                    selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []}
+                    selectedCurrencies={
+                      groupSettings.currency ? [groupSettings.currency] : []
+                    }
                     setSelectedCurrencies={(currencies) => {
                       setGroupSettings((prev) => ({
                         ...prev,
@@ -681,10 +750,11 @@ export default function GroupDetailsPage({
                 </div>
 
                 <div className="flex items-center justify-between">
-                  
                   <TimeLockToggle
                     value={groupSettings.lockPrice}
-                    onChange={(val) => setGroupSettings((prev) => ({ ...prev, lockPrice: val }))}
+                    onChange={(val) =>
+                      setGroupSettings((prev) => ({ ...prev, lockPrice: val }))
+                    }
                   />
                 </div>
 
@@ -696,12 +766,12 @@ export default function GroupDetailsPage({
                   >
                     Cancel
                   </button>
-                <button
-                  type="submit"
+                  <button
+                    type="submit"
                     className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90"
-                >
+                  >
                     Save Changes
-                </button>
+                  </button>
                 </div>
               </form>
 

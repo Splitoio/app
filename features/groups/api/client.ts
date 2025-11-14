@@ -58,7 +58,13 @@ export const getAllGroups = async () => {
 
 export const getGroupById = async (groupId: string) => {
   const response = await apiClient.get(`/groups/${groupId}`);
-  return DetailGroupSchema.parse(response);
+  console.log(
+    response,
+    DetailGroupSchema.safeParse(response).success,
+    DetailGroupSchema.safeParse(response).error,
+    DetailGroupSchema.safeParse(response).data
+  );
+  return DetailGroupSchema.safeParse(response).data;
 };
 
 export const getAllGroupsWithBalances = async () => {
@@ -125,10 +131,14 @@ export const updateGroup = async (
   // Only include fields that are defined
   const filteredPayload: any = {};
   if (payload.name !== undefined) filteredPayload.name = payload.name;
-  if (payload.currency !== undefined) filteredPayload.currency = payload.currency;
-  if (payload.lockPrice !== undefined) filteredPayload.lockPrice = payload.lockPrice;
-  if (payload.imageUrl !== undefined) filteredPayload.imageUrl = payload.imageUrl;
-  if (payload.description !== undefined) filteredPayload.description = payload.description;
+  if (payload.currency !== undefined)
+    filteredPayload.currency = payload.currency;
+  if (payload.lockPrice !== undefined)
+    filteredPayload.lockPrice = payload.lockPrice;
+  if (payload.imageUrl !== undefined)
+    filteredPayload.imageUrl = payload.imageUrl;
+  if (payload.description !== undefined)
+    filteredPayload.description = payload.description;
 
   const response = await apiClient.put(`/groups/${groupId}`, filteredPayload);
 
@@ -143,8 +153,17 @@ export const updateGroup = async (
 
 export const markAsPaid = async (
   groupId: string,
-  payload: { payerId: string; payeeId: string; amount: number; currency?: string; currencyType?: string }
+  payload: {
+    payerId: string;
+    payeeId: string;
+    amount: number;
+    currency?: string;
+    currencyType?: string;
+  }
 ) => {
-  const response = await apiClient.post(`/groups/${groupId}/mark-paid`, payload);
+  const response = await apiClient.post(
+    `/groups/${groupId}/mark-paid`,
+    payload
+  );
   return response;
 };
