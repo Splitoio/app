@@ -1,21 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
-import {
-  Loader2,
-  Trash2,
-  LogOut,
-  Minus,
-  Save,
-  ChevronDown,
-  Check,
-  Info,
-} from "lucide-react";
+import { Loader2, Trash2, LogOut, Save, Info } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { easeIn, easeOut } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
@@ -48,6 +38,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { getUser } from "@/features/user/api/client";
+import { Button } from "@/components/ui/button";
 
 // Base API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -62,8 +53,7 @@ export default function SettingsPage() {
   const { isAuthenticated, isLoading, user, setUser } = useAuthStore();
   const router = useRouter();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const { mutate: updateUser } = useUpdateUser();
+  const { mutate: updateUser, isPending: isUpdatatingUser } = useUpdateUser();
 
   // State for user settings
   const [displayName, setDisplayName] = useState<string>("");
@@ -71,15 +61,12 @@ export default function SettingsPage() {
   const [initialDisplayName, setInitialDisplayName] = useState<string>("");
   const [initialPreferredCurrency, setInitialPreferredCurrency] =
     useState<string>("");
-  const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
-  const [selectedChainFilter, setSelectedChainFilter] =
-    useState<string>("All Chains");
 
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
 
   // State for wallets
   const [isWalletModalOpen, setIsWalletModalOpen] = useState(false);
-  
+
   // State for wallet removal confirmation
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
   const [walletToRemove, setWalletToRemove] = useState<string | null>(null);
@@ -87,26 +74,13 @@ export default function SettingsPage() {
   // Use TanStack Query for API calls
   const { data: currencyData, isLoading: isLoadingCurrencies } =
     useGetAllCurrencies();
-  const { data: organizedCurrencies } = useOrganizedCurrencies();
 
   // Use our wallet hooks
   const { data: walletData, isLoading: isLoadingWallets } = useUserWallets();
   const { mutate: addWallet, isPending: isAddingWallet } = useAddWallet();
   const { mutate: setWalletAsPrimary } = useSetWalletAsPrimary();
-  const { mutate: removeWallet, isPending: isRemovingWallet } = useRemoveWallet();
-
-  const handleWalletAdded = async () => {
-    try {
-      const updatedUser = await getUser();
-      if (updatedUser) {
-        setUser(updatedUser);
-        console.log("User profile updated in auth store after adding wallet.");
-      }
-    } catch (error) {
-      console.error("Failed to refetch user after adding wallet", error);
-      toast.error("Could not refresh user data. Please reload the page.");
-    }
-  };
+  const { mutate: removeWallet, isPending: isRemovingWallet } =
+    useRemoveWallet();
 
   // Process wallet data for UI
   const wallets = walletData?.accounts || [];
@@ -117,38 +91,10 @@ export default function SettingsPage() {
     (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
   );
 
-  // Separate currencies by type for UI organization
-  const fiatCurrencies = currencies.filter((c) => c.type === "FIAT");
-  const cryptoCurrencies = currencies.filter((c) => c.type !== "FIAT");
-
-  // State for chain tokens (retain for compatibility)
-  const [chainTokens, setChainTokens] = useState<Record<string, any>>({});
-  const [isLoadingTokens, setIsLoadingTokens] = useState<
-    Record<string, boolean>
-  >({});
-
   // Check if user has made changes to their profile
   const hasChanges =
     displayName !== initialDisplayName ||
     preferredCurrency !== initialPreferredCurrency;
-
-  // Fetch tokens for a specific chain (retain for compatibility)
-  const fetchTokensForChain = async (chainId: string) => {
-    setIsLoadingTokens((prev) => ({ ...prev, [chainId]: true }));
-    try {
-      // We no longer need to fetch tokens separately, as they're included in the currencies response
-      // But keep this method for compatibility with existing code
-      const filteredTokens = currencies.filter((c) => c.chainId === chainId);
-      setChainTokens((prev) => ({
-        ...prev,
-        [chainId]: filteredTokens,
-      }));
-    } catch (error) {
-      console.error(`Error processing tokens for chain ${chainId}:`, error);
-    } finally {
-      setIsLoadingTokens((prev) => ({ ...prev, [chainId]: false }));
-    }
-  };
 
   // Load user data when available
   useEffect(() => {
@@ -175,8 +121,6 @@ export default function SettingsPage() {
   // Handle save changes
   const handleSaveChanges = async () => {
     if (!hasChanges) return;
-
-    setIsSaving(true);
 
     try {
       // Prepare update data
@@ -207,8 +151,6 @@ export default function SettingsPage() {
     } catch (error) {
       toast.error("Failed to update profile");
       console.error("Error updating profile:", error);
-    } finally {
-      setIsSaving(false);
     }
   };
 
@@ -351,150 +293,6 @@ export default function SettingsPage() {
     return currency ? currency.name : chainId;
   };
 
-  // Filter wallets based on selected chain
-  const filteredWallets =
-    selectedChainFilter === "All Chains"
-      ? wallets
-      : wallets.filter((wallet) => wallet.chainId === selectedChainFilter);
-
-  // Function to toggle dropdowns
-  const toggleDropdown = (dropdown: string) => {
-    setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
-  };
-
-  // Dropdown animation variants
-  const dropdownVariants = {
-    hidden: {
-      opacity: 0,
-      y: -5,
-      scale: 0.95,
-    },
-    visible: {
-      opacity: 1,
-      y: 0,
-      scale: 1,
-      transition: {
-        duration: 0.2,
-        ease: easeOut,
-      },
-    },
-    exit: {
-      opacity: 0,
-      y: -5,
-      scale: 0.95,
-      transition: {
-        duration: 0.15,
-        ease: easeIn,
-      },
-    },
-  };
-
-  // Fix dropdown display and organize currencies by grouping
-  const renderCurrencyDropdown = () => {
-    if (isLoadingCurrencies) {
-      return (
-        <div className="px-4 py-3 text-white/60 flex items-center">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-          <span>Loading currencies...</span>
-        </div>
-      );
-    }
-
-    // Use the cached organized currencies from our hook
-    const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
-    const chainGroups = organizedCurrencies?.chainGroups || {};
-    
-    // Filter out ETH and USDC from fiat currencies
-    const filteredFiatCurrencies = fiatCurrencies.filter(
-      (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
-    );
-    
-    // Filter out ETH and USDC from chain currencies
-    const filteredChainGroups: Record<string, Currency[]> = {};
-    Object.entries(chainGroups).forEach(([chainId, currencies]) => {
-      const filteredCurrencies = currencies.filter(
-        (currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"
-      );
-      if (filteredCurrencies.length > 0) {
-        filteredChainGroups[chainId] = filteredCurrencies;
-      }
-    });
-
-    return (
-      <>
-        {/* Fiat Currencies */}
-        <div className="px-4 py-2 text-sm text-white/50 font-medium">Fiat</div>
-        {filteredFiatCurrencies.map((currency) => (
-          <button
-            key={`fiat-${currency.id}`}
-            type="button"
-            className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-              currency.id === preferredCurrency ? "bg-white/5" : ""
-            }`}
-            onClick={() => {
-              setPreferredCurrency(currency.id);
-              setActiveDropdown(null);
-            }}
-          >
-            <div
-              className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                currency.id === preferredCurrency
-                  ? "border-white bg-white"
-                  : "border-white/30 bg-transparent"
-              } mr-3`}
-            >
-              {currency.id === preferredCurrency && (
-                <Check className="h-3.5 w-3.5 text-black" />
-              )}
-            </div>
-            <div>
-              <span className="font-medium">{currency.id}</span>
-              <span className="text-white/70"> • {currency.name}</span>
-            </div>
-          </button>
-        ))}
-
-        {/* Chain Currencies */}
-        {Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
-          <div key={`chain-${chainId}`}>
-            <div className="px-4 py-2 mt-2 text-sm text-white/50 font-medium">
-              {chainId}
-            </div>
-            {currencies.map((currency) => (
-              <button
-                key={`chain-${chainId}-${currency.id}`}
-                type="button"
-                className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-                  currency.id === preferredCurrency ? "bg-white/5" : ""
-                }`}
-                onClick={() => {
-                  setPreferredCurrency(currency.id);
-                  setActiveDropdown(null);
-                }}
-              >
-                <div
-                  className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                    currency.id === preferredCurrency
-                      ? "border-white bg-white"
-                      : "border-white/30 bg-transparent"
-                  } mr-3`}
-                >
-                  {currency.id === preferredCurrency && (
-                    <Check className="h-3.5 w-3.5 text-black" />
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium">{currency.symbol}</span>
-                  <span className="text-white/70"> • {currency.name}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        ))}
-      </>
-    );
-  };
-
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -506,8 +304,6 @@ export default function SettingsPage() {
     );
   }
 
-  console.log(isAuthenticated, user);
-
   if (!isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -517,8 +313,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  console.log("filteredWallets", filteredWallets);
 
   return (
     <motion.div
@@ -531,27 +325,6 @@ export default function SettingsPage() {
         <div className="flex items-center justify-between mb-8">
           <h1 className="text-2xl font-semibold text-white">Settings</h1>
           <div className="flex gap-3">
-            <button
-              onClick={handleSaveChanges}
-              disabled={!hasChanges || isSaving}
-              className={`flex items-center justify-center gap-1 sm:gap-2 rounded-full border text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium transition-all disabled:cursor-not-allowed ${
-                hasChanges
-                  ? "bg-black text-black border-white hover:bg-zinc-900"
-                  : "bg-transparent border-white/20 text-white/40"
-              }`}
-            >
-              {isSaving ? (
-                <>
-                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <Save className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span>Save Changes</span>
-                </>
-              )}
-            </button>
             <button
               onClick={handleLogout}
               disabled={isLoggingOut}
@@ -571,7 +344,6 @@ export default function SettingsPage() {
             </button>
           </div>
         </div>
-
         {/* Profile Photo Upload */}
         <div className="mb-8">
           <p className="text-white mb-3">Upload your PFP</p>
@@ -630,7 +402,6 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
-
         {/* Display Name */}
         <div className="mb-8">
           <label htmlFor="display-name" className="block text-white mb-2">
@@ -645,91 +416,95 @@ export default function SettingsPage() {
             placeholder="Enter your name"
           />
         </div>
-
         <div className="mb-8">
-          <label className="block text-white mb-2 flex items-center gap-2">
-            Preferred Tokens
+          <label className="text-white mb-2 flex items-center gap-2">
+            Accept Payments in
             <TooltipProvider>
               <Tooltip>
-                <TooltipTrigger asChild>
+                <TooltipTrigger>
                   <Info className="h-4 w-4 text-white/80" />
                 </TooltipTrigger>
                 <TooltipContent>
-                  <p>
-                    Select the tokens you want to accept payments in
-                  </p>
+                  <p>Select the tokens you want to accept payments in</p>
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
           </label>
 
+          {wallets.length > 0 ? (
+            <CurrencyDropdown
+              selectedCurrencies={selectedCurrencies}
+              setSelectedCurrencies={setSelectedCurrencies}
+              filterCurrencies={(currency: Currency) =>
+                currency.symbol !== "ETH" &&
+                currency.symbol !== "USDC" &&
+                wallets.some((wallet) => wallet.chainId === currency.chainId)
+              }
+              showFiatCurrencies={false}
+            />
+          ) : (
+            <div className="text-white/50 text-sm">
+              You don't have any wallets yet. Add one to get started.
+            </div>
+          )}
+        </div>
+        {/* Preferred Currency - Single Dropdown */}
+        <div className="mb-8">
+          <label className="text-white mb-2 flex items-center gap-2">
+            Platform Default Currency
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="h-4 w-4 text-white/80" />
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>
+                    Currencies will be converted to this currency for Display
+                    purposes
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </label>
           <CurrencyDropdown
-            selectedCurrencies={selectedCurrencies}
-            setSelectedCurrencies={setSelectedCurrencies}
-            filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
+            selectedCurrencies={preferredCurrency ? [preferredCurrency] : []}
+            setSelectedCurrencies={(currencies) =>
+              setPreferredCurrency(currencies[0] || "")
+            }
+            mode="single"
+            showFiatCurrencies={true}
+            filterCurrencies={(currency: Currency) =>
+              currency.symbol !== "ETH" && currency.symbol !== "USDC"
+            }
+            disableChainCurrencies={true}
           />
         </div>
 
-        {/* Preferred Currency - Single Dropdown */}
-        <div className="mb-8">
-          <label className="block text-white mb-2">Preferred Currency</label>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => toggleDropdown("currency")}
-              className="w-full h-12 bg-black border border-white/20 text-white rounded-lg px-4 
-                flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
-            >
-              <span className="truncate text-left">
-                {isLoadingCurrencies
-                  ? "Loading currencies..."
-                  : (() => {
-                      const selected = currencies.find(
-                        (c) => c.id === preferredCurrency
-                      );
-                      return selected ? (
-                        <span>
-                          <span className="font-medium">
-                            {selected.type === "FIAT"
-                              ? selected.id
-                              : selected.symbol}
-                          </span>
-                          <span className="text-white/70">
-                            {" • "}
-                            {selected.name}
-                          </span>
-                        </span>
-                      ) : (
-                        preferredCurrency
-                      );
-                    })()}
-              </span>
-              <ChevronDown
-                className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
-                  activeDropdown === "currency" ? "rotate-180" : ""
-                } ml-2 flex-shrink-0`}
-              />
-            </button>
-
-            <AnimatePresence>
-              {activeDropdown === "currency" && (
-                <motion.div
-                  variants={dropdownVariants}
-                  initial="hidden"
-                  animate="visible"
-                  exit="exit"
-                  className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
-                >
-                  {renderCurrencyDropdown()}
-                </motion.div>
-              )}
-            </AnimatePresence>
-          </div>
-        </div>
-
+        {hasChanges && (
+          <button
+            onClick={handleSaveChanges}
+            disabled={isUpdatatingUser}
+            className={`flex w-full items-center justify-center gap-1 sm:gap-2 rounded-full border text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium transition-all disabled:cursor-not-allowed ${
+              !isUpdatatingUser
+                ? "bg-black text-black border-white hover:bg-zinc-900"
+                : "bg-transparent border-white/20 text-white/40"
+            }`}
+          >
+            {isUpdatatingUser ? (
+              <>
+                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
+                <span>Saving...</span>
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 sm:h-5 sm:w-5" />
+                <span>Save Changes</span>
+              </>
+            )}
+          </button>
+        )}
         {/* Divider Line */}
         <div className="h-px w-full bg-white/10 my-8"></div>
-
         {/* Wallet Management */}
         <div className="mb-8">
           <button
@@ -747,67 +522,15 @@ export default function SettingsPage() {
             )}
           </button>
 
-          {/* Select for Chain Filter */}
-          <div className="mt-2 mb-6">
-            <Select
-              value={selectedChainFilter}
-              onValueChange={setSelectedChainFilter}
-            >
-              <SelectTrigger className="w-full bg-black border border-white/20 text-white h-12 rounded-full focus:ring-1 focus:ring-white/40">
-                <SelectValue placeholder="All Chains" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#101012] border border-white/10 p-2 rounded-xl shadow-xl w-[var(--radix-select-trigger-width)]">
-                <SelectItem
-                  value="All Chains"
-                  className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-                >
-                  All Chains
-                </SelectItem>
-                {isLoadingCurrencies ? (
-                  <div className="px-4 py-3 text-white/60 flex items-center">
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    <span>Loading chains...</span>
-                  </div>
-                ) : (
-                  // Get unique chains from crypto currencies
-                  Array.from(
-                    new Set(
-                      currencies
-                        .filter((c) => c.type !== "FIAT" && c.chainId)
-                        .map((c) => c.chainId)
-                    )
-                  )
-                    .filter(Boolean)
-                    .map((chainId) => {
-                      // Find an example currency to get the chain name
-                      const chainCurrency = currencies.find(
-                        (c) => c.chainId === chainId
-                      );
-                      const chainName = chainId;
-
-                      return (
-                        <SelectItem
-                          key={chainId}
-                          value={chainId as string}
-                          className="text-white hover:bg-white/90 rounded-lg px-4 py-2.5 my-1 focus:bg-white/90"
-                        >
-                          {chainName}
-                        </SelectItem>
-                      );
-                    })
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-
           {/* Wallet List */}
-          <div className="space-y-6">
+          <div className="space-y-6 pt-6">
+            <h2 className="text-white text-2lg font-semibold ">Your Wallets</h2>
             {isLoadingWallets ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-white/50" />
               </div>
-            ) : filteredWallets.length > 0 ? (
-              filteredWallets.map((wallet) => (
+            ) : wallets.length > 0 ? (
+              wallets.map((wallet) => (
                 <div key={wallet.id} className="pb-6 mb-2">
                   <div className="flex items-center justify-between">
                     <p className="text-white font-mono">
@@ -894,7 +617,7 @@ export default function SettingsPage() {
               className="absolute inset-0 bg-black/70 backdrop-blur-sm"
               onClick={cancelRemoveWallet}
             />
-            
+
             {/* Modal */}
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
@@ -903,18 +626,15 @@ export default function SettingsPage() {
               className="relative bg-[#1A1A1D] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
             >
               <div className="text-center">
-                <div className="w-12 h-12 mx-auto mb-4 bg-red-500/10 rounded-full flex items-center justify-center">
-                  <Trash2 className="h-6 w-6 text-red-500" />
-                </div>
-                
                 <h3 className="text-xl font-semibold text-white mb-2">
                   Remove Wallet
                 </h3>
-                
+
                 <p className="text-white/70 mb-6">
-                  Are you sure you want to remove this wallet? This action cannot be undone.
+                  Are you sure you want to remove this wallet? This action
+                  cannot be undone.
                 </p>
-                
+
                 <div className="flex gap-3">
                   <button
                     onClick={cancelRemoveWallet}
@@ -923,7 +643,7 @@ export default function SettingsPage() {
                   >
                     Cancel
                   </button>
-                  
+
                   <button
                     onClick={confirmRemoveWallet}
                     disabled={isRemovingWallet}
@@ -944,7 +664,6 @@ export default function SettingsPage() {
           </div>
         )}
       </AnimatePresence>
-     
     </motion.div>
   );
 }

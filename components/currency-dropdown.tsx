@@ -29,15 +29,20 @@ type Props = {
   setSelectedCurrencies: (currencies: string[]) => void;
   showFiatCurrencies?: boolean;
   filterCurrencies?: (currency: Currency) => boolean;
+  mode?: "single" | "multi";
+  placeholder?: string;
+  disableChainCurrencies?: boolean;
 };
 
 export default function CurrencyDropdown({
   selectedCurrencies,
   setSelectedCurrencies,
-  showFiatCurrencies,
+  showFiatCurrencies = true,
   filterCurrencies,
+  mode = "multi",
+  placeholder,
+  disableChainCurrencies = false,
 }: Props) {
-  // const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
 
   const { data: organizedCurrencies, isLoading: isLoadingCurrencies } =
@@ -57,16 +62,24 @@ export default function CurrencyDropdown({
 
   const currencies = [...filteredChainCurrencies, ...filteredFiatCurrencies];
 
-  console.log(currencies);
-
   const toggleDropdown = (dropdown: string) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
   };
 
   const toggleCurrencySelection = (currencyId: string) => {
-    // Single select: always set to the selected currency
-    setSelectedCurrencies([currencyId]);
-    setActiveDropdown(null); // Close dropdown after selection
+    if (mode === "single") {
+      setSelectedCurrencies([currencyId]);
+      setActiveDropdown(null);
+    } else {
+      // Multi-select mode
+      if (selectedCurrencies.includes(currencyId)) {
+        setSelectedCurrencies(
+          selectedCurrencies.filter((id) => id !== currencyId)
+        );
+      } else {
+        setSelectedCurrencies([...selectedCurrencies, currencyId]);
+      }
+    }
   };
 
   const removeCurrency = (currencyId: string, e: React.MouseEvent) => {
@@ -142,46 +155,48 @@ export default function CurrencyDropdown({
         )}
 
         {/* Chain Currencies */}
-        {Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
-          <div key={`chain-${chainId}`}>
-            <div className="px-4 py-2 text-sm text-white/50 font-medium">
-              {chainId}
-            </div>
-            {currencies.map((currency) => (
-              <button
-                key={`chain-${chainId}-${currency.id}`}
-                type="button"
-                className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-                  selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
-                }`}
-                onClick={() => toggleCurrencySelection(currency.id)}
-              >
-                <div
-                  className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                    selectedCurrencies.includes(currency.id)
-                      ? "border-white bg-white"
-                      : "border-white/30 bg-transparent"
-                  } mr-3`}
+        {!disableChainCurrencies &&
+          Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
+            <div key={`chain-${chainId}`}>
+              <div className="px-4 py-2 text-sm text-white/50 font-medium">
+                {chainId}
+              </div>
+              {currencies.map((currency) => (
+                <button
+                  key={`chain-${chainId}-${currency.id}`}
+                  type="button"
+                  className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
+                    selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
+                  }`}
+                  onClick={() => toggleCurrencySelection(currency.id)}
                 >
-                  {selectedCurrencies.includes(currency.id) && (
-                    <Check className="h-3.5 w-3.5 text-black" />
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium">{currency.symbol}</span>
-                  <span className="text-white/70"> • {currency.name}</span>
-                </div>
-              </button>
-            ))}
-          </div>
-        ))}
+                  <div
+                    className={`w-5 h-5 flex items-center justify-center rounded-md border ${
+                      selectedCurrencies.includes(currency.id)
+                        ? "border-white bg-white"
+                        : "border-white/30 bg-transparent"
+                    } mr-3`}
+                  >
+                    {selectedCurrencies.includes(currency.id) && (
+                      <Check className="h-3.5 w-3.5 text-black" />
+                    )}
+                  </div>
+                  <div>
+                    <span className="font-medium">{currency.symbol}</span>
+                    <span className="text-white/70"> • {currency.name}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          ))}
       </>
     );
   };
 
+  const defaultPlaceholder =
+    mode === "single" ? "Select currency..." : "Select Payment Token...";
+
   return (
-    // <div className="mb-8">
-    // <label className="block text-white mb-2">Preferred Currencies</label>
     <div className="relative">
       <button
         type="button"
@@ -189,35 +204,67 @@ export default function CurrencyDropdown({
         className="w-full min-h-12 bg-black border border-white/20 text-white rounded-lg px-4 py-2
           flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
       >
-        <div className="flex flex-wrap gap-2 items-center">
-          {isLoadingCurrencies ? (
-            <span className="py-1">Loading currencies...</span>
-          ) : selectedCurrencies.length > 0 ? (
-            selectedCurrencies.map((currencyId) => {
-              const selected = currencies.find((c) => c.id === currencyId);
-              if (!selected) return null;
-
-              return (
-                <div
-                  key={currencyId}
-                  className="bg-white/10 rounded-md px-2 py-1 flex items-center"
-                >
-                  <span className="font-medium mr-1">
-                    {selected.type === "FIAT" ? selected.id : selected.symbol}
+        {mode === "single" ? (
+          // Single select mode - show selected currency inline
+          <span className="truncate text-left">
+            {isLoadingCurrencies ? (
+              "Loading currencies..."
+            ) : selectedCurrencies.length > 0 ? (
+              (() => {
+                const selected = currencies.find(
+                  (c) => c.id === selectedCurrencies[0]
+                );
+                return selected ? (
+                  <span>
+                    <span className="font-medium">
+                      {selected.type === "FIAT" ? selected.id : selected.symbol}
+                    </span>
+                    <span className="text-white/70"> • {selected.name}</span>
                   </span>
+                ) : (
+                  selectedCurrencies[0]
+                );
+              })()
+            ) : (
+              <span className="text-white/70">
+                {placeholder || defaultPlaceholder}
+              </span>
+            )}
+          </span>
+        ) : (
+          // Multi-select mode - show chips with wrapping
+          <div className="flex flex-wrap gap-2 items-center flex-1 min-w-0">
+            {isLoadingCurrencies ? (
+              <span className="py-1">Loading currencies...</span>
+            ) : selectedCurrencies.length > 0 ? (
+              selectedCurrencies.map((currencyId) => {
+                const selected = currencies.find((c) => c.id === currencyId);
+                if (!selected) return null;
+
+                return (
                   <div
-                    onClick={(e) => removeCurrency(currencyId, e)}
-                    className="text-white/70 hover:text-white cursor-pointer"
+                    key={currencyId}
+                    className="bg-white/10 rounded-md px-2 py-1 flex items-center flex-shrink-0"
                   >
-                    <X className="h-3 w-3" />
+                    <span className="font-medium mr-1 text-sm">
+                      {selected.type === "FIAT" ? selected.id : selected.symbol}
+                    </span>
+                    <div
+                      onClick={(e) => removeCurrency(currencyId, e)}
+                      className="text-white/70 hover:text-white cursor-pointer"
+                    >
+                      <X className="h-3 w-3" />
+                    </div>
                   </div>
-                </div>
-              );
-            })
-          ) : (
-            <span className="py-1 text-white/70">Select Payment Token...</span>
-          )}
-        </div>
+                );
+              })
+            ) : (
+              <span className="py-1 text-white/70">
+                {placeholder || defaultPlaceholder}
+              </span>
+            )}
+          </div>
+        )}
         <ChevronDown
           className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
             activeDropdown === "currency" ? "rotate-180" : ""
@@ -239,6 +286,5 @@ export default function CurrencyDropdown({
         )}
       </AnimatePresence>
     </div>
-    // </div>
   );
 }
