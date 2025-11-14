@@ -1,0 +1,14 @@
+node_modules
+.next
+dist
+build
+coverage
+*.config.js
+*.config.mjs
+pnpm-lock.yaml
+package-lock.json
+tsconfig.tsbuildinfo
+.git
+.gitignore
+public
+
