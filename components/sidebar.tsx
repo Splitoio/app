@@ -36,7 +36,7 @@ export function Sidebar() {
         <div className="flex h-full flex-col">
           {/* Logo/Brand Section */}
           <div className="flex h-[70px] sm:h-[80px] items-center px-6 mt-2 sm:mt-4 relative">
-            <Link href="/" onClick={close} className="z-10">
+            <Link href="https://splito.io" onClick={close} className="z-10">
               <Image src={logo} alt="Splito Logo" width={120} height={120} />
             </Link>
 

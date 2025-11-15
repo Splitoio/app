@@ -65,8 +65,10 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 function useAllChainsTokens() {
   const [options, setOptions] = useState<Option[]>([]);
   useEffect(() => {
-    fetch(`${API_URL}/api/multichain/all-chains-tokens`, { credentials: "include" })
-      .then(res => res.json())
+    fetch(`${API_URL}/api/multichain/all-chains-tokens`, {
+      credentials: "include",
+    })
+      .then((res) => res.json())
       .then((data: any) => {
         const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
         const opts: Option[] = [];
@@ -105,7 +107,9 @@ export function AddExpenseModal({
 
   // Helper function to get currency symbol from the currencies data
   const getCurrencySymbol = (currencyId: string): string => {
-    const currency = allCurrencies?.currencies?.find(c => c.id === currencyId);
+    const currency = allCurrencies?.currencies?.find(
+      (c) => c.id === currencyId
+    );
     return currency?.symbol || currencyId;
   };
 
@@ -113,14 +117,14 @@ export function AddExpenseModal({
   const formatCurrency = (amount: number, currencyId: string): string => {
     const symbol = getCurrencySymbol(currencyId);
     // For currencies like JPY, don't show decimals
-    const decimals = currencyId === 'JPY' ? 0 : 2;
+    const decimals = currencyId === "JPY" ? 0 : 2;
     return `${symbol}${amount.toFixed(decimals)}`;
   };
 
   // Helper function to get currency placeholder using actual symbols
   const getCurrencyPlaceholder = (currencyId: string): string => {
     const symbol = getCurrencySymbol(currencyId);
-    const amount = currencyId === 'JPY' ? '5000' : '50';
+    const amount = currencyId === "JPY" ? "5000" : "50";
     return `${symbol}${amount}`;
   };
 
@@ -411,10 +415,12 @@ export function AddExpenseModal({
             </div>
 
             <div>
-              <label className="text-white mb-2 block">Choose Payment Token</label>
+              <label className="text-white mb-2 block">Spent in </label>
               {formData.currencyType === "FIAT" ? (
                 <CurrencyDropdown
-                  selectedCurrencies={formData.currency ? [formData.currency] : []}
+                  selectedCurrencies={
+                    formData.currency ? [formData.currency] : []
+                  }
                   setSelectedCurrencies={(currencies) => {
                     setFormData((prev) => ({
                       ...prev,
@@ -439,23 +445,27 @@ export function AddExpenseModal({
                   <SelectContent className="bg-[#17171A] border-white/10">
                     {isLoadingAll ? (
                       <SelectItem value="loading">Loading...</SelectItem>
-                    ) : (() => {
-                      const tokens =
-                        allCurrencies?.currencies?.filter(
-                          (c) => c.type === "token" && c.chainId === formData.chainId
-                        ) || [];
-                      return tokens.length > 0 ? (
-                        tokens.map((token) => (
-                          <SelectItem key={token.id} value={token.id}>
-                            {token.symbol} - {token.name}
-                          </SelectItem>
-                        ))
-                      ) : (
-                        <span className="block px-4 py-2 text-white/60">
-                          No tokens found
-                        </span>
-                      );
-                    })()}
+                    ) : (
+                      (() => {
+                        const tokens =
+                          allCurrencies?.currencies?.filter(
+                            (c) =>
+                              c.type === "token" &&
+                              c.chainId === formData.chainId
+                          ) || [];
+                        return tokens.length > 0 ? (
+                          tokens.map((token) => (
+                            <SelectItem key={token.id} value={token.id}>
+                              {token.symbol} - {token.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <span className="block px-4 py-2 text-white/60">
+                            No tokens found
+                          </span>
+                        );
+                      })()
+                    )}
                   </SelectContent>
                 </Select>
               )}
@@ -464,7 +474,9 @@ export function AddExpenseModal({
             {/* Time Lock-In toggle */}
             <TimeLockToggle
               value={formData.timeLockIn}
-              onChange={val => setFormData(prev => ({ ...prev, timeLockIn: val }))}
+              onChange={(val) =>
+                setFormData((prev) => ({ ...prev, timeLockIn: val }))
+              }
               label="Lock exchange rate (Fix the value at current exchange rate)"
             />
 
@@ -621,10 +633,17 @@ export function AddExpenseModal({
                       }`}
                     >
                       {formatCurrency(
-                        splits.reduce((sum, split) => sum + (split.amount || 0), 0),
+                        splits.reduce(
+                          (sum, split) => sum + (split.amount || 0),
+                          0
+                        ),
                         formData.currency
                       )}{" "}
-                      / {formatCurrency(Number(formData.amount), formData.currency)}
+                      /{" "}
+                      {formatCurrency(
+                        Number(formData.amount),
+                        formData.currency
+                      )}
                     </span>
 
                     {formData.splitType === "percentage" && (
@@ -745,7 +764,9 @@ export function AddExpenseModal({
 
             {/* Resolver Selector */}
             <div>
-              <label className="text-white mb-2 block text-base font-semibold">Choose a resolver for your expense</label>
+              <label className="text-white mb-2 block text-base font-semibold">
+                Settle in
+              </label>
               <ResolverSelector
                 value={resolver}
                 onChange={handleResolverChange}
