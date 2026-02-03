@@ -9,12 +9,15 @@ import {
   LayoutDashboard,
   Settings,
   ChevronLeft,
+  Briefcase,
+  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 
 export function Sidebar() {
   const pathname = usePathname();
+  const isOrganizationMode = pathname.startsWith("/organization");
   const { isOpen, close } = useMobileMenu();
   const logo = "/logo.svg";
 
@@ -53,11 +56,11 @@ export function Sidebar() {
           {/* Main Navigation */}
           <div className="flex-1 space-y-1 px-4 py-4 sm:py-6">
             <Link
-              href="/"
+              href={isOrganizationMode ? "/organization" : "/"}
               onClick={close}
               className={cn(
                 "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                pathname === "/"
+                (isOrganizationMode ? pathname === "/organization" : pathname === "/")
                   ? "bg-white/[0.07] text-white shadow-sm"
                   : "text-white/60 hover:bg-white/[0.04] hover:text-white"
               )}
@@ -67,31 +70,39 @@ export function Sidebar() {
             </Link>
 
             <Link
-              href="/groups"
+              href={isOrganizationMode ? "/organization/organizations" : "/groups"}
               onClick={close}
               className={cn(
                 "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                pathname === "/groups" || pathname.startsWith("/groups/")
+                isOrganizationMode
+                  ? pathname === "/organization/organizations" || pathname.startsWith("/organization/organizations/")
+                    ? "bg-white/[0.07] text-white shadow-sm"
+                    : "text-white/60 hover:bg-white/[0.04] hover:text-white"
+                  : pathname === "/groups" || pathname.startsWith("/groups/")
                   ? "bg-white/[0.07] text-white shadow-sm"
                   : "text-white/60 hover:bg-white/[0.04] hover:text-white"
               )}
             >
               <Users2 className="h-5 w-5" strokeWidth={1.5} />
-              Groups
+              {isOrganizationMode ? "Organizations" : "Groups"}
             </Link>
 
             <Link
-              href="/friends"
+              href={isOrganizationMode ? "/organization/members" : "/friends"}
               onClick={close}
               className={cn(
                 "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                pathname === "/friends"
+                isOrganizationMode
+                  ? pathname === "/organization/members"
+                    ? "bg-white/[0.07] text-white shadow-sm"
+                    : "text-white/60 hover:bg-white/[0.04] hover:text-white"
+                  : pathname === "/friends"
                   ? "bg-white/[0.07] text-white shadow-sm"
                   : "text-white/60 hover:bg-white/[0.04] hover:text-white"
               )}
             >
               <UserPlus className="h-5 w-5" strokeWidth={1.5} />
-              Friends
+              {isOrganizationMode ? "Members" : "Friends"}
             </Link>
 
             <div className="my-4 sm:my-5 border-t border-white/[0.04]" />
@@ -112,7 +123,24 @@ export function Sidebar() {
           </div>
 
           {/* Bottom Section */}
-          <div className="p-4 mt-auto">
+          <div className="p-4 mt-auto space-y-1">
+            <Link
+              href={isOrganizationMode ? "/" : "/organization"}
+              onClick={close}
+              className={cn(
+                "flex items-center gap-3 px-4 py-3 rounded-lg transition-colors",
+                "text-white/40 hover:text-white/70 hover:bg-[#17171A]"
+              )}
+            >
+              {isOrganizationMode ? (
+                <UserCircle className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
+              ) : (
+                <Briefcase className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
+              )}
+              <span className="text-mobile-sm sm:text-sm font-medium ml-1">
+                {isOrganizationMode ? "Personal mode" : "Organization mode"}
+              </span>
+            </Link>
             <a
               href="https://x.com/splitodotio"
               target="_blank"

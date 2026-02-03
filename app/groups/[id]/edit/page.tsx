@@ -17,7 +17,7 @@ import TimeLockToggle from "@/components/ui/TimeLockToggle";
 
 export default function EditGroupPage({ params }: { params: { id: string } }) {
   const router = useRouter();
-  const { data: group, isLoading } = useGetGroupById(params.id);
+  const { data: group, isLoading } = useGetGroupById(params.id, { type: "PERSONAL" });
   const updateGroupMutation = useUpdateGroup();
   const { address } = useWallet();
   const uploadFileMutation = useUploadFile();

@@ -49,8 +49,8 @@ export function GroupsList() {
     isLoading: isGroupsLoading,
     error,
   } = useQuery({
-    queryKey: [QueryKeys.GROUPS],
-    queryFn: getAllGroupsWithBalances,
+    queryKey: [QueryKeys.GROUPS, "PERSONAL"],
+    queryFn: () => getAllGroupsWithBalances({ type: "PERSONAL" }),
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();

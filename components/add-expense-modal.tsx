@@ -65,11 +65,16 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 function useAllChainsTokens() {
   const [options, setOptions] = useState<Option[]>([]);
   useEffect(() => {
+    let cancelled = false;
     fetch(`${API_URL}/api/multichain/all-chains-tokens`, {
       credentials: "include",
     })
-      .then((res) => res.json())
+      .then((res) => {
+        if (!res.ok) return null;
+        return res.json();
+      })
       .then((data: any) => {
+        if (cancelled || data == null) return;
         const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
         const opts: Option[] = [];
         chains.forEach((chain: any) => {
@@ -84,7 +89,13 @@ function useAllChainsTokens() {
           });
         });
         setOptions(opts);
+      })
+      .catch(() => {
+        if (!cancelled) setOptions([]);
       });
+    return () => {
+      cancelled = true;
+    };
   }, []);
   return options;
 }

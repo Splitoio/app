@@ -62,12 +62,8 @@ apiClient.interceptors.request.use(
       // Only redirect for authenticated routes
       const isPublicRoute = PUBLIC_ROUTES.some((route) => url.includes(route));
 
-      // For non-public routes, check token but don't redirect here
-      // Instead, let the 401 response trigger the redirect
-      if (!sessionToken && !isPublicRoute && typeof window !== "undefined") {
-        console.log("No session token for protected route:", url);
-        // We'll let the request go through and fail with 401
-      }
+      // For non-public routes we rely on backend 401 if session is missing.
+      // Note: better-auth uses httpOnly cookies, so sessionToken may be empty here.
     }
 
     return config;
@@ -81,9 +77,14 @@ apiClient.interceptors.request.use(
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    const hasNoResponse = !error.response || error.code === "ERR_EMPTY_RESPONSE" || error.message === "Network Error";
+    const body = error.response?.data;
+    const message = hasNoResponse
+      ? "Server closed the connection. Ensure the backend is running and run: npx prisma migrate deploy"
+      : (body?.details ?? body?.error ?? body?.message ?? "Unknown error");
     const normalizedError: ApiError = {
       code: error.response?.status || 500,
-      message: error.response?.data?.error || "Unknown error",
+      message,
       data: error.response?.data,
       name: error.response?.data?.name || "ApiError",
     };
