@@ -16,7 +16,6 @@ export type InvoiceForEdit = {
   dueDate: string | Date;
   description: string | null;
   imageUrl: string | null;
-  recipient?: { id: string; name: string | null; email: string | null };
 };
 
 interface EditInvoiceModalProps {
@@ -113,12 +112,6 @@ export function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess }: EditIn
         <div className="relative z-10 bg-black rounded-3xl w-full max-w-lg border border-white/70 p-8" onClick={(e) => e.stopPropagation()}>
           <h2 className="text-xl font-semibold text-white mb-6">Edit Invoice</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-base text-white/70 mb-1">Recipient (read-only)</label>
-              <p className="text-base text-white">
-                {invoice.recipient?.name || invoice.recipient?.email || "—"}
-              </p>
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-base text-white mb-2">Amount</label>

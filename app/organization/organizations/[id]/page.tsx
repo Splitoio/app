@@ -146,13 +146,15 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setIsAddInvoiceModalOpen(true)}
-            className="flex items-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-sm font-medium hover:bg-white/90"
-          >
-            <Plus className="h-4 w-4" />
-            <span>Raise Invoice</span>
-          </button>
+          {!isAdmin && (
+            <button
+              onClick={() => setIsAddInvoiceModalOpen(true)}
+              className="flex items-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-sm font-medium hover:bg-white/90"
+            >
+              <Plus className="h-4 w-4" />
+              <span>Raise Invoice</span>
+            </button>
+          )}
           <button onClick={() => setIsSettingsModalOpen(true)} className="h-10 w-10 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:text-white">
             <Settings className="h-5 w-5" />
           </button>
@@ -217,7 +219,7 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
                       )}
                       <div className="min-w-0">
                         <p className="text-white font-medium">
-                          {inv.recipient?.name || inv.recipient?.email || "Member"} — {formatCurrencyLocal(inv.amount, inv.currency)}
+                          {inv.issuer?.name || inv.issuer?.email || "Member"} — {formatCurrencyLocal(inv.amount, inv.currency)}
                         </p>
                         <p className="text-white/60 text-sm">
                           Due {new Date(inv.dueDate).toLocaleDateString()} · {inv.status}
@@ -275,7 +277,6 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
                                 dueDate: inv.dueDate,
                                 description: inv.description ?? null,
                                 imageUrl: inv.imageUrl ?? null,
-                                recipient: inv.recipient,
                               })
                             }
                             className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm"
@@ -303,10 +304,15 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
                 ))
               ) : (
                 <div className="text-center py-12 text-white/60">
-                  No invoices yet.{" "}
-                  <button onClick={() => setIsAddInvoiceModalOpen(true)} className="text-white hover:underline">
-                    Raise an invoice
-                  </button>
+                  No invoices yet.
+                  {!isAdmin && (
+                    <>
+                      {" "}
+                      <button onClick={() => setIsAddInvoiceModalOpen(true)} className="text-white hover:underline">
+                        Raise an invoice
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
@@ -391,7 +397,6 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
         isOpen={isAddInvoiceModalOpen}
         onClose={() => setIsAddInvoiceModalOpen(false)}
         organizationId={organizationId}
-        members={members}
       />
       <AddMemberModal isOpen={isAddMemberModalOpen} onClose={() => setIsAddMemberModalOpen(false)} groupId={organizationId} />
 

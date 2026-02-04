@@ -4,7 +4,6 @@ import { useState, useRef } from "react";
 import Image from "next/image";
 import { useCreateInvoice } from "@/features/business/hooks/use-invoices";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
-import { useAuthStore } from "@/stores/authStore";
 import { Loader2, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -14,16 +13,13 @@ interface AddInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   organizationId: string;
-  members: { id: string; name: string | null; image: string | null; email: string | null }[];
 }
 
-export function AddInvoiceModal({ isOpen, onClose, organizationId, members }: AddInvoiceModalProps) {
-  const { user } = useAuthStore();
+export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceModalProps) {
   const createInvoiceMutation = useCreateInvoice();
   const uploadFileMutation = useUploadFile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [formData, setFormData] = useState({
-    recipientId: "",
     amount: "",
     currency: "USD",
     dueDate: "",
@@ -46,10 +42,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, members }: Ad
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const amount = parseFloat(formData.amount);
-    if (!formData.recipientId) {
-      toast.error("Please select a recipient");
-      return;
-    }
     if (!formData.amount || isNaN(amount) || amount <= 0) {
       toast.error("Please enter a valid amount");
       return;
@@ -61,7 +53,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, members }: Ad
     createInvoiceMutation.mutate(
       {
         organizationId,
-        recipientId: formData.recipientId,
         amount,
         currency: formData.currency,
         dueDate: formData.dueDate,
@@ -71,7 +62,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, members }: Ad
       {
         onSuccess: () => {
           toast.success("Invoice created");
-          setFormData({ recipientId: "", amount: "", currency: "USD", dueDate: "", description: "", imageUrl: "" });
+          setFormData({ amount: "", currency: "USD", dueDate: "", description: "", imageUrl: "" });
           onClose();
         },
         onError: (err: { message?: string }) => {
@@ -83,8 +74,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, members }: Ad
 
   if (!isOpen) return null;
 
-  const otherMembers = members.filter((m) => m.id !== user?.id);
-
   return (
     <AnimatePresence>
       <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...fadeIn}>
@@ -92,22 +81,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, members }: Ad
         <div className="relative z-10 bg-black rounded-3xl w-full max-w-lg border border-white/70 p-8" onClick={(e) => e.stopPropagation()}>
           <h2 className="text-xl font-semibold text-white mb-6">Raise Invoice</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div>
-              <label className="block text-base text-white mb-2">Recipient (Member)</label>
-              <select
-                value={formData.recipientId}
-                onChange={(e) => setFormData((p) => ({ ...p, recipientId: e.target.value }))}
-                className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                required
-              >
-                <option value="">Select member</option>
-                {otherMembers.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name || m.email || m.id}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-base text-white mb-2">Amount</label>

@@ -43,7 +43,7 @@ export const InvoiceSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   issuerId: z.string(),
-  recipientId: z.string(),
+  recipientId: z.string().nullable(),
   amount: z.number(),
   currency: z.string(),
   status: InvoiceStatusSchema,
@@ -54,7 +54,7 @@ export const InvoiceSchema = z.object({
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   issuer: z.object({ id: z.string(), name: z.string().nullable(), image: z.string().nullable(), email: z.string().nullable() }).optional(),
-  recipient: z.object({ id: z.string(), name: z.string().nullable(), image: z.string().nullable(), email: z.string().nullable() }).optional(),
+  recipient: z.object({ id: z.string(), name: z.string().nullable(), image: z.string().nullable(), email: z.string().nullable() }).optional().nullable(),
   organization: z.object({ id: z.string(), name: z.string() }).optional(),
 });
 
@@ -105,7 +105,6 @@ export const getOrganizationById = async (organizationId: string) => {
 
 export const createInvoice = async (payload: {
   organizationId: string;
-  recipientId: string;
   amount: number;
   currency: string;
   dueDate: string;
