@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { format } from "date-fns";
+import dayjs from "dayjs";
 import { 
   useGetReceipts, 
   useUpdateReceiptStatus, 
@@ -127,7 +127,7 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({
             <div className="flex-grow min-w-0">
               <h4 className="text-white font-medium truncate">{receipt.description}</h4>
               <p className="text-white/60 text-sm">
-                Submitted by {receipt.submittedBy.name} on {format(new Date(receipt.createdAt), "MMM d, yyyy")}
+                Submitted by {receipt.submittedBy.name} on {dayjs(receipt.createdAt).format("MMM D, YYYY")}
               </p>
               <div className="flex items-center gap-2 mt-2">
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(receipt.status)}`}>

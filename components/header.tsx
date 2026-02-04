@@ -1,6 +1,6 @@
 "use client";
 
-import { Menu, User, Wallet, Settings } from "lucide-react";
+import { Menu, User, Settings } from "lucide-react";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 // import { useWallet } from "@/hooks/useWallet";
 import { AddressDisplay } from "@/components/address-display";
@@ -10,7 +10,7 @@ import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
 
 export function Header() {
-  const { isOpen, toggle } = useMobileMenu();
+  const { toggle } = useMobileMenu();
   // const { isConnected, isConnecting, address, connectWallet } = useWallet();
 
   // const handleWalletClick = () => {

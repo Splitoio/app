@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Loader2, ChevronDown, MinusCircle } from "lucide-react";
+import { X, Loader2, ChevronDown } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
@@ -10,7 +10,6 @@ import { GroupBalance, User } from "@/api-helpers/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 import { useQueryClient } from "@tanstack/react-query";
-import { QueryKeys } from "@/lib/constants";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
@@ -21,16 +20,6 @@ import { useQuery } from "@tanstack/react-query";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
-
-// Define a type for friend data coming from the API
-interface FriendWithBalances {
-  id: string;
-  name: string;
-  email: string;
-  image: string | null;
-  balances: Array<{ currency: string; amount: number }>;
-  stellarAccount?: string | null;
-}
 
 interface SettleDebtsModalProps {
   isOpen: boolean;
@@ -50,7 +39,7 @@ export function SettleDebtsModal({
   onClose,
   balances = [],
   groupId = "",
-  members = [],
+  members: _members = [],
   showIndividualView = false,
   selectedFriendId = null,
   defaultCurrency,
@@ -60,16 +49,16 @@ export function SettleDebtsModal({
   const user = useAuthStore((state) => state.user);
   const {
     isConnected: walletConnected,
-    isConnecting,
+    isConnecting: _isConnecting,
     connectWallet,
     wallet,
     aptosWallet,
     address,
-    walletType,
+    walletType: _walletType,
   } = useWallet();
   const [selectedToken, setSelectedToken] = useState<TokenOption | null>(null);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
-  const [excludedFriendIds, setExcludedFriendIds] = useState<string[]>([]);
+  const [_excludedFriendIds, setExcludedFriendIds] = useState<string[]>([]);
   const [totalAmount, setTotalAmount] = useState("0");
   const [individualAmount, setIndividualAmount] = useState("0");
   const [selectedChain, setSelectedChain] = useState<string | null>(null);
@@ -81,9 +70,9 @@ export function SettleDebtsModal({
   const [totalTokenAmount, setTotalTokenAmount] = useState("0"); // Total token amount for all currencies
 
   const settleDebtMutation = useSettleDebt(groupId);
-  const queryClient = useQueryClient();
+  const _queryClient = useQueryClient();
   const { data: friends } = useGetFriends();
-  const { data: groups } = useGetAllGroups();
+  const { data: _groups } = useGetAllGroups();
   const { data: balanceData } = useBalances();
   const { data: organizedCurrencies } = useOrganizedCurrencies();
   const { data: walletData } = useUserWallets();
@@ -110,7 +99,7 @@ export function SettleDebtsModal({
   };
 
   const calculateTotalDebtsFromBalances = (balancesData: Record<string, number>) => {
-    const total = Object.entries(balancesData).reduce((total, [currency, amount]) => {
+    const total = Object.entries(balancesData).reduce((total, [_currency, amount]) => {
       // Only include positive amounts (debts we owe)
       if (amount > 0) {
         return total + amount;
@@ -122,7 +111,7 @@ export function SettleDebtsModal({
 
   const getDebtCurrencies = (balancesData: Record<string, number>) => {
     const result = Object.entries(balancesData)
-      .filter(([currency, amount]) => amount > 0)
+      .filter(([_currency, amount]) => amount > 0)
       .map(([currency, amount]) => ({ currency, amount }));
     return result;
   };
@@ -187,12 +176,16 @@ export function SettleDebtsModal({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Multi-currency pricing for group settlements
-  const groupBalancesObj = balances && typeof balances === 'object' && !Array.isArray(balances) 
-    ? balances as Record<string, number>
-    : balances && Array.isArray(balances) && user
-    ? transformGroupBalancesToCurrencyMap(balances as GroupBalance[], user.id)
-    : {};
+  // Multi-currency pricing for group settlements (memoized to stabilize useMemo deps below)
+  const groupBalancesObj = useMemo(() => {
+    if (balances && typeof balances === "object" && !Array.isArray(balances)) {
+      return balances as Record<string, number>;
+    }
+    if (balances && Array.isArray(balances) && user) {
+      return transformGroupBalancesToCurrencyMap(balances as GroupBalance[], user.id);
+    }
+    return {};
+  }, [balances, user]);
 
   // Memoize group debt currencies to prevent infinite loops
   const groupDebtCurrencies = useMemo(() => {
@@ -222,12 +215,12 @@ export function SettleDebtsModal({
     if (!organizedCurrencies) return currencyId;
     
     // Check fiat currencies first
-    const fiatCurrency = organizedCurrencies.fiatCurrencies?.find((c: any) => c.id === currencyId);
+    const fiatCurrency = organizedCurrencies.fiatCurrencies?.find((c: { id?: string }) => c.id === currencyId);
     if (fiatCurrency) return fiatCurrency.symbol;
     
     // Check chain groups for crypto currencies
     for (const chainGroup of Object.values(organizedCurrencies.chainGroups || {})) {
-      const cryptoCurrency = chainGroup.find((c: any) => c.id === currencyId);
+      const cryptoCurrency = chainGroup.find((c: { id?: string; symbol?: string }) => c.id === currencyId);
       if (cryptoCurrency) return cryptoCurrency.symbol;
     }
     
@@ -251,7 +244,7 @@ export function SettleDebtsModal({
   // Set the selected user based on selectedFriendId prop
   useEffect(() => {
     if (selectedFriendId && friends) {
-      const friend = friends.find((friend: any) => friend.id === selectedFriendId);
+      const friend = friends.find((f: { id: string }) => f.id === selectedFriendId);
       if (friend) {
         setSelectedUser(friend as unknown as User);
 
@@ -296,6 +289,7 @@ export function SettleDebtsModal({
     } else if (!showIndividualView) {
       setSelectedUser(null);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- omit defaultCurrency to avoid unnecessary re-runs
   }, [selectedFriendId, friends, showIndividualView, specificAmount, specificDebtByCurrency]);
 
   // Calculate total debts across all groups on mount and when data changes
@@ -311,9 +305,11 @@ export function SettleDebtsModal({
     //   const totalOwed = calculateTotalDebts(friends as FriendWithBalances[]);
     //   setTotalAmount(totalOwed.toFixed(2));
     // }
-  }, [balanceData, balances, groupId]); // Removed friends dependency
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit defaultCurrency to avoid re-running on currency change
+  }, [balanceData, balances, groupId]);
 
   // Fetch available tokens
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- omit selectedToken to avoid loop (we only run when !selectedToken)
   useEffect(() => {
     if (isOpen && organizedCurrencies && !selectedToken) {
       const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
@@ -348,6 +344,7 @@ export function SettleDebtsModal({
         });
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- selectedToken intentionally omitted to avoid loop
   }, [isOpen, organizedCurrencies, defaultCurrency, specificDebtByCurrency]);
 
   // Update individualAmount when selectedUser changes
@@ -371,7 +368,8 @@ export function SettleDebtsModal({
         setIndividualAmount("0");
       }
     }
-  }, [selectedUser, specificAmount, specificDebtByCurrency]); // Updated dependencies
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- omit selectedToken to avoid loops
+  }, [selectedUser, specificAmount, specificDebtByCurrency]);
 
   // Update token amount when pricing data is available
   useEffect(() => {
@@ -462,7 +460,7 @@ export function SettleDebtsModal({
 
     } else if (showIndividualView && multiCurrencyPricing && groupDebtCurrencies.length > 0) {
       const debtsWithTokenAmounts = groupDebtCurrencies.map(debt => {
-        const pricingEntry = multiCurrencyPricing?.find((p: any) => p.currency === debt.currency);
+        const pricingEntry = multiCurrencyPricing?.find((p: { currency: string; price?: number }) => p.currency === debt.currency);
         if (!pricingEntry || !pricingEntry.price) {
           return { ...debt, tokenAmount: 0 };
         }
@@ -487,6 +485,7 @@ export function SettleDebtsModal({
         setTotalTokenAmount(totalTokens.toFixed(6));
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- groupBalancesObj/multiCurrencyDebts are derived; omit to avoid loops
   }, [multiCurrencyPricing, groupDebtCurrencies, showIndividualView, selectedToken?.id]);
 
   // When fiat amount changes, update individual amount for compatibility
@@ -538,6 +537,7 @@ export function SettleDebtsModal({
         });
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when selectedChain changes to avoid loops
   }, [selectedChain]);
 
   // Calculate remaining total after excluding friends
@@ -561,7 +561,7 @@ export function SettleDebtsModal({
   };
 
   // Toggle excluding a friend from settlement
-  const toggleExcludeFriend = (friendId: string) => {
+  const _toggleExcludeFriend = (friendId: string) => {
     setExcludedFriendIds((prev) => {
       if (prev.includes(friendId)) {
         return prev.filter((id) => id !== friendId);
@@ -616,7 +616,7 @@ export function SettleDebtsModal({
 
   // Helper to check if we can proceed with settlement
   const canProceedWithSettlement = () => {
-    const result = {
+    const _result = {
       aptos: selectedChain === 'aptos' ? {
         connected: aptosWallet.connected,
         hasAddress: !!aptosWallet.account?.address,
@@ -737,7 +737,7 @@ export function SettleDebtsModal({
         onClose();
         toast.success("Successfully settled debts");
       },
-      onError: (err) => {
+      onError: (_err) => {
         toast.error("Failed to settle debts", {
           description: "Please try again or check your wallet connection.",
         });
@@ -762,7 +762,7 @@ export function SettleDebtsModal({
     : {};
 
   // Check if there are any debts to settle for the selected user
-  const hasDebtsToSettle = Object.values(selectedUserDebtByCurrency).some(amount => amount !== 0);
+  const _hasDebtsToSettle = Object.values(selectedUserDebtByCurrency).some(amount => amount !== 0);
 
   // Calculate the remaining total after exclusions
   const remainingTotal = calculateRemainingTotal();

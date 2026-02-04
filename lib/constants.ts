@@ -1,3 +1,5 @@
+import type { QueryClient } from "@tanstack/react-query";
+
 export const QueryKeys = {
   AUTH: "auth",
   GROUPS: "groups",
@@ -14,7 +16,7 @@ export const QueryKeys = {
 } as const;
 
 // Utility function to invalidate all relevant caches after settlement
-export const invalidateSettlementCaches = (queryClient: any, groupId?: string) => {
+export const invalidateSettlementCaches = (queryClient: QueryClient, groupId?: string) => {
   const queriesToInvalidate: (string | string[])[] = [
     [QueryKeys.BALANCES],
     [QueryKeys.GROUPS],
@@ -28,9 +30,10 @@ export const invalidateSettlementCaches = (queryClient: any, groupId?: string) =
     queriesToInvalidate.push([QueryKeys.GROUPS, groupId]);
   }
 
-  // Invalidate all queries
+  // Invalidate all queries (queryKey must be an array for QueryClient)
   queriesToInvalidate.forEach(queryKey => {
-    queryClient.invalidateQueries({ queryKey });
+    const key = Array.isArray(queryKey) ? queryKey : [queryKey];
+    queryClient.invalidateQueries({ queryKey: key });
   });
 
   // Force refetch critical queries

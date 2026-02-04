@@ -1,4 +1,5 @@
 import React from "react";
+import Image from "next/image";
 import { X, ZoomIn, ZoomOut, RotateCw } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -79,12 +80,16 @@ export const ReceiptImageModal: React.FC<ReceiptImageModalProps> = ({
               pointerEvents: 'auto'
             }}
           >
-            <img
-              src={imageUrl}
-              alt={description}
-              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg shadow-2xl"
-              style={{ cursor: scale > 1 ? 'grab' : 'default' }}
-            />
+            <div className="relative max-w-[90vw] max-h-[85vh] w-full h-[85vh] min-h-[200px]">
+              <Image
+                src={imageUrl}
+                alt={description}
+                fill
+                className="object-contain rounded-lg shadow-2xl"
+                style={{ cursor: scale > 1 ? "grab" : "default" }}
+                unoptimized
+              />
+            </div>
           </div>
         </motion.div>
 
