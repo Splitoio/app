@@ -25,17 +25,19 @@ export const useCreateGroup = () => {
   });
 };
 
-export const useGetAllGroups = () => {
+export const useGetAllGroups = (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
+  const type = params?.type ?? "PERSONAL";
   return useQuery({
-    queryKey: [QueryKeys.GROUPS],
-    queryFn: getAllGroups,
+    queryKey: [QueryKeys.GROUPS, type],
+    queryFn: () => getAllGroups({ type }),
   });
 };
 
-export const useGetAllGroupsWithBalances = () => {
+export const useGetAllGroupsWithBalances = (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
+  const type = params?.type ?? "PERSONAL";
   return useQuery({
-    queryKey: [QueryKeys.BALANCES],
-    queryFn: getAllGroupsWithBalances,
+    queryKey: [QueryKeys.BALANCES, type],
+    queryFn: () => getAllGroupsWithBalances({ type }),
   });
 };
 
@@ -70,10 +72,15 @@ export const useAddOrEditExpense = () => {
   });
 };
 
-export const useGetGroupById = (groupId: string) => {
+export const useGetGroupById = (
+  groupId: string,
+  options?: { type?: "PERSONAL" | "BUSINESS" }
+) => {
+  const type = options?.type;
   return useQuery({
-    queryKey: [QueryKeys.GROUPS, groupId],
-    queryFn: () => getGroupById(groupId),
+    queryKey: [QueryKeys.GROUPS, groupId, type],
+    queryFn: () => getGroupById(groupId, { type }),
+    enabled: !!groupId,
   });
 };
 
@@ -101,6 +108,7 @@ export const useDeleteGroup = () => {
     mutationFn: deleteGroup,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS] });
     },
     onError: (error: any) => {
       // Check for uncleared dues error - this assumes the API returns a specific message

@@ -13,6 +13,7 @@ export const GroupSchema = z.object({
   defaultCurrency: z.string(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
+  type: z.enum(["PERSONAL", "BUSINESS"]).default("PERSONAL"),
   lockPrice: z.boolean(),
   groupBalances: z.array(
     z.object({
@@ -20,7 +21,7 @@ export const GroupSchema = z.object({
       amount: z.number(),
       userId: z.string(),
     })
-  ),
+  ).optional().default([]),
 });
 
 export type Group = z.infer<typeof GroupSchema>;

@@ -1,22 +1,10 @@
-import { Check, X } from "lucide-react";
 import Image from "next/image";
-import { useBalances } from "@/features/balances/hooks/use-balances";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { ApiError } from "@/types/api-error";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
-
-type Debt = {
-  amount: number;
-  from: string;
-  to: string;
-};
-
-type TransactionListProps = {
-  currentUserAddress: string | null;
-};
 
 export function TransactionList() {
   const router = useRouter();

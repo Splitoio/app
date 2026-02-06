@@ -41,7 +41,7 @@ export default function GroupDetailsPage({
 }) {
   const { user } = useAuthStore();
   const groupId = params.id;
-  const { data: group, isLoading } = useGetGroupById(groupId);
+  const { data: group, isLoading } = useGetGroupById(groupId, { type: "PERSONAL" });
   const { address } = useWallet();
   const router = useRouter();
   const { sendReminder, isSending } = useReminders();

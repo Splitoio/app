@@ -84,16 +84,16 @@ export function TransactionRequestList({
       {reminders.map((reminder) => {
         // Get amount from split if available, otherwise try to get from content or balances
         const amount = reminder.split?.amount || reminder.amount || 0;
-        let requestText = "Request pending";
+        let _requestText = "Request pending";
         if (reminder.split) {
-          requestText = `Requested ${formatCurrency(amount)}`;
+          _requestText = `Requested ${formatCurrency(amount)}`;
         } else if (reminder.reminderType === "USER") {
           if (amount > 0) {
-            requestText = `Requested ${formatCurrency(amount)}`;
+            _requestText = `Requested ${formatCurrency(amount)}`;
           } else if (reminder.content) {
-            requestText = reminder.content;
+            _requestText = reminder.content;
           } else {
-            requestText = "Requested payment";
+            _requestText = "Requested payment";
           }
         }
 

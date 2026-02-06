@@ -14,16 +14,16 @@ export const GenericResponseSchema = z.object({
   success: z.boolean(),
 });
 
-export const GetAllGroupsScheama = z.object({
+export const GetAllGroupsSchema = z.object({
   ...GroupSchema.shape,
 
   createdBy: z.object({
     id: z.string(),
     name: z.string(),
   }),
-  groupBalances: z.array(GroupBalanceSchema),
-  groupUsers: z.array(GroupUserSchema),
-  expenses: z.array(ExpenseSchema),
+  groupBalances: z.array(GroupBalanceSchema).optional().default([]),
+  groupUsers: z.array(z.any()).optional().default([]),
+  expenses: z.array(ExpenseSchema).optional().default([]),
 });
 
 export const DetailGroupSchema = z.object({
@@ -48,30 +48,30 @@ export const createGroup = async (payload: {
   description?: string;
   currency?: string;
   imageUrl?: string;
+  type?: "PERSONAL" | "BUSINESS";
 }) => {
   const response = await apiClient.post("/groups", payload);
   return GroupSchema.parse(response);
 };
 
-export const getAllGroups = async () => {
-  const response = await apiClient.get("/groups");
+export const getAllGroups = async (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
+  const response = await apiClient.get("/groups", { params });
   console.log(response);
-  return GetAllGroupsScheama.array().parse(response);
+  return GetAllGroupsSchema.array().parse(response);
 };
 
-export const getGroupById = async (groupId: string) => {
-  const response = await apiClient.get(`/groups/${groupId}`);
-  console.log(
-    response,
-    DetailGroupSchema.safeParse(response).success,
-    DetailGroupSchema.safeParse(response).error,
-    DetailGroupSchema.safeParse(response).data
-  );
+export const getGroupById = async (
+  groupId: string,
+  options?: { type?: "PERSONAL" | "BUSINESS" }
+) => {
+  const params = options?.type ? { type: options.type } : undefined;
+  const response = await apiClient.get(`/groups/${groupId}`, { params });
   return DetailGroupSchema.safeParse(response).data;
 };
 
-export const getAllGroupsWithBalances = async () => {
-  const response = await apiClient.get("/groups/balances");
+export const getAllGroupsWithBalances = async (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
+  const query = params?.type ? { type: params.type } : undefined;
+  const response = await apiClient.get("/groups/balances", { params: query });
   return GroupSchema.array().parse(response);
 };
 

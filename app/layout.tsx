@@ -20,7 +20,7 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const isAuthPage = usePathname().match(/^\/login|^\/signup/);
+  const isAuthPage = usePathname()?.match(/^\/login|^\/signup/);
 
   return (
     <html lang="en">
