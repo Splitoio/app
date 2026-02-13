@@ -205,6 +205,7 @@ export default function GroupDetailsPage({
   if (!group) return null;
   if (!user) return null;
 
+  const isAdmin = group.createdBy?.id === user.id;
   const expenses = group?.expenses;
 
   return (
@@ -228,7 +229,7 @@ export default function GroupDetailsPage({
             }`}
             onClick={() => setActiveTab("splits")}
           >
-            Splits
+            Expenses
           </button>
           <button
             className={`px-4 sm:px-6 py-1.5 sm:py-2 text-mobile-base sm:text-lg font-medium transition-colors rounded-full ${
@@ -251,26 +252,35 @@ export default function GroupDetailsPage({
             Members
           </button>
 
-          {/* Add Member Button - Always visible now */}
-          <div className="ml-auto flex items-center">
-            <button
-              onClick={() => {
-                setIsAddingMember(true);
-                setIsAddMemberModalOpen(true);
-              }}
-              disabled={isAddingMember}
-              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full text-white hover:bg-white/5 h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-base transition-colors"
-            >
-              <Image
-                alt="Add Member"
-                src="/plus-sign-circle.svg"
-                width={14}
-                height={14}
-                className="w-4 h-4 sm:w-5 sm:h-5"
-              />
-              <span className="text-mobile-sm sm:text-base">Add Member</span>
-            </button>
-          </div>
+          {/* Add Member and Settings - right side (admin only) */}
+          {isAdmin && (
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                onClick={() => {
+                  setIsAddingMember(true);
+                  setIsAddMemberModalOpen(true);
+                }}
+                disabled={isAddingMember}
+                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full text-white hover:bg-white/5 h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-base transition-colors"
+              >
+                <Image
+                  alt="Add Member"
+                  src="/plus-sign-circle.svg"
+                  width={14}
+                  height={14}
+                  className="w-4 h-4 sm:w-5 sm:h-5"
+                />
+                <span className="text-mobile-sm sm:text-base">Add Member</span>
+              </button>
+              <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                className="flex h-8 w-8 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-colors"
+                aria-label="Group Settings"
+              >
+                <Settings className="h-4 w-4 sm:h-5 sm:w-5" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Tab Content */}
@@ -340,12 +350,12 @@ export default function GroupDetailsPage({
                 if (currentUserBalances.length === 0) {
                   return (
                     <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
-                      Start by adding your first split
+                      Start by adding your first expense
                       <Button
                         onClick={() => setIsAddExpenseModalOpen(true)}
                         className="mt-4"
                       >
-                        Add Split
+                        Add Expense
                       </Button>
                     </div>
                   );
@@ -465,7 +475,7 @@ export default function GroupDetailsPage({
                               >
                                 <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
                                 <span className="hidden sm:inline">
-                                  {isSending ? "Sending..." : "Send a Reminder"}
+                                  {isSending ? "Sending..." : "Notify"}
                                 </span>
                               </button>
                             )}

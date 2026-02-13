@@ -42,7 +42,7 @@ export default function GroupsPage() {
     };
   }, [user, router]);
 
-  // Function to handle clicking the "Add Group" button
+  // Function to handle clicking the "Create app" button
   const handleAddGroupClick = () => {
     // Check if user has a connected wallet
     // if (!user?.stellarAccount) {
@@ -83,13 +83,13 @@ export default function GroupsPage() {
             className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-all"
           >
             <Image
-              alt="Add Group"
+              alt="Create app"
               src="/plus-sign-circle.svg"
               width={20}
               height={20}
               className="h-4 w-4 sm:h-5 sm:w-5 invert"
             />
-            <span>Add Group</span>
+            <span>Create app</span>
           </button>
           <button
             onClick={handleProfileClick}

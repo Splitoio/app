@@ -15,6 +15,13 @@ import {
   useClearInvoice,
   useGetOrganizationActivity,
 } from "@/features/business/hooks/use-invoices";
+import {
+  useGetStreamsByOrganization,
+  useCreateStream,
+  useUpdateStream,
+  useDeleteStream,
+} from "@/features/business/hooks/use-streams";
+import type { IncomeStream } from "@/features/business/api/client";
 import { AddInvoiceModal } from "@/components/add-invoice-modal";
 import { EditInvoiceModal, type InvoiceForEdit } from "@/components/edit-invoice-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
@@ -31,17 +38,27 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
   const { user } = useAuthStore();
   const router = useRouter();
   const { data: group, isLoading } = useGetGroupById(organizationId, { type: "BUSINESS" });
+  const isAdmin =
+    group != null &&
+    user != null &&
+    (group.userId === user.id || (group as { createdBy?: { id: string } }).createdBy?.id === user.id);
   const { data: invoices = [], isLoading: isInvoicesLoading } = useGetInvoicesByOrganization(organizationId);
   const { data: activities = [], isLoading: isActivityLoading } = useGetOrganizationActivity(organizationId);
+  const { data: streams = [], isLoading: isStreamsLoading } = useGetStreamsByOrganization(organizationId, {
+    enabled: isAdmin,
+  });
   const [isAddInvoiceModalOpen, setIsAddInvoiceModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [declineInvoiceId, setDeclineInvoiceId] = useState<string | null>(null);
   const [declineNote, setDeclineNote] = useState("");
-  const [activeTab, setActiveTab] = useState<"invoices" | "members" | "activity">("invoices");
+  const [activeTab, setActiveTab] = useState<"invoices" | "members" | "activity" | "streams">("invoices");
   const [groupSettings, setGroupSettings] = useState({ name: "", currency: "USD" });
   const [expandedImage, setExpandedImage] = useState<{ url: string; description: string } | null>(null);
   const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceForEdit | null>(null);
+  const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
+  const [streamToEdit, setStreamToEdit] = useState<IncomeStream | null>(null);
+  const [streamForm, setStreamForm] = useState({ name: "", currency: "USD", expectedAmount: "" as string | number, description: "" });
 
   useEffect(() => {
     if (group) {
@@ -53,6 +70,12 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
     }
   }, [group]);
 
+  useEffect(() => {
+    if (!group || !user) return;
+    const admin = group.userId === user.id || (group as { createdBy?: { id: string } }).createdBy?.id === user.id;
+    if (!admin && activeTab === "streams") setActiveTab("invoices");
+  }, [group, user, activeTab]);
+
   const deleteGroupMutation = useDeleteGroup();
   const updateGroupMutation = useUpdateGroup();
   const updateInvoiceMutation = useUpdateInvoice();
@@ -60,6 +83,9 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
   const approveInvoiceMutation = useApproveInvoice();
   const declineInvoiceMutation = useDeclineInvoice();
   const clearInvoiceMutation = useClearInvoice();
+  const createStreamMutation = useCreateStream();
+  const updateStreamMutation = useUpdateStream();
+  const deleteStreamMutation = useDeleteStream();
 
   const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
 
@@ -87,6 +113,69 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
     );
   };
 
+  const openAddStreamModal = () => {
+    setStreamToEdit(null);
+    setStreamForm({ name: "", currency: "USD", expectedAmount: "", description: "" });
+    setIsStreamModalOpen(true);
+  };
+
+  const openEditStreamModal = (stream: IncomeStream) => {
+    setStreamToEdit(stream);
+    setStreamForm({
+      name: stream.name,
+      currency: stream.currency,
+      expectedAmount: stream.expectedAmount ?? "",
+      description: stream.description ?? "",
+    });
+    setIsStreamModalOpen(true);
+  };
+
+  const handleStreamSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const expectedNum = streamForm.expectedAmount === "" ? null : Number(streamForm.expectedAmount);
+    if (streamToEdit) {
+      updateStreamMutation.mutate(
+        {
+          organizationId,
+          streamId: streamToEdit.id,
+          payload: {
+            name: streamForm.name.trim(),
+            currency: streamForm.currency,
+            expectedAmount: expectedNum,
+            description: streamForm.description.trim() || null,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success("Stream updated");
+            setIsStreamModalOpen(false);
+            setStreamToEdit(null);
+          },
+          onError: () => toast.error("Failed to update stream"),
+        }
+      );
+    } else {
+      createStreamMutation.mutate(
+        {
+          organizationId,
+          payload: {
+            name: streamForm.name.trim(),
+            currency: streamForm.currency,
+            expectedAmount: expectedNum ?? undefined,
+            description: streamForm.description.trim() || undefined,
+          },
+        },
+        {
+          onSuccess: () => {
+            toast.success("Stream added");
+            setIsStreamModalOpen(false);
+          },
+          onError: () => toast.error("Failed to add stream"),
+        }
+      );
+    }
+  };
+
   const handleRemoveMember = async (memberId: string) => {
     try {
       const res = await fetch(`${BACKEND_URL}/api/groups/${organizationId}/members/${memberId}`, { method: "DELETE", credentials: "include" });
@@ -108,7 +197,6 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
   if (!group || !user) return null;
 
   const members = (group.groupUsers || []).map((gu: { user: { id: string; name: string | null; image: string | null; email: string | null } }) => gu.user);
-  const isAdmin = group.userId === user.id || (group as { createdBy?: { id: string } }).createdBy?.id === user.id;
 
   const activityLabel = (type: string) => {
     switch (type) {
@@ -155,9 +243,11 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
               <span>Raise Invoice</span>
             </button>
           )}
-          <button onClick={() => setIsSettingsModalOpen(true)} className="h-10 w-10 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:text-white">
-            <Settings className="h-5 w-5" />
-          </button>
+          {isAdmin && (
+            <button onClick={() => setIsSettingsModalOpen(true)} className="h-10 w-10 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:text-white">
+              <Settings className="h-5 w-5" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -169,6 +259,14 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
           >
             Invoices
           </button>
+          {isAdmin && (
+            <button
+              className={`px-4 sm:px-6 py-1.5 sm:py-2 text-mobile-base sm:text-lg font-medium transition-colors rounded-full ${activeTab === "streams" ? "bg-[#333] text-white" : "text-white/60 hover:text-white/80"}`}
+              onClick={() => setActiveTab("streams")}
+            >
+              Streams
+            </button>
+          )}
           <button
             className={`px-4 sm:px-6 py-1.5 sm:py-2 text-mobile-base sm:text-lg font-medium transition-colors rounded-full ${activeTab === "members" ? "bg-[#333] text-white" : "text-white/60 hover:text-white/80"}`}
             onClick={() => setActiveTab("members")}
@@ -181,15 +279,17 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
           >
             Activity
           </button>
-          <div className="ml-auto flex items-center">
-            <button
-              onClick={() => setIsAddMemberModalOpen(true)}
-              className="flex items-center gap-1 sm:gap-2 rounded-full text-white hover:bg-white/5 h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-base transition-colors"
-            >
-              <Image alt="Add Member" src="/plus-sign-circle.svg" width={14} height={14} className="w-4 h-4 sm:w-5 sm:h-5" />
-              <span>Add Member</span>
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="ml-auto flex items-center">
+              <button
+                onClick={() => setIsAddMemberModalOpen(true)}
+                className="flex items-center gap-1 sm:gap-2 rounded-full text-white hover:bg-white/5 h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-base transition-colors"
+              >
+                <Image alt="Add Member" src="/plus-sign-circle.svg" width={14} height={14} className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span>Add Member</span>
+              </button>
+            </div>
+          )}
         </div>
 
         <div className="p-4 sm:p-6">
@@ -390,6 +490,82 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
               )}
             </div>
           )}
+
+          {activeTab === "streams" && (
+            <div className="space-y-3 sm:space-y-4">
+              {!isAdmin ? (
+                <div className="text-center py-8 sm:py-12 text-white/60">
+                  Only the organization admin can view and manage income streams.
+                </div>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-mobile-lg sm:text-xl font-medium text-white">Income streams</h3>
+                    <button
+                      onClick={openAddStreamModal}
+                      className="flex items-center gap-2 rounded-full bg-white text-black h-9 sm:h-10 px-3 sm:px-4 text-sm font-medium hover:bg-white/90"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span>Add stream</span>
+                    </button>
+                  </div>
+                  {isStreamsLoading ? (
+                    <div className="flex justify-center py-8">
+                      <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+                    </div>
+                  ) : streams.length > 0 ? (
+                    <div className="space-y-2">
+                      {streams.map((stream) => (
+                        <div
+                          key={stream.id}
+                          className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-white/[0.02]"
+                        >
+                          <div className="min-w-0">
+                            <p className="text-white font-medium">{stream.name}</p>
+                            <p className="text-white/60 text-sm">
+                              {stream.expectedAmount != null
+                                ? `${formatCurrencyLocal(stream.expectedAmount, stream.currency)} expected`
+                                : stream.currency}
+                              {stream.description && ` · ${stream.description}`}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => openEditStreamModal(stream)}
+                              className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                deleteStreamMutation.mutate(
+                                  { organizationId, streamId: stream.id },
+                                  {
+                                    onSuccess: () => toast.success("Stream removed"),
+                                    onError: () => toast.error("Failed to remove stream"),
+                                  }
+                                )
+                              }
+                              disabled={deleteStreamMutation.isPending}
+                              className="rounded-full border border-red-500/50 px-3 py-1.5 text-red-400 hover:bg-red-500/10 text-sm"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-8 sm:py-12 text-white/60">
+                      No income streams yet. Add one to track money coming into the organization.
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -500,6 +676,76 @@ export default function OrganizationDetailPage({ params }: { params: { id: strin
         invoice={invoiceToEdit}
         onSuccess={() => setInvoiceToEdit(null)}
       />
+
+      {isStreamModalOpen && (
+        <div className="fixed inset-0 z-50 h-screen w-screen">
+          <div className="fixed inset-0 bg-black/80 brightness-50" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }} />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px] rounded-[20px] bg-black p-6 border border-white/20 z-10">
+            <h2 className="text-xl font-medium text-white mb-6">{streamToEdit ? "Edit stream" : "Add income stream"}</h2>
+            <form onSubmit={handleStreamSubmit} className="space-y-4">
+              <div>
+                <label className="block text-base text-white/80 mb-2">Name</label>
+                <input
+                  type="text"
+                  value={streamForm.name}
+                  onChange={(e) => setStreamForm((p) => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Client A, Product sales"
+                  className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-base text-white/80 mb-2">Currency</label>
+                <input
+                  type="text"
+                  value={streamForm.currency}
+                  onChange={(e) => setStreamForm((p) => ({ ...p, currency: e.target.value }))}
+                  placeholder="USD"
+                  className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-base text-white/80 mb-2">Expected amount (optional)</label>
+                <input
+                  type="number"
+                  step="any"
+                  min="0"
+                  value={streamForm.expectedAmount}
+                  onChange={(e) => setStreamForm((p) => ({ ...p, expectedAmount: e.target.value }))}
+                  placeholder="0"
+                  className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20"
+                />
+              </div>
+              <div>
+                <label className="block text-base text-white/80 mb-2">Description (optional)</label>
+                <input
+                  type="text"
+                  value={streamForm.description}
+                  onChange={(e) => setStreamForm((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="Notes"
+                  className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20"
+                />
+              </div>
+              <div className="flex justify-end gap-3 mt-6">
+                <button
+                  type="button"
+                  onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }}
+                  className="px-4 py-2 rounded-lg text-white/80 hover:text-white"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createStreamMutation.isPending || updateStreamMutation.isPending}
+                  className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 disabled:opacity-50"
+                >
+                  {streamToEdit ? (updateStreamMutation.isPending ? "Saving…" : "Save") : (createStreamMutation.isPending ? "Adding…" : "Add stream")}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

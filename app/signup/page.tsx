@@ -36,8 +36,7 @@ export default function SignupPage() {
       const { data, error } = await authClient.signUp.email({
         email: formData.email,
         password: formData.password,
-        name: formData.email,
-        callbackURL: "/dashboard",
+        callbackURL: "/",
       });
 
       if (error) {
