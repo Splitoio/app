@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
-import { Loader2, CreditCard, Wallet, Settings } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
@@ -208,26 +208,11 @@ export function GroupInfoHeader({
               </div>
             </button>
 
-            <button
-              onClick={onSettingsClick}
-              className="flex h-10 w-10 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
-              aria-label="Group Settings"
-            >
-              <Settings className="h-4 w-4" />
-            </button>
           </div>
         </div>
 
         {/* Horizontal layout for desktop */}
         <div className="hidden sm:flex items-center gap-3">
-          <button
-            onClick={onSettingsClick}
-            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/80 bg-transparent text-white hover:bg-white/5 transition-all"
-            aria-label="Group Settings"
-          >
-            <Settings className="h-5 w-5" />
-          </button>
-
           <div className="flex items-center gap-3">
             <button
               onClick={handleAddExpenseClick}

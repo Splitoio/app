@@ -2,10 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useQueries } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
-import { Loader2, Users2, UserPlus, Building2, FileText, Clock } from "lucide-react";
+import { getStreamsByOrganization } from "@/features/business/api/client";
+import { QueryKeys } from "@/lib/constants";
+import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 
 const viewAllButtonClass =
@@ -18,6 +21,22 @@ export default function OrganizationDashboardPage() {
   const orgIds = organizations.map((o) => o.id);
   const firstOrgId = orgIds[0];
   const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId || "");
+
+  const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
+  const streamQueries = useQueries({
+    queries: adminOrgIds.map((orgId) => ({
+      queryKey: [QueryKeys.STREAMS, orgId],
+      queryFn: () => getStreamsByOrganization(orgId),
+      enabled: !!orgId,
+    })),
+  });
+  const allStreams = streamQueries.flatMap((q) => q.data ?? []);
+  const streamsLoading = streamQueries.some((q) => q.isLoading);
+  const totalStreamsCount = allStreams.length;
+  const expectedUsd = allStreams
+    .filter((s) => s.currency === "USD" && s.expectedAmount != null)
+    .reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
+  const streamsWithAmount = allStreams.filter((s) => s.expectedAmount != null).length;
 
   const totalOutstanding = invoicesFirstOrg
     .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
@@ -74,49 +93,76 @@ export default function OrganizationDashboardPage() {
         </div>
       </div>
 
-      {/* Stats row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 mb-4 sm:mb-6">
-        <div className="rounded-xl sm:rounded-2xl bg-[#101012] p-3 sm:p-4 border border-white/5">
-          <div className="flex items-center gap-2 text-white/60 mb-1">
-            <Building2 className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-mobile-sm sm:text-sm font-medium">Organizations</span>
+      {/* Stats: 3 consolidated cards */}
+      <div className="flex flex-col sm:flex-row justify-between gap-4 sm:gap-6 mb-4 sm:mb-6">
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 border border-white/5 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-white/60 mb-4">
+            <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
+            <span className="text-sm sm:text-base font-medium">Team</span>
           </div>
-          <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-            {isOrgsLoading ? "—" : organizations.length}
-          </p>
+          <div className="flex justify-between gap-4">
+            <div>
+              <p className="text-white/50 text-xs sm:text-sm">Organizations</p>
+              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                {isOrgsLoading ? "—" : organizations.length}
+              </p>
+            </div>
+            <div>
+              <p className="text-white/50 text-xs sm:text-sm">Members</p>
+              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                {isOrgsLoading ? "—" : members.length}
+              </p>
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl sm:rounded-2xl bg-[#101012] p-3 sm:p-4 border border-white/5">
-          <div className="flex items-center gap-2 text-white/60 mb-1">
-            <Users2 className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-mobile-sm sm:text-sm font-medium">Members</span>
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 border border-white/5 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-white/60 mb-4">
+            <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+            <span className="text-sm sm:text-base font-medium">Invoices</span>
           </div>
-          <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-            {isOrgsLoading ? "—" : members.length}
-          </p>
+          <div className="flex justify-between gap-4">
+            <div>
+              <p className="text-white/50 text-xs sm:text-sm">Total</p>
+              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                {totalInvoicesFirstOrg}
+              </p>
+              {organizations.length > 1 && (
+                <p className="text-white/50 text-xs mt-0.5">First org</p>
+              )}
+            </div>
+            <div>
+              <p className="text-white/50 text-xs sm:text-sm">Outstanding</p>
+              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                {invoicesFirstOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
+              </p>
+              {pendingCount > 0 && (
+                <p className="text-white/50 text-xs mt-0.5">{pendingCount} pending</p>
+              )}
+            </div>
+          </div>
         </div>
-        <div className="rounded-xl sm:rounded-2xl bg-[#101012] p-3 sm:p-4 border border-white/5">
-          <div className="flex items-center gap-2 text-white/60 mb-1">
-            <FileText className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-mobile-sm sm:text-sm font-medium">Invoices</span>
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 border border-white/5 flex-1 min-w-0">
+          <div className="flex items-center gap-2 text-white/60 mb-4">
+            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
+            <span className="text-sm sm:text-base font-medium">Income streams</span>
           </div>
-          <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-            {totalInvoicesFirstOrg}
-          </p>
-          {organizations.length > 1 && (
-            <p className="text-white/50 text-xs mt-0.5">First org</p>
-          )}
-        </div>
-        <div className="rounded-xl sm:rounded-2xl bg-[#101012] p-3 sm:p-4 border border-white/5">
-          <div className="flex items-center gap-2 text-white/60 mb-1">
-            <Clock className="h-4 w-4 sm:h-5 sm:w-5" />
-            <span className="text-mobile-sm sm:text-sm font-medium">Outstanding</span>
+          <div className="flex justify-between gap-4">
+            <div>
+              <p className="text-white/50 text-xs sm:text-sm">Streams</p>
+              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                {streamsLoading ? "—" : totalStreamsCount}
+              </p>
+              {!streamsLoading && streamsWithAmount > 0 && (
+                <p className="text-white/50 text-xs mt-0.5">{streamsWithAmount} with amount</p>
+              )}
+            </div>
+            <div>
+              <p className="text-white/50 text-xs sm:text-sm">Expected (USD)</p>
+              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                {streamsLoading ? "—" : expectedUsd > 0 ? formatCurrency(expectedUsd, "USD") : "—"}
+              </p>
+            </div>
           </div>
-          <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-            {invoicesFirstOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
-          </p>
-          {pendingCount > 0 && (
-            <p className="text-white/50 text-xs mt-0.5">{pendingCount} pending</p>
-          )}
         </div>
       </div>
 

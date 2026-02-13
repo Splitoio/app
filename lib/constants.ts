@@ -13,6 +13,7 @@ export const QueryKeys = {
   BUSINESS_ORGANIZATIONS: "business-organizations",
   INVOICES: "invoices",
   ORGANIZATION_ACTIVITY: "organization-activity",
+  STREAMS: "streams",
 } as const;
 
 // Utility function to invalidate all relevant caches after settlement

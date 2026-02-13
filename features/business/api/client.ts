@@ -74,12 +74,24 @@ export const OrganizationActivitySchema = z.object({
       amount: z.number(),
       currency: z.string(),
       issuer: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
-      recipient: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
+      recipient: z.object({ id: z.string(), name: z.string().nullable() }).optional().nullable(),
     })
     .nullable()
     .optional(),
 });
 export type OrganizationActivity = z.infer<typeof OrganizationActivitySchema>;
+
+export const IncomeStreamSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  name: z.string(),
+  currency: z.string(),
+  expectedAmount: z.number().nullable(),
+  description: z.string().nullable(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+});
+export type IncomeStream = z.infer<typeof IncomeStreamSchema>;
 
 export type Invoice = z.infer<typeof InvoiceSchema>;
 
@@ -165,4 +177,31 @@ export const getOrganizationActivity = async (organizationId: string) => {
 
 export const deleteInvoice = async (invoiceId: string) => {
   await apiClient.delete(`/invoices/${invoiceId}`);
+};
+
+// Income streams (organization admin only)
+export const getStreamsByOrganization = async (organizationId: string) => {
+  const response = await apiClient.get(`/groups/${organizationId}/streams`);
+  return IncomeStreamSchema.array().parse(response);
+};
+
+export const createStream = async (
+  organizationId: string,
+  payload: { name: string; currency?: string; expectedAmount?: number | null; description?: string | null }
+) => {
+  const response = await apiClient.post(`/groups/${organizationId}/streams`, payload);
+  return IncomeStreamSchema.parse(response);
+};
+
+export const updateStream = async (
+  organizationId: string,
+  streamId: string,
+  payload: { name?: string; currency?: string; expectedAmount?: number | null; description?: string | null }
+) => {
+  const response = await apiClient.put(`/groups/${organizationId}/streams/${streamId}`, payload);
+  return IncomeStreamSchema.parse(response);
+};
+
+export const deleteStream = async (organizationId: string, streamId: string) => {
+  await apiClient.delete(`/groups/${organizationId}/streams/${streamId}`);
 };

@@ -16,6 +16,7 @@ export default function SignupPage() {
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
   const [formData, setFormData] = useState({
+    name: "",
     email: "",
     phoneNumber: "",
     password: "",
@@ -34,10 +35,10 @@ export default function SignupPage() {
 
     try {
       const { data, error } = await authClient.signUp.email({
+        name: formData.name,
         email: formData.email,
         password: formData.password,
-        name: formData.email,
-        callbackURL: "/dashboard",
+        callbackURL: "/",
       });
 
       if (error) {
@@ -110,6 +111,23 @@ export default function SignupPage() {
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              <div className="form-group">
+                <label htmlFor="name-desktop" className="form-label">
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name-desktop"
+                  className="form-input !rounded-[19px] !bg-[#0D0D0F] !pl-4"
+                  placeholder="Your name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  required
+                  disabled={isLoadingEmail || isLoadingGoogle}
+                />
+              </div>
               <div className="form-group">
                 <label htmlFor="email-desktop" className="form-label">
                   Email
@@ -261,6 +279,26 @@ export default function SignupPage() {
             </h1>
 
             <form onSubmit={handleSubmit} className="space-y-6 pt-2">
+              <div className="form-group">
+                <label
+                  htmlFor="name-mobile"
+                  className="text-mobile-sm font-medium text-white/80 mb-2 block"
+                >
+                  Name
+                </label>
+                <input
+                  type="text"
+                  id="name-mobile"
+                  className="w-full bg-transparent border-0 border-b border-white/20 px-0 py-2 text-mobile-base text-white focus:ring-0 focus:border-white/40 placeholder-white/30"
+                  placeholder="Your name"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, name: e.target.value })
+                  }
+                  required
+                  disabled={isLoadingEmail || isLoadingGoogle}
+                />
+              </div>
               <div className="form-group">
                 <label
                   htmlFor="email-mobile"

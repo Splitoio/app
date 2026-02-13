@@ -423,7 +423,7 @@ export default function Page() {
                           height={20}
                           className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
                         />
-                        <span>{isSending ? "Sending..." : "Send a Reminder"}</span>
+                        <span>{isSending ? "Sending..." : "Notify"}</span>
                       </button>
                     )}
 

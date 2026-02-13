@@ -1,9 +1,6 @@
 "use client";
 
-import { type Group } from "@/stores/groups";
 import {
-  MoreVertical,
-  Pencil,
   Trash2,
   Loader2,
   AlertTriangle,
@@ -20,28 +17,12 @@ import { useRouter } from "next/navigation";
 import { getAllGroupsWithBalances } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
-import dayjs from "dayjs";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-
-type APIGroup = {
-  id: string;
-  name: string;
-  userId: string;
-  description: string | null;
-  image: string | null;
-  defaultCurrency: string;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: {
-    id: string;
-    name: string;
-  };
-};
 
 export function GroupsList() {
   const {
@@ -56,6 +37,7 @@ export function GroupsList() {
   const router = useRouter();
   const { user } = useAuthStore();
   const { data: allCurrencies } = useGetAllCurrencies();
+  const defaultCurrency = user?.currency || "USD";
 
   // Helper function to get currency symbol from the currencies data
   const getCurrencySymbol = (currencyId: string): string => {
@@ -87,7 +69,7 @@ export function GroupsList() {
     }
   }, [error, router]);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [_editingId, setEditingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
@@ -199,7 +181,7 @@ export function GroupsList() {
           className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
         >
           <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
-          <span>Create New Group</span>
+          <span>Create app</span>
         </button>
       </div>
     );
@@ -213,9 +195,9 @@ export function GroupsList() {
         animate="animate"
       >
         {groupsData.map((group) => {
+          const groupUrl = `/groups/${group.id}`;
           // Calculate the balances by currency for the current user in this group
           let balanceDisplay = null;
-          const currency = group.defaultCurrency || "USD";
           if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
             // Group balances by currency for the user in this group
             const userBalances = group.groupBalances.filter(
@@ -246,6 +228,10 @@ export function GroupsList() {
             const hasOwedBalances = Object.keys(owedBalances).length > 0;
             const hasOweBalances = Object.keys(oweBalances).length > 0;
 
+            // Total owed to you in default currency (for "Owes you" line)
+            const owedInDefault = owedBalances[defaultCurrency] ?? 0;
+            const owedOtherCurrencies = Object.entries(owedBalances).filter(([c]) => c !== defaultCurrency);
+
             if (hasOwedBalances && hasOweBalances) {
               // Show both what you owe and what you're owed
               balanceDisplay = (
@@ -261,12 +247,17 @@ export function GroupsList() {
                   </div>
                   <div>
                     Owes you{" "}
-                    {Object.entries(owedBalances).map(([curr, amount], index) => (
-                      <span key={curr}>
-                        <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                        {index < Object.entries(owedBalances).length - 1 && ", "}
-                      </span>
-                    ))}
+                    <span className="text-[#53e45d]">{formatCurrency(owedInDefault, defaultCurrency)}</span>
+                    {owedOtherCurrencies.length > 0 && (
+                      <>{" "}
+                        {owedOtherCurrencies.map(([curr, amount], index) => (
+                          <span key={curr}>
+                            <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                            {index < owedOtherCurrencies.length - 1 && ", "}
+                          </span>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
               );
@@ -286,12 +277,17 @@ export function GroupsList() {
               balanceDisplay = (
                 <span>
                   Owes you{" "}
-                  {Object.entries(owedBalances).map(([curr, amount], index) => (
-                    <span key={curr}>
-                      <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                      {index < Object.entries(owedBalances).length - 1 && ", "}
-                    </span>
-                  ))}
+                  <span className="text-[#53e45d]">{formatCurrency(owedInDefault, defaultCurrency)}</span>
+                  {owedOtherCurrencies.length > 0 && (
+                    <>{" "}
+                      {owedOtherCurrencies.map(([curr, amount], index) => (
+                        <span key={curr}>
+                          <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
+                          {index < owedOtherCurrencies.length - 1 && ", "}
+                        </span>
+                      ))}
+                    </>
+                  )}
                 </span>
               );
             } else {
@@ -304,10 +300,13 @@ export function GroupsList() {
             <motion.div
               key={group.id}
               variants={slideUp}
-              className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0"
+              className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
             >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
+              <div className="flex items-center justify-between gap-2">
+                <Link
+                  href={groupUrl}
+                  className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer"
+                >
                   <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
                     <Image
                       src={group.image || "/group_icon_placeholder.png"}
@@ -325,7 +324,7 @@ export function GroupsList() {
                       }}
                     />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <p className="text-mobile-base sm:text-xl font-medium text-white">
                       {group.name}
                     </p>
@@ -333,14 +332,15 @@ export function GroupsList() {
                       {balanceDisplay}
                     </p>
                   </div>
-                </div>
-
-                <Link
-                  href={`/groups/${group.id}`}
-                  className="text-white text-mobile-sm sm:text-base rounded-full border border-white px-3 sm:px-5 py-1.5 sm:py-2.5 hover:bg-white/5 transition-colors font-medium"
-                >
-                  View Group
                 </Link>
+                <button
+                  type="button"
+                  onClick={(e) => handleDeleteGroup(e, group.id, group.name)}
+                  className="shrink-0 p-2 rounded-lg text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                  aria-label={`Delete group ${group.name}`}
+                >
+                  <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                </button>
               </div>
             </motion.div>
           );

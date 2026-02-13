@@ -531,7 +531,7 @@ export function AddExpenseModal({
                 }
               >
                 <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select split type" />
+                  <SelectValue placeholder="Select expense type" />
                 </SelectTrigger>
                 <SelectContent className="bg-[#17171A] border-white/10">
                   <SelectItem

@@ -8,7 +8,6 @@ import {
   Receipt 
 } from "@/features/groups/hooks/use-receipts";
 import { Loader2, Plus, Check, X, CheckSquare, Maximize2, Pencil, Trash2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ReceiptImageModal } from "@/components/receipt-image-modal";
 import {
   Dialog,

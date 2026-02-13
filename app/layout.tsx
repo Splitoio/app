@@ -8,6 +8,7 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { usePathname } from "next/navigation";
 import { Toaster } from "sonner";
+import { OnboardingGate } from "@/components/onboarding-gate";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -31,6 +32,7 @@ export default function RootLayout({
               children
             ) : (
               <div className="min-h-screen bg-[#09090B]">
+                <OnboardingGate />
                 <Sidebar />
                 <MobileMenuToggle />
                 <div className="min-[1025px]:pl-[260px] min-h-screen flex flex-col">

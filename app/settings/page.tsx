@@ -96,12 +96,35 @@ export default function SettingsPage() {
     displayName !== initialDisplayName ||
     preferredCurrency !== initialPreferredCurrency;
 
-  // Load user data when available
+  // Platform default currency from locale (e.g. en-US -> USD, en-GB -> GBP)
+  const getPlatformDefaultCurrency = (): string => {
+    if (typeof navigator === "undefined") return "USD";
+    try {
+      const locale = navigator.language || "en-US";
+      const region = locale.split("-")[1] || locale.split("-")[0];
+      const map: Record<string, string> = {
+        US: "USD",
+        GB: "GBP",
+        IN: "INR",
+        JP: "JPY",
+        CN: "CNY",
+        AU: "AUD",
+        CA: "CAD",
+        CH: "CHF",
+        EU: "EUR",
+      };
+      return map[region] || "USD";
+    } catch {
+      return "USD";
+    }
+  };
+
+  // Load user data when available; use platform default currency when user has none set
   useEffect(() => {
     if (user) {
       const enhancedUser = asEnhancedUser(user);
       const name = enhancedUser.name || "";
-      const currency = enhancedUser.currency || "USD"; // Default to USD instead of USDT
+      const currency = enhancedUser.currency || getPlatformDefaultCurrency();
 
       setDisplayName(name);
       setPreferredCurrency(currency);

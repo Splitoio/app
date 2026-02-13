@@ -159,7 +159,7 @@ export default function CurrencyDropdown({
           Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
             <div key={`chain-${chainId}`}>
               <div className="px-4 py-2 text-sm text-white/50 font-medium">
-                {chainId}
+                {chainId.charAt(0).toUpperCase() + chainId.slice(1).toLowerCase()}
               </div>
               {currencies.map((currency) => (
                 <button
