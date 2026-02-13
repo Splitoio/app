@@ -1,9 +1,6 @@
 "use client";
 
-import { type Group } from "@/stores/groups";
 import {
-  MoreVertical,
-  Pencil,
   Trash2,
   Loader2,
   AlertTriangle,
@@ -20,28 +17,12 @@ import { useRouter } from "next/navigation";
 import { getAllGroupsWithBalances } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
-import dayjs from "dayjs";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-
-type APIGroup = {
-  id: string;
-  name: string;
-  userId: string;
-  description: string | null;
-  image: string | null;
-  defaultCurrency: string;
-  createdAt: Date;
-  updatedAt: Date;
-  createdBy: {
-    id: string;
-    name: string;
-  };
-};
 
 export function GroupsList() {
   const {
@@ -88,7 +69,7 @@ export function GroupsList() {
     }
   }, [error, router]);
 
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [_editingId, setEditingId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteSuccess, setDeleteSuccess] = useState(false);
@@ -217,7 +198,6 @@ export function GroupsList() {
           const groupUrl = `/groups/${group.id}`;
           // Calculate the balances by currency for the current user in this group
           let balanceDisplay = null;
-          const currency = group.defaultCurrency || "USD";
           if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
             // Group balances by currency for the user in this group
             const userBalances = group.groupBalances.filter(
