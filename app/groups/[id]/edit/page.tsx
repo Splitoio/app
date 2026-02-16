@@ -150,7 +150,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
         onSuccess: (data) => {
           toast.success("Group settings updated successfully");
           // Optionally, redirect after a short delay
-          setTimeout(() => router.push(`/groups/${params.id}`), 1200);
+          setTimeout(() => router.push(`/groups/${params.id}/splits`), 1200);
         },
         onError: (error) => {
           toast.error("Failed to update group");

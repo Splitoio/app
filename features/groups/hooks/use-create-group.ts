@@ -10,6 +10,7 @@ import {
   getGroupById,
   joinGroup,
   updateGroup,
+  updateMemberRole,
   markAsPaid,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
@@ -155,6 +156,26 @@ export const useUpdateGroup = () => {
       queryClient.invalidateQueries({
         queryKey: [QueryKeys.GROUPS, variables.groupId],
       });
+    },
+  });
+};
+
+export const useUpdateMemberRole = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      groupId,
+      userId,
+      role,
+    }: {
+      groupId: string;
+      userId: string;
+      role: "ADMIN" | "MEMBER";
+    }) => updateMemberRole(groupId, userId, role),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS] });
     },
   });
 };

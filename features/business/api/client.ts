@@ -124,6 +124,7 @@ export const createInvoice = async (payload: {
   status?: "DRAFT" | "SENT" | "PAID" | "OVERDUE" | "CANCELLED" | "APPROVED" | "DECLINED" | "CLEARED";
   imageUrl?: string;
   fileKey?: string;
+  contractId?: string;
 }) => {
   const response = await apiClient.post("/invoices", payload);
   return InvoiceSchema.parse(response);
@@ -204,4 +205,83 @@ export const updateStream = async (
 
 export const deleteStream = async (organizationId: string, streamId: string) => {
   await apiClient.delete(`/groups/${organizationId}/streams/${streamId}`);
+};
+
+// Contracts
+export const ContractStatusSchema = z.enum(["DRAFT", "SENT"]);
+export const ContractSchema = z.object({
+  id: z.string(),
+  organizationId: z.string(),
+  createdById: z.string(),
+  assignedToEmail: z.string(),
+  assignedToUserId: z.string().nullable(),
+  title: z.string().nullable(),
+  description: z.string().nullable(),
+  compensationAmount: z.number().nullable(),
+  compensationCurrency: z.string().nullable(),
+  pdfFileKey: z.string().nullable(),
+  status: ContractStatusSchema,
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  organization: z.object({ id: z.string(), name: z.string() }).optional(),
+  createdBy: z.object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() }).optional(),
+  assignedTo: z.object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() }).optional().nullable(),
+});
+export type Contract = z.infer<typeof ContractSchema>;
+
+export const getContractsByOrganization = async (organizationId: string) => {
+  const response = await apiClient.get(`/contracts/organization/${organizationId}`);
+  return ContractSchema.array().parse(response);
+};
+
+export const getContractByToken = async (token: string) => {
+  const response = await apiClient.get("/contracts/view", { params: { token } });
+  return z.object({ contract: ContractSchema, token: z.string() }).parse(response);
+};
+
+export const getMyContracts = async () => {
+  const response = await apiClient.get("/contracts/my");
+  return ContractSchema.array().parse(response);
+};
+
+export const getContractById = async (contractId: string) => {
+  const response = await apiClient.get(`/contracts/${contractId}`);
+  return ContractSchema.parse(response);
+};
+
+export const createContract = async (payload: {
+  organizationId: string;
+  assignedToEmail: string;
+  title?: string;
+  description?: string;
+  compensationAmount?: number;
+  compensationCurrency?: string;
+  pdfFileKey?: string;
+}) => {
+  const response = await apiClient.post("/contracts", payload);
+  return ContractSchema.parse(response);
+};
+
+export const updateContract = async (
+  contractId: string,
+  payload: {
+    assignedToEmail?: string;
+    title?: string;
+    description?: string;
+    compensationAmount?: number;
+    compensationCurrency?: string;
+    pdfFileKey?: string;
+  }
+) => {
+  const response = await apiClient.patch(`/contracts/${contractId}`, payload);
+  return ContractSchema.parse(response);
+};
+
+export const deleteContract = async (contractId: string) => {
+  await apiClient.delete(`/contracts/${contractId}`);
+};
+
+export const claimContractByToken = async (token: string) => {
+  const response = await apiClient.post("/contracts/claim-by-token", { token });
+  return ContractSchema.parse(response);
 };

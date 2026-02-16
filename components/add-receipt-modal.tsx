@@ -171,7 +171,7 @@ export const AddReceiptModal: React.FC<AddReceiptModalProps> = ({
           </div>
 
           <div>
-            <label className="mb-2 block text-white/70">Receipt Image (Optional)</label>
+            <label className="mb-2 block text-white/70">Receipt Image</label>
             <input 
               type="file" 
               ref={fileInputRef} 

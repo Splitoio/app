@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { FriendsBreakdownModal } from "@/components/friends-breakdown-modal";
 import { AddFriendsModal } from "@/components/add-friends-modal";
-import { useBalances } from "@/features/balances/hooks/use-balances";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
@@ -30,6 +29,131 @@ import { useRouter } from "next/navigation";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
+import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+
+/** Derive overall youOwe/youGet from groups' groupBalances (same source as group pages) */
+function useOverallBalancesFromGroups(
+  groups: { groupBalances?: { userId: string; currency: string; amount: number }[] }[],
+  userId: string | null
+) {
+  return useMemo(() => {
+    if (!userId || !groups?.length) return { youOwe: [] as { currency: string; amount: number }[], youGet: [] as { currency: string; amount: number }[] };
+    const byCurrency: Record<string, number> = {};
+    for (const group of groups) {
+      const myBalances = (group.groupBalances ?? []).filter((b) => b.userId === userId);
+      for (const b of myBalances) {
+        byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
+      }
+    }
+    const youOwe: { currency: string; amount: number }[] = [];
+    const youGet: { currency: string; amount: number }[] = [];
+    Object.entries(byCurrency).forEach(([currency, amount]) => {
+      if (amount > 0) youOwe.push({ currency, amount });
+      else if (amount < 0) youGet.push({ currency, amount: Math.abs(amount) });
+    });
+    return { youOwe, youGet };
+  }, [groups, userId]);
+}
+
+/** Shows converted total(s) for owe/owed in default currency */
+function DashboardConvertedBalance({
+  oweItems,
+  owedItems,
+  defaultCurrency,
+}: {
+  oweItems: { amount: number; currency: string }[];
+  owedItems: { amount: number; currency: string }[];
+  defaultCurrency: string;
+}) {
+  const { total: totalOwe, isLoading: loadingOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
+  const { total: totalOwed, isLoading: loadingOwed } = useConvertedBalanceTotal(
+    owedItems.map((i) => ({ amount: i.amount, currency: i.currency })),
+    defaultCurrency
+  );
+  const loading = loadingOwe || loadingOwed;
+  const hasOwe = oweItems.length > 0;
+  const hasOwed = owedItems.length > 0;
+  if (!hasOwe && !hasOwed) return <>Settled</>;
+  if (loading) return <span className="text-white/60">…</span>;
+  if (hasOwe && hasOwed) {
+    return (
+      <div>
+        <div>You owe <span className="text-[#FF4444]">{formatCurrency(totalOwe, defaultCurrency)}</span></div>
+        <div>Owes you <span className="text-[#53e45d]">{formatCurrency(totalOwed, defaultCurrency)}</span></div>
+      </div>
+    );
+  }
+  if (hasOwe) {
+    return <>You owe <span className="text-[#FF4444]">{formatCurrency(totalOwe, defaultCurrency)}</span></>;
+  }
+  return <>Owes you <span className="text-[#53e45d]">{formatCurrency(totalOwed, defaultCurrency)}</span></>;
+}
+
+/** Group row: shows converted total for this group's balance for the given user */
+function DashboardGroupBalance({
+  group,
+  userId,
+  defaultCurrency,
+}: {
+  group: { id: string; name: string; groupBalances?: { userId: string; currency: string; amount: number }[] };
+  userId: string | null;
+  defaultCurrency: string;
+}) {
+  if (!userId || !group.groupBalances?.length) return <>No balance</>;
+  const userBalances = group.groupBalances.filter((b) => b.userId === userId);
+  const byCurrency = userBalances.reduce((acc, b) => {
+    acc[b.currency] = (acc[b.currency] ?? 0) + b.amount;
+    return acc;
+  }, {} as Record<string, number>);
+  const oweItems = Object.entries(byCurrency)
+    .filter(([, amount]) => amount > 0)
+    .map(([currency, amount]) => ({ amount, currency }));
+  const owedItems = Object.entries(byCurrency)
+    .filter(([, amount]) => amount < 0)
+    .map(([currency, amount]) => ({ amount: Math.abs(amount), currency }));
+  return (
+    <DashboardConvertedBalance
+      oweItems={oweItems}
+      owedItems={owedItems}
+      defaultCurrency={defaultCurrency}
+    />
+  );
+}
+
+/** Per-friend balances from groups' groupBalances (matches group expense page) */
+function useFriendBalancesFromGroups(
+  groups: { groupBalances?: { userId: string; firendId: string; currency: string; amount: number }[] }[],
+  friends: { id: string }[],
+  userId: string | null
+) {
+  return useMemo(() => {
+    if (!userId || !groups?.length) return {} as Record<string, { currency: string; amount: number }[]>;
+    const byFriend: Record<string, Record<string, number>> = {};
+    for (const group of groups) {
+      const balances = (group.groupBalances ?? []) as { userId: string; firendId: string; currency: string; amount: number }[];
+      for (const b of balances) {
+        if (b.userId !== userId) continue;
+        const friendId = b.firendId;
+        if (!byFriend[friendId]) byFriend[friendId] = {};
+        byFriend[friendId][b.currency] = (byFriend[friendId][b.currency] ?? 0) + b.amount;
+      }
+    }
+    const result: Record<string, { currency: string; amount: number }[]> = {};
+    for (const friend of friends) {
+      const curr = byFriend[friend.id];
+      if (!curr) {
+        result[friend.id] = [];
+        continue;
+      }
+      const list: { currency: string; amount: number }[] = [];
+      Object.entries(curr).forEach(([currency, amount]) => {
+        if (amount !== 0) list.push({ currency, amount });
+      });
+      result[friend.id] = list;
+    }
+    return result;
+  }, [groups, friends, userId]);
+}
 
 export default function Page() {
   const router = useRouter();
@@ -41,7 +165,6 @@ export default function Page() {
   const [isSettling, setIsSettling] = useState(false);
   const { isConnected, address } = useWallet();
   const { data: groups = [], isLoading: isGroupsLoading } = useGetAllGroups();
-  const { data: balanceData, isLoading: isBalanceLoading } = useBalances();
   const { data: friends = [], isLoading: isFriendsLoading } = useGetFriends();
   const { data: analyticsData, isLoading: isAnalyticsLoading, error: analyticsError } = useAnalytics();
   const {
@@ -55,8 +178,26 @@ export default function Page() {
     isSending
   } = useReminders();
   const { user } = useAuthStore();
-  const youOwe = balanceData?.data?.youOwe || [];
-  const youGet = balanceData?.data?.youGet || [];
+  const defaultCurrency = user?.currency || "USD";
+  const { youOwe, youGet } = useOverallBalancesFromGroups(groups, user?.id ?? null);
+  const friendBalancesFromGroups = useFriendBalancesFromGroups(groups, friends, user?.id ?? null);
+  const { total: overallOweTotal, isLoading: overallOweLoading } = useConvertedBalanceTotal(youOwe, defaultCurrency);
+  const { total: overallGetTotal, isLoading: overallGetLoading } = useConvertedBalanceTotal(youGet, defaultCurrency);
+  const owedThisMonth = Number(analyticsData?.owed) || 0;
+  const lentThisMonth = Number(analyticsData?.lent) || 0;
+  const settledThisMonth = Number(analyticsData?.settled) || 0;
+  const { total: owedConverted, isLoading: owedConvLoading } = useConvertedBalanceTotal(
+    owedThisMonth ? [{ amount: owedThisMonth, currency: "USD" }] : [],
+    defaultCurrency
+  );
+  const { total: lentConverted, isLoading: lentConvLoading } = useConvertedBalanceTotal(
+    lentThisMonth ? [{ amount: lentThisMonth, currency: "USD" }] : [],
+    defaultCurrency
+  );
+  const { total: settledConverted, isLoading: settledConvLoading } = useConvertedBalanceTotal(
+    settledThisMonth ? [{ amount: settledThisMonth, currency: "USD" }] : [],
+    defaultCurrency
+  );
   const queryClient = useQueryClient();
 
   // Add debug logging
@@ -101,7 +242,7 @@ export default function Page() {
       <div className="py-4 sm:py-6 mb-4 sm:mb-6">
         <div className="flex items-center justify-between">
           <h2 className="text-mobile-base sm:text-xl text-white max-w-[60%]">
-            {isBalanceLoading ? (
+            {isGroupsLoading ? (
               <div className="flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Loading balance...
@@ -110,19 +251,25 @@ export default function Page() {
               <div>
                 Overall, you owe{" "}
                 <span className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-[#FF4444]">
-                  {youOwe
-                    .map((debt) => formatCurrency(debt.amount, debt.currency))
-                    .join(", ")}
+                  {overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)}
                 </span>
+                {youOwe.length > 1 && !overallOweLoading && (
+                  <span className="block text-mobile-sm text-white/60 mt-0.5">
+                    ({youOwe.map((d) => formatCurrency(d.amount, d.currency)).join(", ")})
+                  </span>
+                )}
               </div>
             ) : youGet.length > 0 ? (
               <div>
                 Overall, you are owed{" "}
                 <span className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-[#53e45d]">
-                  {youGet
-                    .map((debt) => formatCurrency(debt.amount, debt.currency))
-                    .join(", ")}
+                  {overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)}
                 </span>
+                {youGet.length > 1 && !overallGetLoading && (
+                  <span className="block text-mobile-sm text-white/60 mt-0.5">
+                    ({youGet.map((d) => formatCurrency(d.amount, d.currency)).join(", ")})
+                  </span>
+                )}
               </div>
             ) : (
               <div>You're all settled up!</div>
@@ -132,7 +279,7 @@ export default function Page() {
             {/* Settle all debt button - commented out */}
             {/* <button
               onClick={handleSettleAllClick}
-              disabled={isSettling || isBalanceLoading}
+              disabled={isSettling || isGroupsLoading}
               className="group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/10 bg-white px-4 sm:px-6 text-mobile-sm sm:text-base font-medium text-black transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isSettling ? (
@@ -202,8 +349,10 @@ export default function Page() {
                 <span>Error loading data</span>
                 <span className="text-sm">(click to retry)</span>
               </button>
+            ) : owedConvLoading ? (
+              "…"
             ) : (
-              analyticsData?.owed || "$0.00 USD"
+              formatCurrency(owedConverted, defaultCurrency)
             )}
           </p>
         </div>
@@ -223,8 +372,10 @@ export default function Page() {
                 <span>Error loading data</span>
                 <span className="text-sm">(click to retry)</span>
               </button>
+            ) : lentConvLoading ? (
+              "…"
             ) : (
-              analyticsData?.lent || "$0.00 USD"
+              formatCurrency(lentConverted, defaultCurrency)
             )}
           </p>
         </div>
@@ -244,8 +395,10 @@ export default function Page() {
                 <span>Error loading data</span>
                 <span className="text-sm">(click to retry)</span>
               </button>
+            ) : settledConvLoading ? (
+              "…"
             ) : (
-              analyticsData?.settled || "$0.00 USD"
+              formatCurrency(settledConverted, defaultCurrency)
             )}
           </p>
         </div>
@@ -305,20 +458,23 @@ export default function Page() {
               </div>
             ) : friends && friends.length > 0 ? (
               friends.map((friend) => {
-                // Group balances by positive/negative and currency
+                // Use balances from groups (same source as group expense page)
+                const balances = friendBalancesFromGroups[friend.id] ?? [];
                 const oweBalances: Record<string, number> = {};
                 const owedBalances: Record<string, number> = {};
 
-                friend.balances.forEach((balance) => {
-                  if (balance.amount > 0) {
-                    oweBalances[balance.currency] = balance.amount;
-                  } else if (balance.amount < 0) {
-                    owedBalances[balance.currency] = Math.abs(balance.amount);
+                balances.forEach((b) => {
+                  if (b.amount > 0) {
+                    oweBalances[b.currency] = (oweBalances[b.currency] ?? 0) + b.amount;
+                  } else if (b.amount < 0) {
+                    owedBalances[b.currency] = (owedBalances[b.currency] ?? 0) + Math.abs(b.amount);
                   }
                 });
 
-                const hasOwedBalances = Object.keys(owedBalances).length > 0;
-                const hasOweBalances = Object.keys(oweBalances).length > 0;
+                const oweItems = Object.entries(oweBalances).map(([currency, amount]) => ({ amount, currency }));
+                const owedItems = Object.entries(owedBalances).map(([currency, amount]) => ({ amount, currency }));
+                const hasOwedBalances = owedItems.length > 0;
+                const hasOweBalances = oweItems.length > 0;
 
                 return (
                   <div
@@ -349,59 +505,13 @@ export default function Page() {
                         <p className="text-mobile-base sm:text-xl text-white font-medium">
                           {friend.name}
                         </p>
-                        {hasOwedBalances || hasOweBalances ? (
-                          <div className="text-mobile-sm sm:text-base text-white/60">
-                            {hasOwedBalances && hasOweBalances ? (
-                              // Show both what you owe and what you're owed
-                              <div>
-                                <div>
-                                  You owe{" "}
-                                  {Object.entries(oweBalances).map(([curr, amount], index) => (
-                                    <span key={curr}>
-                                      <span className="text-[#FF4444] font-medium">{formatCurrency(amount, curr)}</span>
-                                      {index < Object.entries(oweBalances).length - 1 && ", "}
-                                    </span>
-                                  ))}
-                                </div>
-                                <div>
-                                  Owes you{" "}
-                                  {Object.entries(owedBalances).map(([curr, amount], index) => (
-                                    <span key={curr}>
-                                      <span className="text-[#53e45d] font-medium">{formatCurrency(amount, curr)}</span>
-                                      {index < Object.entries(owedBalances).length - 1 && ", "}
-                                    </span>
-                                  ))}
-                                </div>
-                              </div>
-                            ) : hasOweBalances ? (
-                              // Only show what you owe
-                              <span>
-                                You owe{" "}
-                                {Object.entries(oweBalances).map(([curr, amount], index) => (
-                                  <span key={curr}>
-                                    <span className="text-[#FF4444] font-medium">{formatCurrency(amount, curr)}</span>
-                                    {index < Object.entries(oweBalances).length - 1 && ", "}
-                                  </span>
-                                ))}
-                              </span>
-                            ) : (
-                              // Only show what they owe you
-                              <span>
-                                Owes you{" "}
-                                {Object.entries(owedBalances).map(([curr, amount], index) => (
-                                  <span key={curr}>
-                                    <span className="text-[#53e45d] font-medium">{formatCurrency(amount, curr)}</span>
-                                    {index < Object.entries(owedBalances).length - 1 && ", "}
-                                  </span>
-                                ))}
-                              </span>
-                            )}
-                          </div>
-                        ) : (
-                          <p className="text-mobile-sm sm:text-base text-white/60">
-                            All settled up
-                          </p>
-                        )}
+                        <div className="text-mobile-sm sm:text-base text-white/60">
+                          <DashboardConvertedBalance
+                            oweItems={oweItems}
+                            owedItems={owedItems}
+                            defaultCurrency={defaultCurrency}
+                          />
+                        </div>
                       </div>
                     </div>
 
@@ -506,90 +616,11 @@ export default function Page() {
                           {group.name}
                         </p>
                         <p className="text-mobile-sm sm:text-base text-white/60">
-                          {(() => {
-                            if (!user || !group.groupBalances) return "No balance";
-                            
-                            // Group balances by currency for the user in this group
-                            const userBalances = group.groupBalances.filter(
-                              (b) => b.userId === user.id
-                            );
-                            
-                            // Group balances by currency
-                            const balancesByCurrency = userBalances.reduce((acc, balance) => {
-                              if (!acc[balance.currency]) {
-                                acc[balance.currency] = 0;
-                              }
-                              acc[balance.currency] += balance.amount;
-                              return acc;
-                            }, {} as Record<string, number>);
-
-                            // Separate positive and negative balances by currency
-                            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
-                            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
-                            
-                            Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
-                              if (amount > 0) {
-                                oweBalances[curr] = amount; // You owe others
-                              } else if (amount < 0) {
-                                owedBalances[curr] = Math.abs(amount); // Others owe you
-                              }
-                            });
-
-                            const hasOwedBalances = Object.keys(owedBalances).length > 0;
-                            const hasOweBalances = Object.keys(oweBalances).length > 0;
-
-                            if (hasOwedBalances && hasOweBalances) {
-                              // Show both what you owe and what you're owed
-                              return (
-                                <div>
-                                  <div>
-                                    You owe{" "}
-                                    {Object.entries(oweBalances).map(([curr, amount], index) => (
-                                      <span key={curr}>
-                                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                                        {index < Object.entries(oweBalances).length - 1 && ", "}
-                                      </span>
-                                    ))}
-                                  </div>
-                                  <div>
-                                    Owes you{" "}
-                                    {Object.entries(owedBalances).map(([curr, amount], index) => (
-                                      <span key={curr}>
-                                        <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                                        {index < Object.entries(owedBalances).length - 1 && ", "}
-                                      </span>
-                                    ))}
-                                  </div>
-                                </div>
-                              );
-                            } else if (hasOweBalances) {
-                              return (
-                                <>
-                                  You owe{" "}
-                                  {Object.entries(oweBalances).map(([curr, amount], index) => (
-                                    <span key={curr}>
-                                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                                      {index < Object.entries(oweBalances).length - 1 && ", "}
-                                    </span>
-                                  ))}
-                                </>
-                              );
-                            } else if (hasOwedBalances) {
-                              return (
-                                <>
-                                  Owes you{" "}
-                                  {Object.entries(owedBalances).map(([curr, amount], index) => (
-                                    <span key={curr}>
-                                      <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                                      {index < Object.entries(owedBalances).length - 1 && ", "}
-                                    </span>
-                                  ))}
-                                </>
-                              );
-                            } else {
-                              return "Settled";
-                            }
-                          })()}
+                          <DashboardGroupBalance
+                            group={group}
+                            userId={user?.id ?? null}
+                            defaultCurrency={defaultCurrency}
+                          />
                         </p>
                       </div>
                     </div>

@@ -74,8 +74,9 @@ export default function ResolverSelector({ value, onChange }: Props) {
     <CurrencyDropdown
       selectedCurrencies={selectedCurrency}
       setSelectedCurrencies={handleCurrencyChange}
-      showFiatCurrencies={false} // Remove fiat section
-      filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"} // Filter out ETH and USDC
+      showFiatCurrencies={false}
+      filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
+      mode="single"
     />
   );
 }

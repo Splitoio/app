@@ -10,6 +10,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import { formatCurrency } from "@/utils/formatters";
+import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+import { useGroupLayout } from "@/contexts/group-layout-context";
 
 export function GroupInfoHeader({
   groupId,
@@ -30,20 +32,14 @@ export function GroupInfoHeader({
   const [isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
+  const { defaultCurrency } = useGroupLayout();
 
-  // Handle profile click to redirect to settings
-  const handleProfileClick = () => {
-    router.push("/settings");
-  };
-
-  if (!group) return null;
-
-  // Calculate balances by currency for the current user
-  const getBalancesByCurrency = () => {
+  // Compute balance arrays (use empty when no group so hooks are unconditional)
+  const balancesByCurrency = (() => {
+    if (!group?.groupBalances) return {} as Record<string, number>;
     const userBalances = group.groupBalances.filter(
       (balance) => balance.userId === user?.id
     );
-    // Group by currency
     const currencyMap: Record<string, number> = {};
     userBalances.forEach((balance) => {
       if (!currencyMap[balance.currency]) {
@@ -52,10 +48,7 @@ export function GroupInfoHeader({
       currencyMap[balance.currency] += balance.amount;
     });
     return currencyMap;
-  };
-
-  const balancesByCurrency = getBalancesByCurrency();
-  // Split into positive (owed to user) and negative (user owes)
+  })();
   const owed: { currency: string; amount: number }[] = [];
   const owe: { currency: string; amount: number }[] = [];
   Object.entries(balancesByCurrency).forEach(([currency, amount]) => {
@@ -65,6 +58,23 @@ export function GroupInfoHeader({
       owe.push({ currency, amount: Math.abs(amount) });
     }
   });
+
+  const { total: totalOwedToUser, isLoading: loadingOwe } = useConvertedBalanceTotal(
+    owe,
+    defaultCurrency
+  );
+  const { total: totalUserOwes, isLoading: loadingOwed } = useConvertedBalanceTotal(
+    owed,
+    defaultCurrency
+  );
+  const converting = loadingOwe || loadingOwed;
+
+  // Handle profile click to redirect to settings
+  const handleProfileClick = () => {
+    router.push("/settings");
+  };
+
+  if (!group) return null;
 
   const handleAddExpenseClick = () => {
     onAddExpenseClick();
@@ -100,18 +110,14 @@ export function GroupInfoHeader({
               <>
                 Overall, you owe{" "}
                 <span className="text-[#FF4444]">
-                  {owed
-                    .map((b) => formatCurrency(b.amount, b.currency))
-                    .join(", ")}
+                  {converting ? "…" : formatCurrency(totalUserOwes, defaultCurrency)}
                 </span>
               </>
             ) : owe.length > 0 ? (
               <>
                 Overall, you are owed{" "}
                 <span className="text-[#53e45d]">
-                  {owe
-                    .map((b) => formatCurrency(b.amount, b.currency))
-                    .join(", ")}
+                  {converting ? "…" : formatCurrency(totalOwedToUser, defaultCurrency)}
                 </span>
               </>
             ) : (

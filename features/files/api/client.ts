@@ -21,6 +21,16 @@ export const generateUploadUrl = async (
   return uploadResponseSchema.parse(response);
 };
 
+const fileDownloadUrlResponseSchema = z.object({
+  downloadUrl: z.string(),
+  expiresIn: z.number(),
+});
+
+export const getFileDownloadUrl = async (filePath: string) => {
+  const response = await apiClient.get("/files/download-url", { params: { filePath } });
+  return fileDownloadUrlResponseSchema.parse(response);
+};
+
 export const uploadFile = async (file: File) => {
   try {
     const uploadData = await generateUploadUrl({
