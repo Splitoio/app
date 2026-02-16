@@ -439,6 +439,7 @@ export function AddExpenseModal({
                     }));
                   }}
                   showFiatCurrencies={true}
+                  mode="single"
                 />
               ) : (
                 <Select

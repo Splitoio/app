@@ -11,13 +11,5 @@ export const useAnalytics = () => {
     retry: 2,
     refetchInterval: 1000 * 60 * 5, // Refetch every 5 minutes
     refetchOnMount: true,
-    select: (data) => {
-      // Ensure we always return strings for the UI
-      return {
-        owed: typeof data.owed === 'string' ? data.owed : `$${Number(data.owed).toFixed(2)} USD`,
-        lent: typeof data.lent === 'string' ? data.lent : `$${Number(data.lent).toFixed(2)} USD`,
-        settled: typeof data.settled === 'string' ? data.settled : `$${Number(data.settled).toFixed(2)} USD`
-      };
-    }
   });
 }; 

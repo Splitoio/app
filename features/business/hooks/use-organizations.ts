@@ -6,10 +6,11 @@ import {
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
-export const useGetAllOrganizations = () => {
+export const useGetAllOrganizations = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS],
     queryFn: getAllOrganizations,
+    enabled: options?.enabled ?? true,
   });
 };
 

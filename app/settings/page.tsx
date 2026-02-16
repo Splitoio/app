@@ -45,7 +45,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
 interface UserUpdateData {
   name?: string;
-  preferredCurrency?: string;
+  currency?: string;
   [key: string]: string | undefined;
 }
 
@@ -154,16 +154,22 @@ export default function SettingsPage() {
       }
 
       if (preferredCurrency !== initialPreferredCurrency) {
-        updateData.preferredCurrency = preferredCurrency;
+        updateData.currency = preferredCurrency;
       }
 
       // Call update API
       updateUser(updateData, {
         onSuccess: () => {
-          // Update initial values to match current values
           setInitialDisplayName(displayName);
           setInitialPreferredCurrency(preferredCurrency);
-
+          // Update auth store so default currency (and name) apply app-wide immediately
+          if (user) {
+            setUser({
+              ...user,
+              ...(updateData.name !== undefined && { name: updateData.name }),
+              ...(updateData.currency !== undefined && { currency: updateData.currency }),
+            });
+          }
           toast.success("Profile updated successfully");
         },
         onError: (error) => {
@@ -474,7 +480,7 @@ export default function SettingsPage() {
         {/* Preferred Currency - Single Dropdown */}
         <div className="mb-8">
           <label className="text-white mb-2 flex items-center gap-2">
-            Platform Default Currency
+            Default Currency
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger>

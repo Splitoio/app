@@ -80,7 +80,7 @@ export default function OrganizationOrganizationsPage() {
                 key={org.id}
                 className="flex items-center justify-between p-3 sm:p-4 rounded-xl hover:bg-white/[0.02] transition-colors gap-2"
               >
-                <Link href={`/organization/organizations/${org.id}`} className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4">
+                <Link href={`/organization/${org.id}/invoices`} className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4">
                   <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03] shrink-0">
                     {org.image ? (
                       <Image src={org.image} alt={org.name} width={56} height={56} className="h-full w-full object-cover" />

@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useMemo } from "react";
+import { useQuery, useQueries } from "@tanstack/react-query";
 import {
   getAllCurrencies,
   getFiatCurrencies,
@@ -50,6 +51,51 @@ export const useGetExchangeRate = (from: string, to: string) => {
     retryDelay: 1000, // Wait 1 second before retry
   });
 };
+
+/** Convert multiple balance amounts to a single total in default currency using exchange rates */
+export function useConvertedBalanceTotal(
+  items: { amount: number; currency: string }[],
+  defaultCurrency: string
+): { total: number; isLoading: boolean } {
+  const distinctCurrencies = useMemo(
+    () =>
+      items.length && defaultCurrency
+        ? [...new Set(items.map((i) => i.currency))].filter(
+            (c) => c && c !== defaultCurrency
+          )
+        : [],
+    [items, defaultCurrency]
+  );
+
+  const rateQueries = useQueries({
+    queries: distinctCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+    })),
+  });
+
+  const isLoading = rateQueries.some((q) => q.isLoading);
+  const rates: Record<string, number> = { [defaultCurrency]: 1 };
+  distinctCurrencies.forEach((c, i) => {
+    rates[c] = rateQueries[i]?.data?.rate ?? 1;
+  });
+
+  const total =
+    items.length === 0
+      ? 0
+      : !defaultCurrency
+        ? items.reduce((s, i) => s + i.amount, 0)
+        : items.reduce(
+            (sum, i) =>
+              sum +
+              i.amount * (rates[i.currency] ?? (i.currency === defaultCurrency ? 1 : 0)),
+            0
+          );
+
+  return { total, isLoading };
+}
 
 // Hook to convert an amount between currencies
 export const useConvertCurrency = (

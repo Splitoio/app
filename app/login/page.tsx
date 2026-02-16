@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
@@ -12,6 +12,8 @@ import { ApiError } from "@/types/api-error";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const callbackUrl = searchParams.get("callbackUrl") || "/";
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
@@ -38,7 +40,7 @@ export default function LoginPage() {
 
         // Use window.location instead of router.push to force a full page reload
         // This ensures cookies are properly set before navigating to protected pages
-        window.location.href = "/";
+        window.location.href = callbackUrl.startsWith("/") ? callbackUrl : "/";
         return; // Don't reset loading state as we're navigating away
       }
     } catch (error) {

@@ -152,7 +152,7 @@ export function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess }: EditIn
                 />
               </div>
               <div>
-                <label className="block text-base text-white mb-2">Description (optional)</label>
+                <label className="block text-base text-white mb-2">Description</label>
                 <input
                   type="text"
                   value={formData.description}
@@ -163,7 +163,7 @@ export function EditInvoiceModal({ isOpen, onClose, invoice, onSuccess }: EditIn
               </div>
             </div>
             <div>
-              <label className="block text-base text-white mb-2">Invoice image (optional)</label>
+              <label className="block text-base text-white mb-2">Invoice image</label>
               <input
                 ref={fileInputRef}
                 type="file"

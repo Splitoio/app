@@ -6,9 +6,10 @@ import { useQueries } from "@tanstack/react-query";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
+import { useGetContractsByOrganization } from "@/features/business/hooks/use-contracts";
 import { getStreamsByOrganization } from "@/features/business/api/client";
 import { QueryKeys } from "@/lib/constants";
-import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp } from "lucide-react";
+import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp, FileSignature } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 
 const viewAllButtonClass =
@@ -20,7 +21,9 @@ export default function OrganizationDashboardPage() {
 
   const orgIds = organizations.map((o) => o.id);
   const firstOrgId = orgIds[0];
+
   const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId || "");
+  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgId || "");
 
   const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
   const streamQueries = useQueries({
@@ -93,9 +96,11 @@ export default function OrganizationDashboardPage() {
         </div>
       </div>
 
-      {/* Stats: 3 consolidated cards */}
-      <div className="flex flex-col sm:flex-row justify-between gap-4 sm:gap-6 mb-4 sm:mb-6">
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 border border-white/5 flex-1 min-w-0">
+      {/* Stats: 3 cards in a row when Streams hidden, 2x2 when Streams shown */}
+      <div
+        className={`grid grid-cols-1 gap-5 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 ${adminOrgIds.length > 0 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
+      >
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
           <div className="flex items-center gap-2 text-white/60 mb-4">
             <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
             <span className="text-sm sm:text-base font-medium">Team</span>
@@ -115,7 +120,7 @@ export default function OrganizationDashboardPage() {
             </div>
           </div>
         </div>
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 border border-white/5 flex-1 min-w-0">
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
           <div className="flex items-center gap-2 text-white/60 mb-4">
             <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
             <span className="text-sm sm:text-base font-medium">Invoices</span>
@@ -141,27 +146,52 @@ export default function OrganizationDashboardPage() {
             </div>
           </div>
         </div>
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 border border-white/5 flex-1 min-w-0">
-          <div className="flex items-center gap-2 text-white/60 mb-4">
-            <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
-            <span className="text-sm sm:text-base font-medium">Income streams</span>
+        {adminOrgIds.length > 0 && (
+          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
+            <div className="flex items-center gap-2 text-white/60 mb-4">
+              <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="text-sm sm:text-base font-medium">Income streams</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <div>
+                <p className="text-white/50 text-xs sm:text-sm">Streams</p>
+                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                  {streamsLoading ? "—" : totalStreamsCount}
+                </p>
+                {!streamsLoading && streamsWithAmount > 0 && (
+                  <p className="text-white/50 text-xs mt-0.5">{streamsWithAmount} with amount</p>
+                )}
+              </div>
+              <div>
+                <p className="text-white/50 text-xs sm:text-sm">Amount (USD)</p>
+                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                  {streamsLoading ? "—" : expectedUsd > 0 ? formatCurrency(expectedUsd, "USD") : "—"}
+                </p>
+              </div>
+            </div>
           </div>
-          <div className="flex justify-between gap-4">
+        )}
+        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
+          <div className="flex items-center gap-2 text-white/60 mb-4">
+            <FileSignature className="h-5 w-5 sm:h-6 sm:w-6" />
+            <span className="text-sm sm:text-base font-medium">Contracts</span>
+          </div>
+          <div className="flex flex-col gap-2">
             <div>
-              <p className="text-white/50 text-xs sm:text-sm">Streams</p>
+              <p className="text-white/50 text-xs sm:text-sm">Total (first org)</p>
               <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {streamsLoading ? "—" : totalStreamsCount}
-              </p>
-              {!streamsLoading && streamsWithAmount > 0 && (
-                <p className="text-white/50 text-xs mt-0.5">{streamsWithAmount} with amount</p>
-              )}
-            </div>
-            <div>
-              <p className="text-white/50 text-xs sm:text-sm">Expected (USD)</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {streamsLoading ? "—" : expectedUsd > 0 ? formatCurrency(expectedUsd, "USD") : "—"}
+                {contractsLoading ? "—" : contractsFirstOrg.length}
               </p>
             </div>
+            {firstOrgId && (
+              <Link
+                href={`/organization/${firstOrgId}/contracts`}
+                className="text-white/70 hover:text-white text-sm font-medium mt-1 inline-flex items-center gap-1"
+              >
+                View contracts
+                <span className="text-white/50">→</span>
+              </Link>
+            )}
           </div>
         </div>
       </div>
@@ -225,7 +255,7 @@ export default function OrganizationDashboardPage() {
               </div>
             ) : organizations.length > 0 ? (
               organizations.slice(0, 4).map((org) => (
-                <Link href={`/organization/organizations/${org.id}`} key={org.id}>
+                <Link href={`/organization/${org.id}/invoices`} key={org.id}>
                   <div className="flex items-center justify-between hover:bg-white/[0.02] p-2 sm:p-3 rounded-lg transition-colors">
                     <div className="flex items-center gap-3 sm:gap-4">
                       <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">

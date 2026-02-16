@@ -26,6 +26,15 @@ export const GetAllGroupsSchema = z.object({
   expenses: z.array(ExpenseSchema).optional().default([]),
 });
 
+const ExpenseParticipantSchema = z.object({
+  userId: z.string(),
+  amount: z.number(),
+});
+
+export const ExpenseWithParticipantsSchema = ExpenseSchema.extend({
+  expenseParticipants: z.array(ExpenseParticipantSchema).optional(),
+});
+
 export const DetailGroupSchema = z.object({
   ...GroupSchema.shape,
   groupUsers: z.array(
@@ -34,7 +43,7 @@ export const DetailGroupSchema = z.object({
       user: UserSchema,
     })
   ),
-  expenses: z.array(ExpenseSchema),
+  expenses: z.array(ExpenseWithParticipantsSchema),
   groupBalances: z.array(GroupBalanceSchema),
   createdBy: z.object({
     id: z.string(),
@@ -119,6 +128,15 @@ export const addOrEditExpense = async (
 export const deleteGroup = async (groupId: string) => {
   const response = await apiClient.delete(`/groups/${groupId}`);
   return GenericResponseSchema.parse(response);
+};
+
+export const updateMemberRole = async (
+  groupId: string,
+  userId: string,
+  role: "ADMIN" | "MEMBER"
+) => {
+  const response = await apiClient.put(`/groups/${groupId}/members/${userId}/role`, { role });
+  return response;
 };
 
 export const updateGroup = async (

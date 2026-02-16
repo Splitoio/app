@@ -1,31 +1,54 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import { useCreateInvoice } from "@/features/business/hooks/use-invoices";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
+import { useGetMyContracts } from "@/features/business/hooks/use-contracts";
+import type { Contract } from "@/features/business/api/client";
 import { Loader2, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
+import CurrencyDropdown from "@/components/currency-dropdown";
+import type { Currency } from "@/features/currencies/api/client";
 
 interface AddInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   organizationId: string;
+  /** When opening from a contract view page, pass the contract to link and prefill amount/currency */
+  initialContract?: Contract | null;
 }
 
-export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceModalProps) {
+export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContract }: AddInvoiceModalProps) {
   const createInvoiceMutation = useCreateInvoice();
   const uploadFileMutation = useUploadFile();
+  const { data: myContracts = [] } = useGetMyContracts();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const contractsForOrg = myContracts.filter((c) => c.organizationId === organizationId);
   const [formData, setFormData] = useState({
     amount: "",
     currency: "USD",
     dueDate: "",
     description: "",
     imageUrl: "" as string,
+    contractId: "" as string,
   });
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialContract) {
+      setFormData((p) => ({
+        ...p,
+        contractId: initialContract.id,
+        amount: initialContract.compensationAmount != null ? String(initialContract.compensationAmount) : p.amount,
+        currency: initialContract.compensationCurrency ?? p.currency,
+      }));
+    } else {
+      setFormData((p) => ({ ...p, contractId: "" }));
+    }
+  }, [isOpen, initialContract]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -58,11 +81,12 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
         dueDate: formData.dueDate,
         description: formData.description || undefined,
         imageUrl: formData.imageUrl || undefined,
+        contractId: formData.contractId || undefined,
       },
       {
         onSuccess: () => {
           toast.success("Invoice created");
-          setFormData({ amount: "", currency: "USD", dueDate: "", description: "", imageUrl: "" });
+          setFormData({ amount: "", currency: "USD", dueDate: "", description: "", imageUrl: "", contractId: "" });
           onClose();
         },
         onError: (err: { message?: string }) => {
@@ -70,6 +94,19 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
         },
       }
     );
+  };
+
+  const onContractSelect = (contract: Contract | null) => {
+    if (!contract) {
+      setFormData((p) => ({ ...p, contractId: "", amount: p.amount, currency: p.currency }));
+      return;
+    }
+    setFormData((p) => ({
+      ...p,
+      contractId: contract.id,
+      amount: contract.compensationAmount != null ? String(contract.compensationAmount) : p.amount,
+      currency: contract.compensationCurrency ?? p.currency,
+    }));
   };
 
   if (!isOpen) return null;
@@ -81,6 +118,27 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
         <div className="relative z-10 bg-black rounded-3xl w-full max-w-lg border border-white/70 p-8" onClick={(e) => e.stopPropagation()}>
           <h2 className="text-xl font-semibold text-white mb-6">Raise Invoice</h2>
           <form onSubmit={handleSubmit} className="space-y-4">
+            {contractsForOrg.length > 0 && (
+              <div>
+                <label className="block text-base text-white mb-2">Link to contract</label>
+                <select
+                  value={formData.contractId}
+                  onChange={(e) => {
+                    const id = e.target.value;
+                    const c = id ? contractsForOrg.find((x) => x.id === id) ?? null : null;
+                    onContractSelect(c);
+                  }}
+                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
+                >
+                  <option value="">None</option>
+                  {contractsForOrg.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title || "Contract"} {c.compensationAmount != null ? `(${c.compensationCurrency} ${c.compensationAmount})` : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-base text-white mb-2">Amount</label>
@@ -97,16 +155,19 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
               </div>
               <div>
                 <label className="block text-base text-white mb-2">Currency</label>
-                <select
-                  value={formData.currency}
-                  onChange={(e) => setFormData((p) => ({ ...p, currency: e.target.value }))}
-                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                >
-                  <option value="USD">USD</option>
-                  <option value="EUR">EUR</option>
-                  <option value="GBP">GBP</option>
-                  <option value="INR">INR</option>
-                </select>
+                <CurrencyDropdown
+                  selectedCurrencies={formData.currency ? [formData.currency] : []}
+                  setSelectedCurrencies={(currencies) =>
+                    setFormData((p) => ({ ...p, currency: currencies[0] || "USD" }))
+                  }
+                  mode="single"
+                  showFiatCurrencies={true}
+                  disableChainCurrencies={true}
+                  filterCurrencies={(currency: Currency) =>
+                    currency.symbol !== "ETH" && currency.symbol !== "USDC"
+                  }
+                  placeholder="Select currency..."
+                />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -121,7 +182,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
                 />
               </div>
               <div>
-                <label className="block text-base text-white mb-2">Description (optional)</label>
+                <label className="block text-base text-white mb-2">Description</label>
                 <input
                   type="text"
                   value={formData.description}
@@ -132,7 +193,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceM
               </div>
             </div>
             <div>
-              <label className="block text-base text-white mb-2">Invoice image (optional)</label>
+              <label className="block text-base text-white mb-2">Invoice image</label>
               <input
                 ref={fileInputRef}
                 type="file"
