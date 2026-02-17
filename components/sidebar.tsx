@@ -12,6 +12,7 @@ import {
   ChevronLeft,
   ChevronsUpDown,
   ChevronDown,
+  Plus,
   Briefcase,
   UserCircle,
   LogOut,
@@ -132,6 +133,7 @@ export function Sidebar() {
           {/* Main Navigation */}
           <div className="flex-1 space-y-1 px-4 py-4 sm:py-6">
             <Link
+              id="sidebar-dashboard-link"
               href={isOrganizationMode ? "/organization" : "/"}
               onClick={close}
               className={cn(
@@ -145,9 +147,11 @@ export function Sidebar() {
               Dashboard
             </Link>
 
+
             {isOrganizationMode ? (
               <div className="relative" ref={orgDropdownRef}>
                 <button
+                  id="sidebar-org-dropdown"
                   type="button"
                   onClick={() => setOrgDropdownOpen((v) => !v)}
                   className={cn(
@@ -155,6 +159,7 @@ export function Sidebar() {
                     currentOrgId ? "text-white/90" : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <Users2 className="h-5 w-5 shrink-0" strokeWidth={1.5} />
                   <span className="truncate flex-1 text-left">
                     {currentOrg ? currentOrg.name : "Select organization"}
@@ -168,7 +173,8 @@ export function Sidebar() {
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      className="absolute left-0 right-0 top-full mt-1 rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[60] max-h-[280px] overflow-y-auto"
+                      className="absolute left-0 right-0 top-full mt-1 rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[1001] max-h-[280px] overflow-y-auto"
+
                     >
                       {organizations.length === 0 ? (
                         <div className="px-4 py-3 text-white/60 text-sm">No organizations</div>
@@ -186,10 +192,25 @@ export function Sidebar() {
                               org.id === currentOrgId ? "bg-white/10 text-white" : "text-white/90 hover:bg-white/5 hover:text-white"
                             )}
                           >
+                            <div className="h-6 w-6 rounded bg-white/10 flex items-center justify-center text-[10px] font-bold">
+                              {org.name.charAt(0).toUpperCase()}
+                            </div>
                             <span className="truncate">{org.name}</span>
                           </Link>
                         ))
                       )}
+                      <Link
+                        id="sidebar-create-org-link"
+                        href="/organization/create"
+                        onClick={() => {
+                          close();
+                          setOrgDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:bg-white/5 hover:text-white transition-colors"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={1.5} />
+                        Create organization
+                      </Link>
                       <div className="border-t border-white/10 mt-2 pt-2">
                         <Link
                           href="/organization/organizations"
@@ -209,6 +230,7 @@ export function Sidebar() {
             ) : (
               <div className="relative" ref={groupDropdownRef}>
                 <button
+                  id="sidebar-group-dropdown"
                   type="button"
                   onClick={() => setGroupDropdownOpen((v) => !v)}
                   className={cn(
@@ -216,6 +238,7 @@ export function Sidebar() {
                     currentGroupId ? "text-white/90" : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <Users2 className="h-5 w-5 shrink-0" strokeWidth={1.5} />
                   <span className="truncate flex-1 text-left">
                     {currentGroup ? currentGroup.name : "Select group"}
@@ -229,7 +252,8 @@ export function Sidebar() {
                       initial="hidden"
                       animate="visible"
                       exit="exit"
-                      className="absolute left-0 right-0 top-full mt-1 rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[60] max-h-[280px] overflow-y-auto"
+                      className="absolute left-0 right-0 top-full mt-1 rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[1001] max-h-[280px] overflow-y-auto"
+
                     >
                       {groups.length === 0 ? (
                         <div className="px-4 py-3 text-white/60 text-sm">No groups</div>
@@ -247,10 +271,26 @@ export function Sidebar() {
                               group.id === currentGroupId ? "bg-white/10 text-white" : "text-white/90 hover:bg-white/5 hover:text-white"
                             )}
                           >
+                            <div className="h-6 w-6 rounded bg-white/10 flex items-center justify-center text-[10px] font-bold">
+                              {group.name.charAt(0).toUpperCase()}
+                            </div>
                             <span className="truncate">{group.name}</span>
                           </Link>
                         ))
                       )}
+
+                      <Link
+                        id="sidebar-create-group-link"
+                        href="/create"
+                        onClick={() => {
+                          close();
+                          setGroupDropdownOpen(false);
+                        }}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:bg-white/5 hover:text-white transition-colors"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={1.5} />
+                        Create group
+                      </Link>
                       <div className="border-t border-white/10 mt-2 pt-2">
                         <Link
                           href="/groups"
@@ -272,6 +312,7 @@ export function Sidebar() {
             {isOrganizationMode && linkOrgId && (
               <>
                 <Link
+                  id="sidebar-org-invoices-link"
                   href={`/organization/${linkOrgId}/invoices`}
                   onClick={close}
                   className={cn(
@@ -281,11 +322,13 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <FileText className="h-5 w-5" strokeWidth={1.5} />
                   Invoices
                 </Link>
                 {isAdminOfLinkOrg && (
                   <Link
+                    id="sidebar-org-streams-link"
                     href={`/organization/${linkOrgId}/streams`}
                     onClick={close}
                     className={cn(
@@ -295,11 +338,13 @@ export function Sidebar() {
                         : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                     )}
                   >
+
                     <TrendingUp className="h-5 w-5" strokeWidth={1.5} />
                     Streams
                   </Link>
                 )}
                 <Link
+                  id="sidebar-org-activity-link"
                   href={`/organization/${linkOrgId}/activity`}
                   onClick={close}
                   className={cn(
@@ -309,10 +354,12 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <Activity className="h-5 w-5" strokeWidth={1.5} />
                   Activity
                 </Link>
                 <Link
+                  id="sidebar-org-contracts-link"
                   href={`/organization/${linkOrgId}/contracts`}
                   onClick={close}
                   className={cn(
@@ -322,10 +369,12 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <FileSignature className="h-5 w-5" strokeWidth={1.5} />
                   Contracts
                 </Link>
                 <Link
+                  id="sidebar-org-members-link"
                   href={`/organization/${linkOrgId}/members`}
                   onClick={close}
                   className={cn(
@@ -335,6 +384,7 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <UserPlus className="h-5 w-5" strokeWidth={1.5} />
                   Members
                 </Link>
@@ -344,6 +394,7 @@ export function Sidebar() {
             {!isOrganizationMode && linkGroupId && (
               <>
                 <Link
+                  id="sidebar-expenses-link"
                   href={`/groups/${linkGroupId}/splits`}
                   onClick={close}
                   className={cn(
@@ -353,10 +404,12 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <FileText className="h-5 w-5" strokeWidth={1.5} />
                   Expenses
                 </Link>
                 <Link
+                  id="sidebar-activity-link"
                   href={`/groups/${linkGroupId}/activity`}
                   onClick={close}
                   className={cn(
@@ -366,10 +419,12 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <Activity className="h-5 w-5" strokeWidth={1.5} />
                   Activity
                 </Link>
                 <Link
+                  id="sidebar-members-link"
                   href={`/groups/${linkGroupId}/members`}
                   onClick={close}
                   className={cn(
@@ -379,6 +434,7 @@ export function Sidebar() {
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
+
                   <UserPlus className="h-5 w-5" strokeWidth={1.5} />
                   Members
                 </Link>
@@ -406,6 +462,7 @@ export function Sidebar() {
           <div className="p-4 mt-auto">
             <div className="relative" ref={profileRef}>
               <button
+                id="sidebar-profile-dropdown"
                 type="button"
                 onClick={() => setProfileDropdownOpen((v) => !v)}
                 className={cn(
@@ -414,6 +471,7 @@ export function Sidebar() {
                   profileDropdownOpen && "bg-[#17171A] text-white"
                 )}
               >
+
                 <div className="h-9 w-9 shrink-0 overflow-hidden rounded-full bg-white/10">
                   {user?.image ? (
                     <Image
@@ -447,7 +505,8 @@ export function Sidebar() {
                     initial="hidden"
                     animate="visible"
                     exit="exit"
-                    className="absolute left-full bottom-0 ml-1 w-[220px] rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[100]"
+                    className="absolute left-full bottom-0 ml-1 w-[220px] rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[1001]"
+
                   >
                     <div className="px-4 py-3 border-b border-white/10">
                       <div className="flex items-center gap-3">
@@ -478,6 +537,7 @@ export function Sidebar() {
                     </div>
                     <div className="py-1">
                       <Link
+                        id="sidebar-settings-link"
                         href={isOrganizationMode ? "/organization/settings" : "/settings"}
                         onClick={() => {
                           close();
@@ -485,10 +545,12 @@ export function Sidebar() {
                         }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-white/90 hover:bg-white/5 hover:text-white transition-colors"
                       >
+
                         <Settings className="h-4 w-4 text-white/60" strokeWidth={1.5} />
                         Settings
                       </Link>
                       <Link
+                        id="sidebar-mode-switcher-row"
                         href={isOrganizationMode ? "/" : "/organization"}
                         onClick={() => {
                           close();
@@ -496,6 +558,7 @@ export function Sidebar() {
                         }}
                         className="flex items-center gap-3 px-4 py-2 text-sm text-white/90 hover:bg-white/5 hover:text-white transition-colors"
                       >
+
                         {isOrganizationMode ? (
                           <UserCircle className="h-4 w-4 text-white/60" strokeWidth={1.5} />
                         ) : (
