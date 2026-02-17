@@ -12,8 +12,10 @@ import { getFileDownloadUrl } from "@/features/files/api/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { EditContractModal } from "@/components/edit-contract-modal";
-import type { Contract } from "@/features/business/api/client";
+import { Contract } from "@/features/business/api/client";
 import { motion, AnimatePresence } from "framer-motion";
+import { viewPdf } from "@/utils/file";
+
 
 export default function OrganizationContractsPage() {
   const params = useParams();
@@ -23,6 +25,8 @@ export default function OrganizationContractsPage() {
   const deleteContractMutation = useDeleteContract();
   const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
+  const [loadingContractId, setLoadingContractId] = useState<string | null>(null);
+
 
   const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
 
@@ -73,18 +77,30 @@ export default function OrganizationContractsPage() {
               {c.pdfFileKey && (
                 <button
                   type="button"
+                  disabled={loadingContractId === c.id}
                   onClick={async () => {
                     try {
+                      setLoadingContractId(c.id);
                       const r = await getFileDownloadUrl(c.pdfFileKey!);
-                      window.open(r.downloadUrl, "_blank");
+                      await viewPdf(r.downloadUrl);
                     } catch {
                       toast.error("Could not load PDF");
+                    } finally {
+                      setLoadingContractId(null);
                     }
                   }}
-                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm"
+                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm flex items-center gap-2 min-w-[85px] justify-center"
                 >
-                  View PDF
+                  {loadingContractId === c.id ? (
+                    <>
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Opening...
+                    </>
+                  ) : (
+                    "View PDF"
+                  )}
                 </button>
+
               )}
               {isAdmin && (
                 <>

@@ -88,40 +88,34 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     try {
       setIsCheckingEmail(true);
 
-      // Using the invite friend endpoint which checks if a user exists
       const response = await apiClient.post("/users/friends/invite", {
         email,
-        sendInviteEmail: false, // Don't actually send an invite, just check if user exists
+        sendInviteEmail: false,
       });
 
       const userData = response.data || response;
 
-      // Check if the response indicates a newly created user (not already registered)
-      // If emailVerified is false and there's no name or it equals the email prefix,
-      // it's likely a newly created user by the API and not an existing one
-      const isNewlyCreated =
-        !userData.emailVerified &&
-        (!userData.name || userData.name === email.split("@")[0]);
-
-      if (isNewlyCreated) {
-        return null; // Return null to indicate user doesn't exist yet
-      }
-
-      // User exists
       return {
         id: userData.id || Date.now().toString(),
         email: userData.email || email,
-        name: userData.name,
+        name: userData.name || email.split("@")[0],
         image: userData.image,
-        exists: true,
+        exists: !!userData.emailVerified,
       };
     } catch (error) {
       console.error("Error checking user:", error);
-      return null;
+      // Even if API fails, allow adding by email as a potential shadow user
+      return {
+        id: Date.now().toString(),
+        email: email,
+        name: email.split("@")[0],
+        exists: false,
+      };
     } finally {
       setIsCheckingEmail(false);
     }
   };
+
 
   // Add members to a group after creation
   const inviteMembers = async (groupId: string) => {
@@ -245,21 +239,17 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     // Check if user exists in system
     const userCheck = await checkUserExists(email);
 
-    if (!userCheck) {
-      toast.error("User not found", {
-        description: "This email is not registered on Splito",
-      });
-      return;
+    if (userCheck) {
+      // Add the user to the members list
+      setMembers([
+        ...members,
+        {
+          ...userCheck,
+          id: userCheck.id || Date.now().toString(),
+        },
+      ]);
     }
 
-    // Add the user to the members list
-    setMembers([
-      ...members,
-      {
-        ...userCheck,
-        id: userCheck.id || Date.now().toString(),
-      },
-    ]);
 
     // Clear the input
     setFormData((prev) => ({
