@@ -279,7 +279,7 @@ export default function CurrencyDropdown({
             initial="hidden"
             animate="visible"
             exit="exit"
-            className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-10 max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
+            className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-[9999] max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
           >
             {renderCurrencyDropdown()}
           </motion.div>

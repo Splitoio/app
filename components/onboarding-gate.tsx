@@ -4,12 +4,17 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { useGetUser } from "@/features/user/hooks/use-update-profile";
 import { OnboardingModal } from "./onboarding-modal";
-import { OnboardingTutorial } from "./onboarding-tutorial";
+import { OnboardingTutorial, type OnboardingMode } from "./onboarding-tutorial";
+import { APP_MODE } from "@/lib/app-mode";
 
 export function OnboardingGate() {
   const pathname = usePathname();
   const { data: userData, isLoading } = useGetUser();
   const [showTutorial, setShowTutorial] = useState(false);
+  const mode: OnboardingMode =
+    APP_MODE === "organization" || pathname?.startsWith("/organization")
+      ? "organization"
+      : "personal";
 
   const isAuthPage = pathname?.match(/^\/login|^\/signup/);
   const hasNoDisplayName =
@@ -24,8 +29,8 @@ export function OnboardingGate() {
   useEffect(() => {
     if (!userData?.id || isAuthPage || isLoading) return;
 
-    // Use a per-user key for tutorial persistence
-    const tutorialKey = `hasSeenTutorial_${userData.id}`;
+    // Persist tutorial visibility independently per mode.
+    const tutorialKey = `hasSeenTutorial_${mode}_${userData.id}`;
     const hasSeenTutorial = localStorage.getItem(tutorialKey);
     
     // Auto-start tutorial if profile is complete and tutorial is unseen
@@ -33,7 +38,7 @@ export function OnboardingGate() {
       console.log("OnboardingGate: Auto-starting tutorial for user", userData.id);
       setShowTutorial(true);
     }
-  }, [userData, isNewProfile, isLoading, isAuthPage]);
+  }, [userData, isNewProfile, isLoading, isAuthPage, mode]);
 
 
 
@@ -57,6 +62,7 @@ export function OnboardingGate() {
     return (
       <OnboardingTutorial 
         userId={userData.id}
+        mode={mode}
         onComplete={() => setShowTutorial(false)} 
       />
     );
@@ -65,4 +71,3 @@ export function OnboardingGate() {
 
   return null;
 }
-

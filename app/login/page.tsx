@@ -7,13 +7,14 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
+import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const callbackUrl = searchParams.get("callbackUrl") || "/";
+  const callbackUrl = searchParams.get("callbackUrl") || defaultPostLoginPath;
   const [showPassword, setShowPassword] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
   const [isLoadingGoogle, setIsLoadingGoogle] = useState(false);
@@ -30,7 +31,7 @@ export default function LoginPage() {
       const { data, error } = await authClient.signIn.email({
         email: formData.email,
         password: formData.password,
-        callbackURL: "/",
+        callbackURL: defaultPostLoginPath,
       });
 
       if (error) {
@@ -40,7 +41,9 @@ export default function LoginPage() {
 
         // Use window.location instead of router.push to force a full page reload
         // This ensures cookies are properly set before navigating to protected pages
-        window.location.href = callbackUrl.startsWith("/") ? callbackUrl : "/";
+        window.location.href = callbackUrl.startsWith("/")
+          ? callbackUrl
+          : defaultPostLoginPath;
         return; // Don't reset loading state as we're navigating away
       }
     } catch (error) {

@@ -8,6 +8,7 @@ import {
   updateContract,
   deleteContract,
   claimContractByToken,
+  signContract,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -78,6 +79,16 @@ export const useClaimContractByToken = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: claimContractByToken,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
+    },
+  });
+};
+
+export const useSignContract = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: signContract,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
     },

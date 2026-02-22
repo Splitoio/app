@@ -76,7 +76,7 @@ export default function OrganizationDashboardPage() {
               "Organization dashboard"
             )}
           </h2>
-          <Link href="/settings" className="cursor-pointer">
+          <Link href="/organization/settings" className="cursor-pointer">
             <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
               <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
                 {user?.image ? (

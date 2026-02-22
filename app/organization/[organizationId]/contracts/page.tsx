@@ -2,33 +2,49 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Pencil, Trash2, Loader2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, CheckCircle2, Clock } from "lucide-react";
 import {
   useGetContractsByOrganization,
   useDeleteContract,
+  useSignContract,
 } from "@/features/business/hooks/use-contracts";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
-import { getFileDownloadUrl } from "@/features/files/api/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { EditContractModal } from "@/components/edit-contract-modal";
+import { ContractDetailModal } from "@/components/contract-detail-modal";
 import { Contract } from "@/features/business/api/client";
 import { motion, AnimatePresence } from "framer-motion";
-import { viewPdf } from "@/utils/file";
-
+import { useAuthStore } from "@/stores/authStore";
 
 export default function OrganizationContractsPage() {
   const params = useParams();
   const organizationId = params?.organizationId as string;
   const { isAdmin, openCreateContract } = useOrganizationOrg();
+  const { user } = useAuthStore();
   const { data: contracts = [], isLoading: isContractsLoading } = useGetContractsByOrganization(organizationId);
   const deleteContractMutation = useDeleteContract();
+  const signContractMutation = useSignContract();
   const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
-  const [loadingContractId, setLoadingContractId] = useState<string | null>(null);
-
+  const [contractToView, setContractToView] = useState<Contract | null>(null);
+  const [signingId, setSigningId] = useState<string | null>(null);
 
   const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
+
+  const handleSign = (contractId: string) => {
+    setSigningId(contractId);
+    signContractMutation.mutate(contractId, {
+      onSuccess: () => {
+        toast.success("Contract signed successfully");
+        setSigningId(null);
+      },
+      onError: (err: { message?: string }) => {
+        toast.error(err?.message ?? "Failed to sign contract");
+        setSigningId(null);
+      },
+    });
+  };
 
   const handleConfirmDelete = () => {
     if (!contractToDelete) return;
@@ -41,6 +57,11 @@ export default function OrganizationContractsPage() {
         toast.error(err?.message ?? "Failed to delete contract");
       },
     });
+  };
+
+  const formatDate = (d: Date | null | undefined) => {
+    if (!d) return "";
+    return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
   return (
@@ -58,74 +79,95 @@ export default function OrganizationContractsPage() {
         </div>
       )}
       {!isAdmin && <h3 className="text-mobile-lg sm:text-xl font-medium text-white mb-3 sm:mb-4">My contracts</h3>}
+
       {isContractsLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-white/50" />
         </div>
       ) : contracts.length > 0 ? (
-        contracts.map((c) => (
-          <div key={c.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-white/[0.02]">
-            <div className="min-w-0">
-              <p className="text-white font-medium">{c.title || "Contract"}</p>
-              <p className="text-white/60 text-sm">
-                Assigned to {c.assignedTo?.email ?? c.assignedToEmail}
-                {c.compensationAmount != null && ` · ${formatCurrencyLocal(c.compensationAmount, c.compensationCurrency ?? "USD")}`}
-              </p>
-              {c.description && <p className="text-white/50 text-sm mt-1">{c.description}</p>}
-            </div>
-            <div className="flex items-center gap-2 self-start sm:self-center">
-              {c.pdfFileKey && (
-                <button
-                  type="button"
-                  disabled={loadingContractId === c.id}
-                  onClick={async () => {
-                    try {
-                      setLoadingContractId(c.id);
-                      const r = await getFileDownloadUrl(c.pdfFileKey!);
-                      await viewPdf(r.downloadUrl);
-                    } catch {
-                      toast.error("Could not load PDF");
-                    } finally {
-                      setLoadingContractId(null);
-                    }
-                  }}
-                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm flex items-center gap-2 min-w-[85px] justify-center"
-                >
-                  {loadingContractId === c.id ? (
-                    <>
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Opening...
-                    </>
-                  ) : (
-                    "View PDF"
-                  )}
-                </button>
+        contracts.map((c) => {
+          const isSigned = !!c.signedAt;
+          const isAssignee = c.assignedToUserId === user?.id;
 
-              )}
-              {isAdmin && (
-                <>
+          return (
+            <div
+              key={c.id}
+              className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]${!isAdmin && isAssignee ? " cursor-pointer hover:bg-white/[0.04] transition-colors" : ""}`}
+              onClick={!isAdmin && isAssignee ? () => setContractToView(c) : undefined}
+            >
+              {/* Left: info */}
+              <div className="min-w-0 flex-1 space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="text-white font-medium">{c.title || "Contract"}</p>
+                  {c.jobTitle && <span className="text-xs text-white/40">· {c.jobTitle}</span>}
+                  {/* Signed status badge */}
+                  {isSigned ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400 bg-emerald-400/10 border border-emerald-400/20 rounded-full px-2 py-0.5">
+                      <CheckCircle2 className="h-3 w-3" />
+                      Signed {formatDate(c.signedAt)}
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-white/40 bg-white/5 border border-white/10 rounded-full px-2 py-0.5">
+                      <Clock className="h-3 w-3" />
+                      Awaiting signature
+                    </span>
+                  )}
+                </div>
+                <p className="text-white/60 text-sm">
+                  {isAdmin
+                    ? `Assigned to ${c.assignedTo?.name ?? c.assignedToEmail}`
+                    : `From ${c.organization?.name ?? "organization"}`}
+                  {c.compensationAmount != null &&
+                    ` · ${formatCurrencyLocal(c.compensationAmount, c.compensationCurrency ?? "USD")}${c.paymentFrequency ? " / " + c.paymentFrequency.toLowerCase() : ""}`}
+                </p>
+                {c.startDate && (
+                  <p className="text-white/40 text-xs">
+                    {formatDate(c.startDate)}{c.endDate ? ` → ${formatDate(c.endDate)}` : " · No end date"}
+                  </p>
+                )}
+              </div>
+
+              {/* Right: actions */}
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Member: sign button */}
+                {!isAdmin && isAssignee && !isSigned && (
                   <button
                     type="button"
-                    onClick={() => setContractToEdit(c)}
-                    className="rounded-full border border-white/20 p-2 text-white/80 hover:text-white hover:bg-white/5"
-                    title="Edit contract"
+                    disabled={signingId === c.id}
+                    onClick={(e) => { e.stopPropagation(); handleSign(c.id); }}
+                    className="rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30 px-4 py-1.5 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
                   >
-                    <Pencil className="h-4 w-4" />
+                    {signingId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
+                    Mark as signed
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => setContractToDelete(c)}
-                    disabled={deleteContractMutation.isPending}
-                    className="rounded-full border border-white/20 p-2 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
-                    title="Delete contract"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </button>
-                </>
-              )}
+                )}
+
+                {/* Admin: edit + delete */}
+                {isAdmin && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setContractToEdit(c)}
+                      className="rounded-full border border-white/20 p-2 text-white/80 hover:text-white hover:bg-white/5"
+                      title="Edit contract"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setContractToDelete(c)}
+                      disabled={deleteContractMutation.isPending}
+                      className="rounded-full border border-white/20 p-2 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
+                      title="Delete contract"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="text-center py-12 text-white/60">
           {isAdmin ? "No contracts yet. Create one to assign to someone by email." : "No contracts assigned to you."}
@@ -137,6 +179,12 @@ export default function OrganizationContractsPage() {
         onClose={() => setContractToEdit(null)}
         contract={contractToEdit}
         onSuccess={() => setContractToEdit(null)}
+      />
+
+      <ContractDetailModal
+        isOpen={!!contractToView}
+        onClose={() => setContractToView(null)}
+        contract={contractToView}
       />
 
       <AnimatePresence>
@@ -177,11 +225,7 @@ export default function OrganizationContractsPage() {
                   disabled={deleteContractMutation.isPending}
                   className="flex-1 h-11 rounded-full bg-red-500/20 text-red-400 border border-red-500/40 hover:bg-red-500/30 font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                 >
-                  {deleteContractMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    "Delete"
-                  )}
+                  {deleteContractMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
                 </button>
               </div>
             </motion.div>

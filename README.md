@@ -15,6 +15,14 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Deployment Mode
+
+You can deploy the same codebase in different app modes using:
+
+- `NEXT_PUBLIC_APP_MODE=personal` for personal-only deployment
+- `NEXT_PUBLIC_APP_MODE=organization` for organization-only deployment
+- `NEXT_PUBLIC_APP_MODE=both` (default) to keep both modes enabled
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

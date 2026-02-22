@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Eye, EyeOff, Mail, Lock, Loader2 } from "lucide-react";
 import { motion } from "framer-motion";
 import { authClient } from "@/lib/auth";
+import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 
@@ -38,7 +39,7 @@ export default function SignupPage() {
         name: formData.name,
         email: formData.email,
         password: formData.password,
-        callbackURL: "/",
+        callbackURL: defaultPostLoginPath,
       });
 
       if (error) {
