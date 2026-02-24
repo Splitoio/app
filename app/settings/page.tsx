@@ -445,7 +445,7 @@ export default function SettingsPage() {
             placeholder="Enter your name"
           />
         </div>
-        <div className="mb-8">
+        <div id="settings-accept-payments-section" className="mb-8">
           <label className="text-white mb-2 flex items-center gap-2">
             Accept Payments in
             <TooltipProvider>
@@ -477,6 +477,7 @@ export default function SettingsPage() {
             </div>
           )}
         </div>
+
         {/* Preferred Currency - Single Dropdown */}
         <div className="mb-8">
           <label className="text-white mb-2 flex items-center gap-2">
@@ -537,10 +538,12 @@ export default function SettingsPage() {
         {/* Wallet Management */}
         <div className="mb-8">
           <button
+            id="settings-add-wallet-button"
             onClick={() => setIsWalletModalOpen(true)}
             disabled={isAddingWallet}
             className="w-full flex items-center justify-center h-10 sm:h-12 gap-1 sm:gap-2 bg-white text-black rounded-full px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
           >
+
             {isAddingWallet ? (
               <>
                 <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />

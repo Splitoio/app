@@ -439,7 +439,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                       Wallet Address
                     </label>
                     <input
-                      id="wallet-address"
+                      id="wallet-address-input"
                       type="text"
                       value={walletAddress}
                       onChange={(e) => setWalletAddress(e.target.value)}
@@ -447,6 +447,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                       placeholder={getPlaceholder()}
                       disabled={isAddingWallet || isSettingPrimary}
                     />
+
                   </div>
 
                   {/* Wallet Chain Dropdown */}
@@ -463,6 +464,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                     ) : (
                       <div className="relative">
                         <button
+                          id="wallet-chain-dropdown"
                           type="button"
                           onClick={() => setIsDropdownOpen(!isDropdownOpen)}
                           className="w-full bg-black border border-[#2e2e31] text-white p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white/30 flex items-center justify-between"
@@ -477,6 +479,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                             }`}
                           />
                         </button>
+
 
                         {/* Dropdown */}
                         <AnimatePresence>
@@ -513,6 +516,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
 
                 {/* Add Wallet Button */}
                 <motion.button
+                  id="wallet-submit-button"
                   onClick={handleSubmit}
                   disabled={isAddingWallet || isSettingPrimary || chainsLoading}
                   whileHover={{
@@ -526,6 +530,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                   text-lg font-semibold text-black
                   transition-all duration-200 hover:bg-white/90 disabled:opacity-70 disabled:cursor-not-allowed"
                 >
+
                   {isAddingWallet || isSettingPrimary ? (
                     <div className="flex items-center gap-2">
                       <div className="h-5 w-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>

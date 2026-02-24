@@ -221,6 +221,14 @@ export const ContractSchema = z.object({
   compensationCurrency: z.string().nullable(),
   pdfFileKey: z.string().nullable(),
   status: ContractStatusSchema,
+  jobTitle: z.string().nullable().optional(),
+  scopeOfWork: z.string().nullable().optional(),
+  paymentFrequency: z.enum(["MONTHLY", "WEEKLY", "ONE_TIME"]).nullable().optional(),
+  startDate: z.coerce.date().nullable().optional(),
+  endDate: z.coerce.date().nullable().optional(),
+  noticePeriodDays: z.number().nullable().optional(),
+  specialClause: z.string().nullable().optional(),
+  signedAt: z.coerce.date().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   organization: z.object({ id: z.string(), name: z.string() }).optional(),
@@ -256,7 +264,13 @@ export const createContract = async (payload: {
   description?: string;
   compensationAmount?: number;
   compensationCurrency?: string;
-  pdfFileKey?: string;
+  jobTitle?: string;
+  scopeOfWork?: string;
+  paymentFrequency?: "MONTHLY" | "WEEKLY" | "ONE_TIME";
+  startDate?: string | null;
+  endDate?: string | null;
+  noticePeriodDays?: number | null;
+  specialClause?: string | null;
 }) => {
   const response = await apiClient.post("/contracts", payload);
   return ContractSchema.parse(response);
@@ -270,10 +284,21 @@ export const updateContract = async (
     description?: string;
     compensationAmount?: number;
     compensationCurrency?: string;
-    pdfFileKey?: string;
+    jobTitle?: string | null;
+    scopeOfWork?: string | null;
+    paymentFrequency?: "MONTHLY" | "WEEKLY" | "ONE_TIME" | null;
+    startDate?: string | null;
+    endDate?: string | null;
+    noticePeriodDays?: number | null;
+    specialClause?: string | null;
   }
 ) => {
   const response = await apiClient.patch(`/contracts/${contractId}`, payload);
+  return ContractSchema.parse(response);
+};
+
+export const signContract = async (contractId: string) => {
+  const response = await apiClient.patch(`/contracts/${contractId}/sign`, {});
   return ContractSchema.parse(response);
 };
 

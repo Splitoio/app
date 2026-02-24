@@ -7,8 +7,13 @@ import {
   useDeleteReceipt,
   Receipt 
 } from "@/features/groups/hooks/use-receipts";
-import { Loader2, Plus, Check, X, CheckSquare, Maximize2, Pencil, Trash2 } from "lucide-react";
+import { 
+  Loader2, Plus, Check, X, CheckSquare, Maximize2, Pencil, Trash2, FileText 
+} from "lucide-react";
+
 import { ReceiptImageModal } from "@/components/receipt-image-modal";
+import { viewPdf } from "@/utils/file";
+
 import {
   Dialog,
   DialogContent,
@@ -40,6 +45,8 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({
   const deleteReceiptMutation = useDeleteReceipt();
   const [selectedImage, setSelectedImage] = React.useState<{ url: string, desc: string } | null>(null);
   const [receiptToDelete, setReceiptToDelete] = React.useState<Receipt | null>(null);
+  const [loadingReceiptId, setLoadingReceiptId] = React.useState<string | null>(null);
+
 
   const handleUpdateStatus = (receiptId: string, status: string) => {
     updateStatusMutation.mutate({ receiptId, groupId, status });
@@ -109,17 +116,44 @@ export const ReceiptsTab: React.FC<ReceiptsTabProps> = ({
             {receipt.imageUrl && (
               <div 
                 className="group/img w-full md:w-24 h-24 relative rounded-lg overflow-hidden flex-shrink-0 bg-black/20 cursor-pointer"
-                onClick={() => setSelectedImage({ url: receipt.imageUrl!, desc: receipt.description })}
+                onClick={async () => {
+                  if (receipt.imageUrl?.toLowerCase().endsWith(".pdf")) {
+                    try {
+                      setLoadingReceiptId(receipt.id);
+                      await viewPdf(receipt.imageUrl);
+                    } finally {
+                      setLoadingReceiptId(null);
+                    }
+                  } else {
+                    setSelectedImage({ url: receipt.imageUrl!, desc: receipt.description });
+                  }
+                }}
+
               >
-                <Image 
-                  src={receipt.imageUrl} 
-                  alt={receipt.description} 
-                  fill 
-                  className="object-cover transition-transform group-hover/img:scale-110"
-                />
+                {receipt.imageUrl?.toLowerCase().endsWith(".pdf") ? (
+                  <div className="w-full h-full flex items-center justify-center bg-white/5">
+                    <FileText className="h-10 w-10 text-white/40" />
+                  </div>
+                ) : (
+                  <Image 
+                    src={receipt.imageUrl} 
+                    alt={receipt.description} 
+                    fill 
+                    className="object-cover transition-transform group-hover/img:scale-110"
+                  />
+                )}
+
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/img:opacity-100 transition-opacity flex items-center justify-center">
-                  <Maximize2 className="text-white h-6 w-6" />
+                  {loadingReceiptId === receipt.id ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <Loader2 className="text-white h-6 w-6 animate-spin" />
+                      <span className="text-[10px] text-white font-medium">Opening...</span>
+                    </div>
+                  ) : (
+                    <Maximize2 className="text-white h-6 w-6" />
+                  )}
                 </div>
+
               </div>
             )}
             

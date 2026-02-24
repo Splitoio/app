@@ -292,7 +292,7 @@ export default function CreateGroupPage() {
                     Group Name
                   </Label>
                   <Input
-                    id="name"
+                    id="group-name-input"
                     placeholder="Enter group name"
                     className="bg-zinc-900 border-zinc-800 text-white mt-1 text-mobile-base sm:text-base"
                     value={formData.name}
@@ -356,8 +356,10 @@ export default function CreateGroupPage() {
 
             <div className="flex justify-end">
               <Button
+                id="group-create-button"
                 type="submit"
                 className="bg-white text-black hover:bg-white/90 px-6 text-mobile-base sm:text-base"
+
                 disabled={isSubmitting}
               >
                 {isSubmitting ? (

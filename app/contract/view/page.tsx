@@ -6,8 +6,11 @@ import { useAuthStore } from "@/stores/authStore";
 import { useGetContractByToken, useClaimContractByToken } from "@/features/business/hooks/use-contracts";
 import { getFileDownloadUrl } from "@/features/files/api/client";
 import { Loader2, FileText } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+
+import { viewPdf } from "@/utils/file";
+
 
 export default function ContractViewPage() {
   const searchParams = useSearchParams();
@@ -16,6 +19,8 @@ export default function ContractViewPage() {
   const router = useRouter();
   const { data, isLoading, isError, error } = useGetContractByToken(token);
   const claimMutation = useClaimContractByToken();
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+
 
   useEffect(() => {
     if (!data || !user || data.contract.assignedToUserId != null) return;
@@ -85,14 +90,18 @@ export default function ContractViewPage() {
   }
 
   const handleViewPdf = async () => {
-    if (!contract.pdfFileKey) return;
+    if (!contract.pdfFileKey || isPdfLoading) return;
     try {
+      setIsPdfLoading(true);
       const r = await getFileDownloadUrl(contract.pdfFileKey);
-      window.open(r.downloadUrl, "_blank");
+      await viewPdf(r.downloadUrl);
     } catch {
       // ignore
+    } finally {
+      setIsPdfLoading(false);
     }
   };
+
 
   const handleRaiseInvoice = () => {
     router.push(
@@ -113,16 +122,25 @@ export default function ContractViewPage() {
             Compensation: {contract.compensationCurrency ?? "USD"} {contract.compensationAmount}
           </p>
         )}
-        {contract.pdfFileKey && (
           <button
             type="button"
             onClick={handleViewPdf}
-            className="flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-white/90 hover:text-white hover:border-white/40 mb-6"
+            disabled={isPdfLoading}
+            className="flex items-center gap-2 rounded-xl border border-white/20 px-4 py-3 text-white/90 hover:text-white hover:border-white/40 mb-6 disabled:opacity-50"
           >
-            <FileText className="h-5 w-5" />
-            View PDF
+            {isPdfLoading ? (
+              <>
+                <Loader2 className="h-5 w-5 animate-spin" />
+                Opening...
+              </>
+            ) : (
+              <>
+                <FileText className="h-5 w-5" />
+                View PDF
+              </>
+            )}
           </button>
-        )}
+
         {contract.assignedToUserId === user?.id && (
           <button
             type="button"

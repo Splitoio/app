@@ -78,21 +78,25 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
       setIsCheckingEmail(true);
       const response = await apiClient.post("/users/friends/invite", { email, sendInviteEmail: false });
       const userData = response.data || response;
-      const isNewlyCreated = !userData.emailVerified && (!userData.name || userData.name === email.split("@")[0]);
-      if (isNewlyCreated) return null;
       return {
         id: userData.id || Date.now().toString(),
         email: userData.email || email,
-        name: userData.name,
+        name: userData.name || email.split("@")[0],
         image: userData.image,
-        exists: true,
+        exists: !!userData.emailVerified,
       };
     } catch {
-      return null;
+      return {
+        id: Date.now().toString(),
+        email: email,
+        name: email.split("@")[0],
+        exists: false,
+      };
     } finally {
       setIsCheckingEmail(false);
     }
   };
+
 
   const inviteMembers = async (organizationId: string) => {
     const invitationPromises = members.map((member) =>
@@ -154,11 +158,10 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
       return;
     }
     const userCheck = await checkUserExists(email);
-    if (!userCheck) {
-      toast.error("User not found", { description: "This email is not registered on Splito" });
-      return;
+    if (userCheck) {
+      setMembers([...members, { ...userCheck, id: userCheck.id || Date.now().toString() }]);
     }
-    setMembers([...members, { ...userCheck, id: userCheck.id || Date.now().toString() }]);
+
     setFormData((prev) => ({ ...prev, memberEmail: "" }));
   };
 
@@ -192,6 +195,7 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
               <div className="space-y-2">
                 <label className="block text-base text-white">Organization Name</label>
                 <input
+                  id="org-name-input"
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
@@ -260,6 +264,7 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
                 )}
               </div>
               <button
+                id="org-create-button"
                 type="submit"
                 className="w-full h-12 bg-white text-black rounded-full font-medium hover:bg-white/90 transition-colors mt-8"
                 disabled={createOrganizationMutation.isPending}

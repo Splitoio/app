@@ -1,6 +1,7 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
+import Link from "next/link";
 import Image from "next/image";
 import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
@@ -12,6 +13,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { formatCurrency } from "@/utils/formatters";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useGroupLayout } from "@/contexts/group-layout-context";
+import { cn } from "@/lib/utils";
 
 export function GroupInfoHeader({
   groupId,
@@ -27,6 +29,7 @@ export function GroupInfoHeader({
   onSettingsClick: () => void;
 }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { address } = useWallet();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
@@ -96,6 +99,12 @@ export function GroupInfoHeader({
       setIsSettling(false);
     }, 500);
   };
+
+  const tabs = [
+    { label: "Expenses", href: `/groups/${groupId}/splits` },
+    { label: "Activity", href: `/groups/${groupId}/activity` },
+    { label: "Members", href: `/groups/${groupId}/members` },
+  ];
 
   return (
     <div className="mb-6">
@@ -302,6 +311,27 @@ export function GroupInfoHeader({
             </button>
           </div>
         </div>
+      </div>
+
+      {/* Tab bar */}
+      <div className="mt-5 flex gap-1">
+        {tabs.map((tab) => {
+          const isActive = pathname === tab.href;
+          return (
+            <Link
+              key={tab.href}
+              href={tab.href}
+              className={cn(
+                "px-4 py-2 rounded-full text-sm font-medium transition-all",
+                isActive
+                  ? "bg-white text-black"
+                  : "text-white/60 hover:text-white hover:bg-white/[0.06]"
+              )}
+            >
+              {tab.label}
+            </Link>
+          );
+        })}
       </div>
     </div>
   );
