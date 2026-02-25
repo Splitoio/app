@@ -17,6 +17,7 @@ import {
   FileSignature,
   FileText,
   UserCircle,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileMenu } from "@/contexts/mobile-menu";
@@ -52,7 +53,7 @@ export function Sidebar() {
   const [orgSwitcherOpen, setOrgSwitcherOpen] = useState(false);
   const orgSwitcherRef = useRef<HTMLDivElement>(null);
 
-  const { data: organizations = [] } = useGetAllOrganizations({
+  const { data: organizations = [], isError: isOrgsError } = useGetAllOrganizations({
     enabled: isOrganizationMode && !!user,
   });
   const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
@@ -129,6 +130,20 @@ export function Sidebar() {
               <LayoutDashboard className="h-5 w-5" strokeWidth={1.5} />
               Dashboard
             </Link>
+
+            {/* ── Organization mode: connection error hint when APIs fail ── */}
+            {isOrganizationMode && !linkOrgId && isOrgsError && (
+              <div className="px-4 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <p className="text-amber-200/90 text-xs font-medium">Couldn&apos;t load organizations</p>
+                <Link
+                  href="/organization"
+                  onClick={close}
+                  className="text-amber-300/80 text-xs hover:text-amber-200 mt-0.5 inline-block underline"
+                >
+                  View details on dashboard →
+                </Link>
+              </div>
+            )}
 
             {/* ── Organization mode links ── */}
             {isOrganizationMode && linkOrgId && (
@@ -243,6 +258,20 @@ export function Sidebar() {
                   <UserPlus className="h-5 w-5" strokeWidth={1.5} />
                   Friends
                 </Link>
+                <Link
+                  id="sidebar-settings-link"
+                  href="/settings"
+                  onClick={close}
+                  className={cn(
+                    "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
+                    pathname === "/settings"
+                      ? "bg-white/[0.07] text-white shadow-sm"
+                      : "text-white/60 hover:bg-white/[0.04] hover:text-white"
+                  )}
+                >
+                  <Settings className="h-5 w-5" strokeWidth={1.5} />
+                  Settings
+                </Link>
               </>
             )}
           </div>
@@ -306,7 +335,13 @@ export function Sidebar() {
                       </div>
 
                       {organizations.length === 0 ? (
-                        <div className="px-4 py-3 text-white/60 text-sm">No organizations</div>
+                        <div className="px-4 py-3 text-sm">
+                          {isOrgsError ? (
+                            <span className="text-amber-400/90">Connection error. See dashboard for details.</span>
+                          ) : (
+                            <span className="text-white/60">No organizations</span>
+                          )}
+                        </div>
                       ) : (
                         organizations.map((org) => (
                           <Link

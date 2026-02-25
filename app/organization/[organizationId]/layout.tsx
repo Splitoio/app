@@ -3,7 +3,6 @@
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetGroupById } from "@/features/groups/hooks/use-create-group";
 import {
@@ -170,9 +169,6 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
       <div className="w-full">
         <div className="flex items-center justify-between py-4 sm:py-6 mb-4 sm:mb-6">
           <div className="flex items-center gap-3 sm:gap-4">
-            <Link href="/organization/organizations" className="text-white/60 hover:text-white text-sm">
-              ← Organizations
-            </Link>
             <div className="h-12 w-12 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">
               {group.image ? (
                 <Image src={group.image} alt={group.name} width={56} height={56} className="h-full w-full object-cover" />

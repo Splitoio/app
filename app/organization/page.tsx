@@ -11,21 +11,32 @@ import { getStreamsByOrganization } from "@/features/business/api/client";
 import { QueryKeys } from "@/lib/constants";
 import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp, FileSignature } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
+import { OrganizationConnectionError } from "@/components/organization-connection-error";
 
 const viewAllButtonClass =
   "inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/80 px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-white/[0.06] transition-colors text-white font-medium text-mobile-sm sm:text-base whitespace-nowrap flex-shrink-0";
 
+function getConnectionErrorMessage(error: unknown): string {
+  const msg = typeof (error as { message?: string })?.message === "string"
+    ? (error as { message: string }).message
+    : "";
+  if (msg.toLowerCase().includes("cors") || msg === "Network Error" || msg.includes("Failed to fetch")) {
+    return "The server couldn't be reached. Check that the backend is running and CORS is configured for this origin.";
+  }
+  return msg || "We couldn't load your organizations. The backend may be down or there may be a network issue.";
+}
+
 export default function OrganizationDashboardPage() {
   const { user } = useAuthStore();
-  const { data: organizations = [], isLoading: isOrgsLoading } = useGetAllOrganizations();
+  const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
 
   const orgIds = organizations.map((o) => o.id);
-  const firstOrgId = orgIds[0];
-
-  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId || "");
-  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgId || "");
-
+  const firstOrgId = orgIds[0] ?? "";
   const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
+
+  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId);
+  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgId);
+
   const streamQueries = useQueries({
     queries: adminOrgIds.map((orgId) => ({
       queryKey: [QueryKeys.STREAMS, orgId],
@@ -61,6 +72,14 @@ export default function OrganizationDashboardPage() {
     });
   });
   const members = Array.from(membersMap.values());
+
+  if (isOrgsError) {
+    return (
+      <div className="w-full py-8">
+        <OrganizationConnectionError message={getConnectionErrorMessage(orgsError)} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">

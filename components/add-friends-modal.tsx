@@ -9,6 +9,7 @@ import { ZodError } from "zod";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
+import { isValidEmail } from "@/utils/validation";
 
 interface AddFriendsModalProps {
   isOpen: boolean;
@@ -37,9 +38,14 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
   }, [isOpen, onClose]);
 
   const handleSubmit = () => {
-    if (!identifier.trim()) return;
+    const value = identifier.trim();
+    if (!value) return;
+    if (!isValidEmail(value)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
+      return;
+    }
 
-    addFriend(identifier.trim(), {
+    addFriend(value, {
       onSuccess: (data) => {
         setIdentifier("");
 
@@ -56,7 +62,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !isPending && identifier.trim()) {
+    if (e.key === "Enter" && !isPending && identifier.trim() && isValidEmail(identifier.trim())) {
       handleSubmit();
     }
   };
@@ -105,7 +111,7 @@ export function AddFriendsModal({ isOpen, onClose }: AddFriendsModalProps) {
 
               <button
                 onClick={handleSubmit}
-                disabled={isPending || !identifier.trim()}
+                disabled={isPending || !identifier.trim() || !isValidEmail(identifier.trim())}
                 className="w-full h-14 rounded-full bg-[#fff] text-black text-base font-bold mt-8 shadow-none border-none"
                 style={{ backgroundColor: '#fff', color: '#000' }}
               >

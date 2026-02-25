@@ -9,6 +9,7 @@ import { fadeIn } from "@/utils/animations";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
 import { cn } from "@/lib/utils";
+import { isValidEmail } from "@/utils/validation";
 
 interface CreateContractModalProps {
   isOpen: boolean;
@@ -70,16 +71,44 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
   const set = (field: keyof FormData, value: string) =>
     setForm((p) => ({ ...p, [field]: value }));
 
+  const validateDates = (): boolean => {
+    if (!form.startDate) {
+      toast.error("Start date is required");
+      return false;
+    }
+    if (!form.endDate) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(form.startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(form.endDate);
+    end.setHours(0, 0, 0, 0);
+    if (end.getTime() <= start.getTime()) {
+      toast.error("End date must be after the start date");
+      return false;
+    }
+    if (end.getTime() <= today.getTime()) {
+      toast.error("End date must be after today");
+      return false;
+    }
+    return true;
+  };
+
   const validateStep = (): boolean => {
     if (step === 1) {
-      if (!form.assignedToEmail.trim()) { toast.error("Assignee email is required"); return false; }
+      const email = form.assignedToEmail.trim();
+      if (!email) { toast.error("Assignee email is required"); return false; }
+      if (!isValidEmail(email)) {
+        toast.error("Please enter a valid assignee email (e.g. name@example.com)");
+        return false;
+      }
       if (!form.title.trim()) { toast.error("Contract name is required"); return false; }
     }
     if (step === 2) {
       if (!form.compensationAmount) { toast.error("Payment rate is required"); return false; }
     }
     if (step === 3) {
-      if (!form.startDate) { toast.error("Start date is required"); return false; }
+      if (!validateDates()) return false;
     }
     return true;
   };
@@ -89,6 +118,7 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
   };
 
   const handleSubmit = () => {
+    if (!validateDates()) return;
     const amount = form.compensationAmount ? parseFloat(form.compensationAmount) : undefined;
     createContractMutation.mutate(
       {
@@ -114,8 +144,15 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
           onClose();
           onSuccess?.();
         },
-        onError: (err: { message?: string }) => {
-          toast.error(err?.message || "Failed to create contract");
+        onError: (err: unknown) => {
+          let msg = "Failed to create contract";
+          if (err && typeof err === "object" && "message" in err) {
+            const m = (err as { message: unknown }).message;
+            if (typeof m === "string") msg = m;
+            else if (Array.isArray(m)) msg = m.map((x) => (typeof x === "string" ? x : String(x))).join(". ");
+            else if (m != null) msg = String(m);
+          }
+          toast.error(msg);
         },
       }
     );
