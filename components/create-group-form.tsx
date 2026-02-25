@@ -13,6 +13,7 @@ import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
+import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
@@ -222,11 +223,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     e.preventDefault();
     const email = formData.memberEmail.trim().toLowerCase();
     if (!email) return;
-
-    // Validate email format
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      toast.error("Please enter a valid email address");
+    if (!isValidEmail(email)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
       return;
     }
 
@@ -363,7 +361,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     type="button"
                     onClick={handleAddMember}
                     className="w-12 h-12 bg-white rounded-full flex items-center justify-center"
-                    disabled={isCheckingEmail || !formData.memberEmail.trim()}
+                    disabled={isCheckingEmail || !formData.memberEmail.trim() || !isValidEmail(formData.memberEmail.trim())}
                   >
                     {isCheckingEmail ? (
                       <motion.div

@@ -70,6 +70,29 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
   const set = (field: keyof FormData, value: string) =>
     setForm((p) => ({ ...p, [field]: value }));
 
+  const validateDates = (): boolean => {
+    if (!form.startDate) {
+      toast.error("Start date is required");
+      return false;
+    }
+    if (!form.endDate) return true;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const start = new Date(form.startDate);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(form.endDate);
+    end.setHours(0, 0, 0, 0);
+    if (end.getTime() <= start.getTime()) {
+      toast.error("End date must be after the start date");
+      return false;
+    }
+    if (end.getTime() <= today.getTime()) {
+      toast.error("End date must be after today");
+      return false;
+    }
+    return true;
+  };
+
   const validateStep = (): boolean => {
     if (step === 1) {
       if (!form.assignedToEmail.trim()) { toast.error("Assignee email is required"); return false; }
@@ -79,7 +102,7 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
       if (!form.compensationAmount) { toast.error("Payment rate is required"); return false; }
     }
     if (step === 3) {
-      if (!form.startDate) { toast.error("Start date is required"); return false; }
+      if (!validateDates()) return false;
     }
     return true;
   };
@@ -89,6 +112,7 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
   };
 
   const handleSubmit = () => {
+    if (!validateDates()) return;
     const amount = form.compensationAmount ? parseFloat(form.compensationAmount) : undefined;
     createContractMutation.mutate(
       {

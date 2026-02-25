@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
+import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
@@ -149,8 +150,8 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
     e.preventDefault();
     const email = formData.memberEmail.trim().toLowerCase();
     if (!email) return;
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      toast.error("Please enter a valid email address");
+    if (!isValidEmail(email)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
       return;
     }
     if (members.some((m) => m.email.toLowerCase() === email)) {
@@ -223,7 +224,7 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
                     type="button"
                     onClick={handleAddMember}
                     className="w-12 h-12 bg-white rounded-full flex items-center justify-center"
-                    disabled={isCheckingEmail || !formData.memberEmail.trim()}
+                    disabled={isCheckingEmail || !formData.memberEmail.trim() || !isValidEmail(formData.memberEmail.trim())}
                   >
                     <Plus className="h-5 w-5 text-black" />
                   </button>

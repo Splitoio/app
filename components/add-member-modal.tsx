@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { Button } from "@/components/ui/button";
+import { isValidEmail } from "@/utils/validation";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -45,12 +46,15 @@ export function AddMemberModal({
   }, [isOpen, onClose]);
 
   const handleAddMember = () => {
-    if (!email.trim()) {
+    const memberEmail = email.trim();
+    if (!memberEmail) {
       toast.error("Please enter an email address");
       return;
     }
-
-    const memberEmail = email.trim();
+    if (!isValidEmail(memberEmail)) {
+      toast.error("Please enter a valid email address (e.g. name@example.com)");
+      return;
+    }
 
     // First add the member to the group
     addMembersToGroup(
@@ -105,7 +109,7 @@ export function AddMemberModal({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !(isPending || isAddingFriend) && email.trim()) {
+    if (e.key === "Enter" && !(isPending || isAddingFriend) && email.trim() && isValidEmail(email.trim())) {
       handleAddMember();
     }
   };
@@ -154,7 +158,7 @@ export function AddMemberModal({
 
               <Button
                 onClick={handleAddMember}
-                disabled={(isPending || isAddingFriend) || !email.trim()}
+                disabled={(isPending || isAddingFriend) || !email.trim() || !isValidEmail(email.trim())}
                 className="w-full h-14 rounded-full bg-[#fff] text-black text-base font-bold mt-8 shadow-none border-none"
                 style={{ backgroundColor: '#fff', color: '#000' }}
               >
