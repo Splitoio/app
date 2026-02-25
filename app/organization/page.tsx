@@ -30,21 +30,13 @@ export default function OrganizationDashboardPage() {
   const { user } = useAuthStore();
   const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
 
-  if (isOrgsError) {
-    return (
-      <div className="w-full py-8">
-        <OrganizationConnectionError message={getConnectionErrorMessage(orgsError)} />
-      </div>
-    );
-  }
-
   const orgIds = organizations.map((o) => o.id);
-  const firstOrgId = orgIds[0];
-
-  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId || "");
-  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgId || "");
-
+  const firstOrgId = orgIds[0] ?? "";
   const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
+
+  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId);
+  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgId);
+
   const streamQueries = useQueries({
     queries: adminOrgIds.map((orgId) => ({
       queryKey: [QueryKeys.STREAMS, orgId],
@@ -80,6 +72,14 @@ export default function OrganizationDashboardPage() {
     });
   });
   const members = Array.from(membersMap.values());
+
+  if (isOrgsError) {
+    return (
+      <div className="w-full py-8">
+        <OrganizationConnectionError message={getConnectionErrorMessage(orgsError)} />
+      </div>
+    );
+  }
 
   return (
     <div className="w-full">
