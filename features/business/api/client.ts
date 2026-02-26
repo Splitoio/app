@@ -58,12 +58,20 @@ export const InvoiceSchema = z.object({
   organization: z.object({ id: z.string(), name: z.string() }).optional(),
 });
 
-export const OrganizationActivityTypeSchema = z.enum(["INVOICE_RAISED", "INVOICE_APPROVED", "INVOICE_DECLINED", "INVOICE_CLEARED"]);
+export const OrganizationActivityTypeSchema = z.enum([
+  "INVOICE_RAISED",
+  "INVOICE_APPROVED",
+  "INVOICE_DECLINED",
+  "INVOICE_CLEARED",
+  "CONTRACT_CREATED",
+  "CONTRACT_SIGNED",
+]);
 export const OrganizationActivitySchema = z.object({
   id: z.string(),
   organizationId: z.string(),
   type: OrganizationActivityTypeSchema,
   invoiceId: z.string().nullable(),
+  contractId: z.string().nullable().optional(),
   userId: z.string(),
   note: z.string().nullable(),
   createdAt: z.coerce.date(),
@@ -75,6 +83,14 @@ export const OrganizationActivitySchema = z.object({
       currency: z.string(),
       issuer: z.object({ id: z.string(), name: z.string().nullable() }).optional(),
       recipient: z.object({ id: z.string(), name: z.string().nullable() }).optional().nullable(),
+    })
+    .nullable()
+    .optional(),
+  contract: z
+    .object({
+      id: z.string(),
+      title: z.string().nullable(),
+      assignedTo: z.object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() }).nullable().optional(),
     })
     .nullable()
     .optional(),

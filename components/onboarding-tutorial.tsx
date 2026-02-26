@@ -52,11 +52,12 @@ const PERSONAL_STEPS: Step[] = [
   },
 ];
 
-const ORG_STEPS: Step[] = [
+/** Organization onboarding for admins/owners — all tabs (Streams, Activity, Members) are visible. */
+const ORG_STEPS_ADMIN: Step[] = [
   {
     id: "welcome",
-    title: "Welcome to Organization Mode! 🏢",
-    content: "This is where you manage your business — invoices, income streams, contracts, and team members.",
+    title: "Welcome to Splito Organization! 🏢",
+    content: "As an admin, you manage invoices, income streams, contracts, activity, and team members.",
     targetId: "",
     position: "center",
   },
@@ -70,7 +71,7 @@ const ORG_STEPS: Step[] = [
   {
     id: "invoices",
     title: "Invoices",
-    content: "Create and track professional invoices. Members can raise invoices, and admins can approve or decline them.",
+    content: "Members raise invoices here; you can approve or decline them.",
     targetId: "sidebar-org-invoices-link",
     position: "right",
   },
@@ -84,35 +85,95 @@ const ORG_STEPS: Step[] = [
   {
     id: "activity",
     title: "Activity",
-    content: "Track all organization activity — invoices created, approved, declined, and more.",
+    content: "Track all organization activity — invoices and contract updates.",
     targetId: "sidebar-org-activity-link",
     position: "right",
   },
   {
     id: "contracts",
     title: "Contracts",
-    content: "Create and manage contracts for your team members with compensation details, scope of work, and more.",
+    content: "Create and manage contracts for your team with compensation and scope of work.",
     targetId: "sidebar-org-contracts-link",
     position: "right",
   },
   {
     id: "members",
     title: "Members",
-    content: "Invite people to your organization and manage their roles and permissions.",
+    content: "Invite people and manage their roles and permissions.",
     targetId: "sidebar-org-members-link",
+    position: "right",
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    content: "Update your profile, display name, default currency, and manage your wallets.",
+    targetId: "sidebar-org-settings-link",
     position: "right",
   },
   {
     id: "org-switcher",
     title: "Switch Organizations",
-    content: "Use the organization switcher at the bottom of the sidebar to manage multiple organizations.",
+    content: "Use the organization switcher at the bottom to switch between organizations.",
     targetId: "sidebar-org-switcher-button",
     position: "right",
   },
   {
     id: "finish",
     title: "You're ready! 🎊",
-    content: "Start by creating invoices, adding members, or setting up income streams for your organization.",
+    content: "Start by creating contracts, adding members, or setting up income streams.",
+    targetId: "",
+    position: "center",
+  },
+];
+
+/** Organization onboarding for members — only Dashboard, Invoices, Contracts, Settings (no Streams, Activity, Members). */
+const ORG_STEPS_MEMBER: Step[] = [
+  {
+    id: "welcome",
+    title: "Welcome to Splito Organization! 🏢",
+    content: "You're a member of an organization. Raise invoices and view your contracts here.",
+    targetId: "",
+    position: "center",
+  },
+  {
+    id: "dashboard",
+    title: "Organization Dashboard",
+    content: "See an overview of your organization and quick access to invoices and contracts.",
+    targetId: "sidebar-dashboard-link",
+    position: "right",
+  },
+  {
+    id: "invoices",
+    title: "Invoices",
+    content: "Raise invoices linked to your contracts. Admins will approve or decline them.",
+    targetId: "sidebar-org-invoices-link",
+    position: "right",
+  },
+  {
+    id: "contracts",
+    title: "Contracts",
+    content: "View and sign contracts assigned to you.",
+    targetId: "sidebar-org-contracts-link",
+    position: "right",
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    content: "Update your profile, display name, default currency, and manage your wallets.",
+    targetId: "sidebar-org-settings-link",
+    position: "right",
+  },
+  {
+    id: "org-switcher",
+    title: "Switch Organizations",
+    content: "If you belong to multiple organizations, use the switcher at the bottom to switch.",
+    targetId: "sidebar-org-switcher-button",
+    position: "right",
+  },
+  {
+    id: "finish",
+    title: "You're ready! 🎊",
+    content: "Raise an invoice or open a contract to get started.",
     targetId: "",
     position: "center",
   },
@@ -124,12 +185,20 @@ export function OnboardingTutorial({
   onComplete,
   userId,
   mode,
+  isOrgAdmin,
 }: {
   onComplete: () => void;
   userId?: string;
   mode: OnboardingMode;
+  /** When mode is "organization", true = admin/owner (sees Streams, Activity, Members), false = member. */
+  isOrgAdmin?: boolean;
 }) {
-  const steps = mode === "organization" ? ORG_STEPS : PERSONAL_STEPS;
+  const steps =
+    mode === "organization"
+      ? isOrgAdmin
+        ? ORG_STEPS_ADMIN
+        : ORG_STEPS_MEMBER
+      : PERSONAL_STEPS;
   const storageKey = userId
     ? `hasSeenTutorial_${mode}_${userId}`
     : null;

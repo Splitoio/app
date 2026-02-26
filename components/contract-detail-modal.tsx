@@ -1,9 +1,10 @@
 "use client";
 
-import { X, CheckCircle2, Clock, Calendar, Briefcase, DollarSign, FileText, AlertCircle } from "lucide-react";
+import { X, CheckCircle2, Clock, Calendar, Briefcase, DollarSign, FileText, AlertCircle, Download } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Contract } from "@/features/business/api/client";
 import { formatCurrency } from "@/utils/formatters";
+import { downloadContract } from "@/utils/contract-download";
 
 interface ContractDetailModalProps {
   isOpen: boolean;
@@ -48,13 +49,23 @@ export function ContractDetailModal({ isOpen, onClose, contract }: ContractDetai
               <h2 className="text-lg font-semibold text-white truncate pr-4">
                 {contract.title || "Contract"}
               </h2>
-              <button
-                type="button"
-                onClick={onClose}
-                className="h-8 w-8 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </button>
+              <div className="flex items-center gap-1 flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={() => downloadContract(contract)}
+                  className="h-8 w-8 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                  title="Download contract"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="h-8 w-8 rounded-full flex items-center justify-center text-white/60 hover:text-white hover:bg-white/10 transition-colors"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
             </div>
 
             <div className="px-6 py-5 space-y-5">

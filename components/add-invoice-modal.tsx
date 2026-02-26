@@ -30,7 +30,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
   const [formData, setFormData] = useState({
     amount: "",
     currency: "USD",
-    dueDate: "",
     description: "",
     imageUrl: "" as string,
     contractId: "" as string,
@@ -69,16 +68,14 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
       toast.error("Please enter a valid amount");
       return;
     }
-    if (!formData.dueDate) {
-      toast.error("Please select a due date");
-      return;
-    }
+    // Invoices are settled at once; use today as due date (contract terms define payment)
+    const dueDate = new Date().toISOString().split("T")[0];
     createInvoiceMutation.mutate(
       {
         organizationId,
         amount,
         currency: formData.currency,
-        dueDate: formData.dueDate,
+        dueDate,
         description: formData.description || undefined,
         imageUrl: formData.imageUrl || undefined,
         contractId: formData.contractId || undefined,
@@ -86,7 +83,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
       {
         onSuccess: () => {
           toast.success("Invoice created");
-          setFormData({ amount: "", currency: "USD", dueDate: "", description: "", imageUrl: "", contractId: "" });
+          setFormData({ amount: "", currency: "USD", description: "", imageUrl: "", contractId: "" });
           onClose();
         },
         onError: (err: { message?: string }) => {
@@ -170,27 +167,15 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
                 />
               </div>
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-base text-white mb-2">Due Date</label>
-                <input
-                  type="date"
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData((p) => ({ ...p, dueDate: e.target.value }))}
-                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-base text-white mb-2">Description</label>
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                  placeholder="Invoice description"
-                />
-              </div>
+            <div>
+              <label className="block text-base text-white mb-2">Description</label>
+              <input
+                type="text"
+                value={formData.description}
+                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
+                placeholder="Invoice description"
+              />
             </div>
             <div>
               <label className="block text-base text-white mb-2">Invoice image</label>

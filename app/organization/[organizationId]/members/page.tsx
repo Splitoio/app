@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
 import { Plus } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
@@ -36,6 +36,7 @@ function isAdmin(group: { userId: string; groupUsers?: GroupUser[] }, currentUse
 
 export default function OrganizationMembersPage() {
   const params = useParams();
+  const router = useRouter();
   const organizationId = params?.organizationId as string;
   const { user } = useAuthStore();
   const { openAddMember } = useOrganizationOrg();
@@ -44,6 +45,12 @@ export default function OrganizationMembersPage() {
 
   const currentUserIsAdmin = group && user && isAdmin(group, user.id);
   const members = (group?.groupUsers ?? []) as GroupUser[];
+
+  useEffect(() => {
+    if (group && user && !isAdmin(group, user.id)) {
+      router.replace(`/organization/${organizationId}/invoices`);
+    }
+  }, [group, user, organizationId, router]);
 
   const handleRoleChange = (memberUserId: string, newRole: "ADMIN" | "MEMBER") => {
     updateRoleMutation.mutate(
@@ -57,6 +64,14 @@ export default function OrganizationMembersPage() {
       }
     );
   };
+
+  if (group && user && !currentUserIsAdmin) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 sm:space-y-4">
