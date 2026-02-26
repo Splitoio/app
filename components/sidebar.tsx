@@ -59,7 +59,7 @@ export function Sidebar() {
   const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
   const logo = "/logo.svg";
 
-  const orgPathMatch = pathname.match(/^\/organization\/([^/]+)\/(invoices|streams|activity|contracts|members)$/);
+  const orgPathMatch = pathname.match(/^\/organization\/([^/]+)\/(invoices|streams|activity|contracts|members|settings)$/);
   const currentOrgId = orgPathMatch?.[1] ?? null;
   const currentOrgTab = orgPathMatch?.[2] ?? "invoices";
   const linkOrgId = currentOrgId ?? organizations[0]?.id ?? null;
@@ -180,20 +180,22 @@ export function Sidebar() {
                   </Link>
                 )}
 
-                <Link
-                  id="sidebar-org-activity-link"
-                  href={`/organization/${linkOrgId}/activity`}
-                  onClick={close}
-                  className={cn(
-                    "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                    pathname === `/organization/${linkOrgId}/activity`
-                      ? "bg-white/[0.07] text-white shadow-sm"
-                      : "text-white/60 hover:bg-white/[0.04] hover:text-white"
-                  )}
-                >
-                  <Activity className="h-5 w-5" strokeWidth={1.5} />
-                  Activity
-                </Link>
+                {isAdminOfLinkOrg && (
+                  <Link
+                    id="sidebar-org-activity-link"
+                    href={`/organization/${linkOrgId}/activity`}
+                    onClick={close}
+                    className={cn(
+                      "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
+                      pathname === `/organization/${linkOrgId}/activity`
+                        ? "bg-white/[0.07] text-white shadow-sm"
+                        : "text-white/60 hover:bg-white/[0.04] hover:text-white"
+                    )}
+                  >
+                    <Activity className="h-5 w-5" strokeWidth={1.5} />
+                    Activity
+                  </Link>
+                )}
 
                 <Link
                   id="sidebar-org-contracts-link"
@@ -210,19 +212,36 @@ export function Sidebar() {
                   Contracts
                 </Link>
 
+                {isAdminOfLinkOrg && (
+                  <Link
+                    id="sidebar-org-members-link"
+                    href={`/organization/${linkOrgId}/members`}
+                    onClick={close}
+                    className={cn(
+                      "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
+                      pathname === `/organization/${linkOrgId}/members`
+                        ? "bg-white/[0.07] text-white shadow-sm"
+                        : "text-white/60 hover:bg-white/[0.04] hover:text-white"
+                    )}
+                  >
+                    <UserPlus className="h-5 w-5" strokeWidth={1.5} />
+                    Members
+                  </Link>
+                )}
+
                 <Link
-                  id="sidebar-org-members-link"
-                  href={`/organization/${linkOrgId}/members`}
+                  id="sidebar-org-settings-link"
+                  href={`/organization/${linkOrgId}/settings`}
                   onClick={close}
                   className={cn(
                     "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                    pathname === `/organization/${linkOrgId}/members`
+                    pathname === `/organization/${linkOrgId}/settings`
                       ? "bg-white/[0.07] text-white shadow-sm"
                       : "text-white/60 hover:bg-white/[0.04] hover:text-white"
                   )}
                 >
-                  <UserPlus className="h-5 w-5" strokeWidth={1.5} />
-                  Members
+                  <Settings className="h-5 w-5" strokeWidth={1.5} />
+                  Settings
                 </Link>
               </>
             )}

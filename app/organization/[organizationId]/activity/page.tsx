@@ -1,6 +1,7 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { useEffect } from "react";
 import Image from "next/image";
 import { useGetOrganizationActivity } from "@/features/business/hooks/use-invoices";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
@@ -17,6 +18,10 @@ function activityLabel(type: string) {
       return "declined an invoice";
     case "INVOICE_CLEARED":
       return "cleared an invoice";
+    case "CONTRACT_CREATED":
+      return "created a contract";
+    case "CONTRACT_SIGNED":
+      return "signed a contract";
     default:
       return type;
   }
@@ -24,8 +29,24 @@ function activityLabel(type: string) {
 
 export default function OrganizationActivityPage() {
   const params = useParams();
+  const router = useRouter();
   const organizationId = params?.organizationId as string;
+  const { isAdmin } = useOrganizationOrg();
   const { data: activities = [], isLoading: isActivityLoading } = useGetOrganizationActivity(organizationId);
+
+  useEffect(() => {
+    if (isAdmin === false) {
+      router.replace(`/organization/${organizationId}/invoices`);
+    }
+  }, [isAdmin, organizationId, router]);
+
+  if (isAdmin === false || isAdmin === undefined) {
+    return (
+      <div className="flex justify-center py-8">
+        <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-3 sm:space-y-4">
@@ -54,6 +75,13 @@ export default function OrganizationActivityPage() {
                     {" "}
                     ({formatCurrency(act.invoice.amount, act.invoice.currency)}
                     {act.invoice.recipient?.name && ` to ${act.invoice.recipient.name}`})
+                  </span>
+                )}
+                {act.contract && (
+                  <span className="text-white/70">
+                    {" "}
+                    ({act.contract.title || "Contract"}
+                    {act.contract.assignedTo?.name && ` · assigned to ${act.contract.assignedTo.name}`})
                   </span>
                 )}
               </p>

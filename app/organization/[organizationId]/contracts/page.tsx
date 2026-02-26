@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Pencil, Trash2, Loader2, CheckCircle2, Clock } from "lucide-react";
+import { Plus, Pencil, Trash2, Loader2, CheckCircle2, Clock, Download, Eye } from "lucide-react";
 import {
   useGetContractsByOrganization,
   useDeleteContract,
@@ -11,6 +11,7 @@ import {
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
+import { downloadContract } from "@/utils/contract-download";
 import { EditContractModal } from "@/components/edit-contract-modal";
 import { ContractDetailModal } from "@/components/contract-detail-modal";
 import { Contract } from "@/features/business/api/client";
@@ -92,8 +93,8 @@ export default function OrganizationContractsPage() {
           return (
             <div
               key={c.id}
-              className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05]${!isAdmin && isAssignee ? " cursor-pointer hover:bg-white/[0.04] transition-colors" : ""}`}
-              onClick={!isAdmin && isAssignee ? () => setContractToView(c) : undefined}
+              className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] ${isAdmin || isAssignee ? " cursor-pointer hover:bg-white/[0.04] transition-colors" : ""}`}
+              onClick={isAdmin || isAssignee ? () => setContractToView(c) : undefined}
             >
               {/* Left: info */}
               <div className="min-w-0 flex-1 space-y-1">
@@ -129,6 +130,15 @@ export default function OrganizationContractsPage() {
 
               {/* Right: actions */}
               <div className="flex items-center gap-2 flex-shrink-0">
+                {/* Download: available to everyone who can see the contract */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); downloadContract(c); }}
+                  className="rounded-full border border-white/20 p-2 text-white/80 hover:text-white hover:bg-white/5"
+                  title="Download contract"
+                >
+                  <Download className="h-4 w-4" />
+                </button>
                 {/* Member: sign button */}
                 {!isAdmin && isAssignee && !isSigned && (
                   <button
@@ -142,12 +152,20 @@ export default function OrganizationContractsPage() {
                   </button>
                 )}
 
-                {/* Admin: edit + delete */}
+                {/* Admin: view + edit + delete */}
                 {isAdmin && (
                   <>
                     <button
                       type="button"
-                      onClick={() => setContractToEdit(c)}
+                      onClick={(e) => { e.stopPropagation(); setContractToView(c); }}
+                      className="rounded-full border border-white/20 p-2 text-white/80 hover:text-white hover:bg-white/5"
+                      title="View contract"
+                    >
+                      <Eye className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setContractToEdit(c); }}
                       className="rounded-full border border-white/20 p-2 text-white/80 hover:text-white hover:bg-white/5"
                       title="Edit contract"
                     >
@@ -155,7 +173,7 @@ export default function OrganizationContractsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setContractToDelete(c)}
+                      onClick={(e) => { e.stopPropagation(); setContractToDelete(c); }}
                       disabled={deleteContractMutation.isPending}
                       className="rounded-full border border-white/20 p-2 text-red-400/80 hover:text-red-400 hover:bg-red-500/10 disabled:opacity-50"
                       title="Delete contract"

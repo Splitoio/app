@@ -53,10 +53,12 @@ export default function OrganizationDashboardPage() {
   const streamsWithAmount = allStreams.filter((s) => s.expectedAmount != null).length;
 
   const totalOutstanding = invoicesFirstOrg
-    .filter((i) => i.status === "SENT" || i.status === "OVERDUE")
+    .filter((i) => i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED")
     .reduce((sum, i) => sum + i.amount, 0);
   const currencyFirst = invoicesFirstOrg[0]?.currency ?? "USD";
-  const pendingCount = invoicesFirstOrg.filter((i) => i.status === "DRAFT" || i.status === "SENT" || i.status === "OVERDUE").length;
+  const pendingCount = invoicesFirstOrg.filter(
+    (i) => i.status === "DRAFT" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED"
+  ).length;
   const totalInvoicesFirstOrg = invoicesFirstOrg.length;
 
   const membersMap = new Map<string, { id: string; name: string | null; image: string | null; email: string | null; orgNames: string[] }>();

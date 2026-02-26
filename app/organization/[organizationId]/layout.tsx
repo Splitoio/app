@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
@@ -34,9 +34,11 @@ import { OrganizationOrgProvider, useOrganizationOrg } from "@/contexts/organiza
 
 function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
+  const pathname = usePathname();
   const organizationId = params?.organizationId as string;
   const router = useRouter();
   const searchParams = useSearchParams();
+  const isSettingsPage = pathname?.endsWith("/settings");
   const contractIdFromUrl = searchParams.get("contractId");
   const openInvoiceFromUrl = searchParams.get("openInvoice");
   const { data: contractForInvoice } = useGetContractById(contractIdFromUrl && openInvoiceFromUrl === "1" ? contractIdFromUrl : null);
@@ -82,6 +84,10 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
       router.replace(u.pathname + u.search, { scroll: false });
     }
   }, [openInvoiceFromUrl, contractIdFromUrl, router]);
+
+  if (isSettingsPage) {
+    return <>{children}</>;
+  }
 
   const handleDeleteOrganization = () => {
     deleteGroupMutation.mutate(organizationId, {
