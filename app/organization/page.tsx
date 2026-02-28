@@ -12,6 +12,7 @@ import { QueryKeys } from "@/lib/constants";
 import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp, FileSignature } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { OrganizationConnectionError } from "@/components/organization-connection-error";
+import { ContractNotifications } from "@/components/contract-notifications";
 
 const viewAllButtonClass =
   "inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/80 px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-white/[0.06] transition-colors text-white font-medium text-mobile-sm sm:text-base whitespace-nowrap flex-shrink-0";
@@ -26,6 +27,15 @@ function getConnectionErrorMessage(error: unknown): string {
   return msg || "We couldn't load your organizations. The backend may be down or there may be a network issue.";
 }
 
+function isOrgAdmin(
+  org: { userId: string; groupUsers?: { userId: string; role?: string | null }[] },
+  currentUserId: string
+): boolean {
+  if (org.userId === currentUserId) return true;
+  const membership = org.groupUsers?.find((gu) => gu.userId === currentUserId);
+  return membership?.role === "ADMIN";
+}
+
 export default function OrganizationDashboardPage() {
   const { user } = useAuthStore();
   const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
@@ -33,9 +43,11 @@ export default function OrganizationDashboardPage() {
   const orgIds = organizations.map((o) => o.id);
   const firstOrgId = orgIds[0] ?? "";
   const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
+  const hasAdminOrg = organizations.some((o) => isOrgAdmin(o, user?.id ?? ""));
+  const firstOrgIdForAdmin = hasAdminOrg ? firstOrgId : "";
 
-  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgId);
-  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgId);
+  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgIdForAdmin);
+  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgIdForAdmin);
 
   const streamQueries = useQueries({
     queries: adminOrgIds.map((orgId) => ({
@@ -97,29 +109,32 @@ export default function OrganizationDashboardPage() {
               "Organization dashboard"
             )}
           </h2>
-          <Link href="/organization/settings" className="cursor-pointer">
-            <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                {user?.image ? (
-                  <Image src={user.image} alt="Profile" width={56} height={56} className="h-full w-full object-cover" />
-                ) : (
-                  <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                    alt="Profile"
-                    width={56}
-                    height={56}
-                    className="h-full w-full"
-                  />
-                )}
+          <div className="flex items-center gap-2">
+            <ContractNotifications />
+            <Link href="/organization/settings" className="cursor-pointer">
+              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
+                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                  {user?.image ? (
+                    <Image src={user.image} alt="Profile" width={56} height={56} className="h-full w-full object-cover" />
+                  ) : (
+                    <Image
+                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
+                      alt="Profile"
+                      width={56}
+                      height={56}
+                      className="h-full w-full"
+                    />
+                  )}
+                </div>
               </div>
-            </div>
-          </Link>
+            </Link>
+          </div>
         </div>
       </div>
 
-      {/* Stats: 3 cards in a row when Streams hidden, 2x2 when Streams shown */}
+      {/* Stats: Team for everyone; Invoices, Streams, Contracts for admin only */}
       <div
-        className={`grid grid-cols-1 gap-5 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 ${adminOrgIds.length > 0 ? "sm:grid-cols-2" : "sm:grid-cols-3"}`}
+        className={`grid grid-cols-1 gap-5 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 ${hasAdminOrg ? (adminOrgIds.length > 0 ? "sm:grid-cols-2" : "sm:grid-cols-3") : ""}`}
       >
         <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
           <div className="flex items-center gap-2 text-white/60 mb-4">
@@ -141,32 +156,34 @@ export default function OrganizationDashboardPage() {
             </div>
           </div>
         </div>
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
-          <div className="flex items-center gap-2 text-white/60 mb-4">
-            <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
-            <span className="text-sm sm:text-base font-medium">Invoices</span>
-          </div>
-          <div className="flex justify-between gap-4">
-            <div>
-              <p className="text-white/50 text-xs sm:text-sm">Total</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {totalInvoicesFirstOrg}
-              </p>
-              {organizations.length > 1 && (
-                <p className="text-white/50 text-xs mt-0.5">First org</p>
-              )}
+        {hasAdminOrg && (
+          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
+            <div className="flex items-center gap-2 text-white/60 mb-4">
+              <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="text-sm sm:text-base font-medium">Invoices</span>
             </div>
-            <div>
-              <p className="text-white/50 text-xs sm:text-sm">Outstanding</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {invoicesFirstOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
-              </p>
-              {pendingCount > 0 && (
-                <p className="text-white/50 text-xs mt-0.5">{pendingCount} pending</p>
-              )}
+            <div className="flex justify-between gap-4">
+              <div>
+                <p className="text-white/50 text-xs sm:text-sm">Total</p>
+                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                  {totalInvoicesFirstOrg}
+                </p>
+                {organizations.length > 1 && (
+                  <p className="text-white/50 text-xs mt-0.5">First org</p>
+                )}
+              </div>
+              <div>
+                <p className="text-white/50 text-xs sm:text-sm">Outstanding</p>
+                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                  {invoicesFirstOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
+                </p>
+                {pendingCount > 0 && (
+                  <p className="text-white/50 text-xs mt-0.5">{pendingCount} pending</p>
+                )}
+              </div>
             </div>
           </div>
-        </div>
+        )}
         {adminOrgIds.length > 0 && (
           <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
             <div className="flex items-center gap-2 text-white/60 mb-4">
@@ -192,29 +209,31 @@ export default function OrganizationDashboardPage() {
             </div>
           </div>
         )}
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
-          <div className="flex items-center gap-2 text-white/60 mb-4">
-            <FileSignature className="h-5 w-5 sm:h-6 sm:w-6" />
-            <span className="text-sm sm:text-base font-medium">Contracts</span>
-          </div>
-          <div className="flex flex-col gap-2">
-            <div>
-              <p className="text-white/50 text-xs sm:text-sm">Total (first org)</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {contractsLoading ? "—" : contractsFirstOrg.length}
-              </p>
+        {hasAdminOrg && (
+          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
+            <div className="flex items-center gap-2 text-white/60 mb-4">
+              <FileSignature className="h-5 w-5 sm:h-6 sm:w-6" />
+              <span className="text-sm sm:text-base font-medium">Contracts</span>
             </div>
-            {firstOrgId && (
-              <Link
-                href={`/organization/${firstOrgId}/contracts`}
-                className="text-white/70 hover:text-white text-sm font-medium mt-1 inline-flex items-center gap-1"
-              >
-                View contracts
-                <span className="text-white/50">→</span>
-              </Link>
-            )}
+            <div className="flex flex-col gap-2">
+              <div>
+                <p className="text-white/50 text-xs sm:text-sm">Total (first org)</p>
+                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
+                  {contractsLoading ? "—" : contractsFirstOrg.length}
+                </p>
+              </div>
+              {firstOrgId && (
+                <Link
+                  href={`/organization/${firstOrgId}/contracts`}
+                  className="text-white/70 hover:text-white text-sm font-medium mt-1 inline-flex items-center gap-1"
+                >
+                  View contracts
+                  <span className="text-white/50">→</span>
+                </Link>
+              )}
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 sm:gap-6">

@@ -6,7 +6,6 @@ import { Plus, Pencil, Trash2, Loader2, CheckCircle2, Clock, Download, Eye } fro
 import {
   useGetContractsByOrganization,
   useDeleteContract,
-  useSignContract,
 } from "@/features/business/hooks/use-contracts";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { toast } from "sonner";
@@ -14,6 +13,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { downloadContract } from "@/utils/contract-download";
 import { EditContractModal } from "@/components/edit-contract-modal";
 import { ContractDetailModal } from "@/components/contract-detail-modal";
+import { ContractGateModal } from "@/components/contract-gate-modal";
 import { Contract } from "@/features/business/api/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
@@ -25,26 +25,21 @@ export default function OrganizationContractsPage() {
   const { user } = useAuthStore();
   const { data: contracts = [], isLoading: isContractsLoading } = useGetContractsByOrganization(organizationId);
   const deleteContractMutation = useDeleteContract();
-  const signContractMutation = useSignContract();
   const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
   const [contractToDelete, setContractToDelete] = useState<Contract | null>(null);
   const [contractToView, setContractToView] = useState<Contract | null>(null);
-  const [signingId, setSigningId] = useState<string | null>(null);
+  const [contractToSign, setContractToSign] = useState<Contract | null>(null);
 
   const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
 
-  const handleSign = (contractId: string) => {
-    setSigningId(contractId);
-    signContractMutation.mutate(contractId, {
-      onSuccess: () => {
-        toast.success("Contract signed successfully");
-        setSigningId(null);
-      },
-      onError: (err: { message?: string }) => {
-        toast.error(err?.message ?? "Failed to sign contract");
-        setSigningId(null);
-      },
-    });
+  const handleRowClick = (c: Contract) => {
+    const isAssignee = c.assignedToUserId === user?.id;
+    const isSigned = !!c.signedAt;
+    if (!isAdmin && isAssignee && !isSigned) {
+      setContractToSign(c);
+    } else {
+      setContractToView(c);
+    }
   };
 
   const handleConfirmDelete = () => {
@@ -94,7 +89,7 @@ export default function OrganizationContractsPage() {
             <div
               key={c.id}
               className={`flex flex-col sm:flex-row sm:items-start gap-4 p-4 rounded-xl bg-white/[0.02] border border-white/[0.05] ${isAdmin || isAssignee ? " cursor-pointer hover:bg-white/[0.04] transition-colors" : ""}`}
-              onClick={isAdmin || isAssignee ? () => setContractToView(c) : undefined}
+              onClick={isAdmin || isAssignee ? () => handleRowClick(c) : undefined}
             >
               {/* Left: info */}
               <div className="min-w-0 flex-1 space-y-1">
@@ -139,16 +134,15 @@ export default function OrganizationContractsPage() {
                 >
                   <Download className="h-4 w-4" />
                 </button>
-                {/* Member: sign button */}
+                {/* Member: view opens contract gate (View → Accept/Reject) */}
                 {!isAdmin && isAssignee && !isSigned && (
                   <button
                     type="button"
-                    disabled={signingId === c.id}
-                    onClick={(e) => { e.stopPropagation(); handleSign(c.id); }}
-                    className="rounded-full bg-emerald-500/20 border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/30 px-4 py-1.5 text-sm font-medium flex items-center gap-2 disabled:opacity-50"
+                    onClick={(e) => { e.stopPropagation(); setContractToSign(c); }}
+                    className="rounded-full border border-white/20 px-4 py-1.5 text-sm font-medium text-white/90 hover:text-white hover:bg-white/5 flex items-center gap-2"
                   >
-                    {signingId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <CheckCircle2 className="h-3.5 w-3.5" />}
-                    Mark as signed
+                    <Eye className="h-3.5 w-3.5" />
+                    View
                   </button>
                 )}
 
@@ -157,7 +151,7 @@ export default function OrganizationContractsPage() {
                   <>
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setContractToView(c); }}
+                      onClick={(e) => { e.stopPropagation(); handleRowClick(c); }}
                       className="rounded-full border border-white/20 p-2 text-white/80 hover:text-white hover:bg-white/5"
                       title="View contract"
                     >
@@ -203,6 +197,12 @@ export default function OrganizationContractsPage() {
         isOpen={!!contractToView}
         onClose={() => setContractToView(null)}
         contract={contractToView}
+      />
+
+      <ContractGateModal
+        isOpen={!!contractToSign}
+        onClose={() => setContractToSign(null)}
+        contract={contractToSign}
       />
 
       <AnimatePresence>

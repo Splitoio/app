@@ -9,6 +9,7 @@ import {
   deleteContract,
   claimContractByToken,
   signContract,
+  rejectContract,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -89,6 +90,16 @@ export const useSignContract = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: signContract,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
+    },
+  });
+};
+
+export const useRejectContract = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: rejectContract,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
     },

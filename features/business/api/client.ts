@@ -224,7 +224,7 @@ export const deleteStream = async (organizationId: string, streamId: string) => 
 };
 
 // Contracts
-export const ContractStatusSchema = z.enum(["DRAFT", "SENT"]);
+export const ContractStatusSchema = z.enum(["DRAFT", "SENT", "REJECTED"]);
 export const ContractSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -316,6 +316,10 @@ export const updateContract = async (
 export const signContract = async (contractId: string) => {
   const response = await apiClient.patch(`/contracts/${contractId}/sign`, {});
   return ContractSchema.parse(response);
+};
+
+export const rejectContract = async (contractId: string) => {
+  await apiClient.patch(`/contracts/${contractId}/reject`, {});
 };
 
 export const deleteContract = async (contractId: string) => {

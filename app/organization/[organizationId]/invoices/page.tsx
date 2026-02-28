@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
@@ -12,9 +13,11 @@ import {
   useClearInvoice,
 } from "@/features/business/hooks/use-invoices";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
+import { InvoiceReviewModal } from "@/components/invoice-review-modal";
+import type { Invoice } from "@/features/business/api/client";
 
 export default function OrganizationInvoicesPage() {
   const params = useParams();
@@ -27,6 +30,7 @@ export default function OrganizationInvoicesPage() {
   const clearInvoiceMutation = useClearInvoice();
   const updateInvoiceMutation = useUpdateInvoice();
   const deleteInvoiceMutation = useDeleteInvoice();
+  const [invoiceToReview, setInvoiceToReview] = useState<Invoice | null>(null);
 
   const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
 
@@ -66,27 +70,14 @@ export default function OrganizationInvoicesPage() {
             </div>
             <div className="flex flex-wrap items-center gap-2">
               {isAdmin && (inv.status === "DRAFT" || inv.status === "SENT") && (
-                <>
-                  <button
-                    onClick={() =>
-                      approveInvoiceMutation.mutate(inv.id, {
-                        onSuccess: () => toast.success("Invoice approved"),
-                        onError: () => toast.error("Failed to approve"),
-                      })
-                    }
-                    disabled={approveInvoiceMutation.isPending}
-                    className="rounded-full border border-green-500/50 px-3 py-1.5 text-green-400 hover:bg-green-500/10 text-sm"
-                  >
-                    Approve
-                  </button>
-                  <button
-                    onClick={() => openDecline(inv.id)}
-                    disabled={declineInvoiceMutation.isPending}
-                    className="rounded-full border border-red-500/50 px-3 py-1.5 text-red-400 hover:bg-red-500/10 text-sm"
-                  >
-                    Decline
-                  </button>
-                </>
+                <button
+                  type="button"
+                  onClick={() => setInvoiceToReview(inv)}
+                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white hover:bg-white/5 text-sm flex items-center gap-1.5"
+                >
+                  <Eye className="h-3.5 w-3.5" />
+                  View
+                </button>
               )}
               {isAdmin && (inv.status === "APPROVED" || inv.status === "DECLINED" || inv.status === "PAID") && (
                 <button
@@ -137,9 +128,34 @@ export default function OrganizationInvoicesPage() {
                 </>
               )}
             </div>
-          </div>
-        ))
-      ) : (
+        </div>
+      ))
+      ) : null}
+
+      <InvoiceReviewModal
+        isOpen={!!invoiceToReview}
+        onClose={() => setInvoiceToReview(null)}
+        invoice={invoiceToReview}
+        onApprove={() => {
+          if (!invoiceToReview) return;
+          approveInvoiceMutation.mutate(invoiceToReview.id, {
+            onSuccess: () => {
+              toast.success("Invoice approved");
+              setInvoiceToReview(null);
+            },
+            onError: () => toast.error("Failed to approve"),
+          });
+        }}
+        onDecline={() => {
+          if (!invoiceToReview) return;
+          setInvoiceToReview(null);
+          openDecline(invoiceToReview.id);
+        }}
+        isApproving={approveInvoiceMutation.isPending}
+        isDeclining={declineInvoiceMutation.isPending}
+      />
+
+      {invoices.length === 0 && !isInvoicesLoading && (
         <div className="text-center py-12 text-white/60">
           No invoices yet.
           {!isAdmin && (
