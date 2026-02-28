@@ -83,7 +83,7 @@ export default function OrganizationMembersPage() {
             className="flex items-center gap-2 rounded-full border border-white/20 h-9 sm:h-10 px-3 sm:px-4 text-sm text-white hover:bg-white/5"
           >
             <Plus className="h-4 w-4" />
-            Add Member
+            Add Admin
           </button>
         )}
       </div>
@@ -167,7 +167,7 @@ export default function OrganizationMembersPage() {
         </div>
       ) : (
         <div className="text-center py-12 text-white/60">
-          No members yet. {currentUserIsAdmin ? "Use Add Member above to invite people." : "Ask an admin to add members."}
+          No members yet. {currentUserIsAdmin ? "Use Add Admin above to add org admins; members join via contract." : "Ask an admin to add admins or send you a contract."}
         </div>
       )}
     </div>

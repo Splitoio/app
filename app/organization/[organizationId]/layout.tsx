@@ -23,10 +23,12 @@ import { AddInvoiceModal } from "@/components/add-invoice-modal";
 import { EditInvoiceModal, type InvoiceForEdit } from "@/components/edit-invoice-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
 import { CreateContractModal } from "@/components/create-contract-modal";
-import { useGetContractById } from "@/features/business/hooks/use-contracts";
+import { useGetContractById, useGetMyContracts } from "@/features/business/hooks/use-contracts";
+import { ContractGateModal } from "@/components/contract-gate-modal";
 import { ReceiptImageModal } from "@/components/receipt-image-modal";
 import { useDeleteGroup, useUpdateGroup } from "@/features/groups/hooks/use-create-group";
-import { Loader2, Plus, Settings, Trash2 } from "lucide-react";
+import { Loader2, Plus, Settings, Trash2, XCircle, FileText } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
@@ -44,10 +46,14 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const { data: contractForInvoice } = useGetContractById(contractIdFromUrl && openInvoiceFromUrl === "1" ? contractIdFromUrl : null);
   const { user } = useAuthStore();
   const { data: group, isLoading } = useGetGroupById(organizationId, { type: "BUSINESS" });
+  const { data: myContracts = [] } = useGetMyContracts();
+  const [pendingContractModalOpen, setPendingContractModalOpen] = useState(false);
   const isAdmin =
     group != null &&
     user != null &&
-    (group.userId === user.id || (group as { createdBy?: { id: string } }).createdBy?.id === user.id);
+    (group.userId === user.id ||
+      (group as { createdBy?: { id: string } }).createdBy?.id === user.id ||
+      (group.groupUsers as { userId: string; role?: string | null }[] | undefined)?.find((gu) => gu.userId === user.id)?.role === "ADMIN");
 
   const [isAddInvoiceModalOpen, setIsAddInvoiceModalOpen] = useState(false);
   const [isAddMemberModalOpen, setIsAddMemberModalOpen] = useState(false);
@@ -154,6 +160,82 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
     );
   }
   if (!group || !user) return null;
+
+  // Contract gate: only employees with a signed contract can view the org
+  const contractsForOrg = myContracts.filter((c) => c.organizationId === organizationId);
+  const hasSignedContract = contractsForOrg.some((c) => c.signedAt);
+  const rejectedOnly = contractsForOrg.length > 0 && contractsForOrg.every((c) => c.status === "REJECTED");
+  const pendingContract = contractsForOrg.find(
+    (c) => (c.status === "SENT" || c.status === "DRAFT") && !c.signedAt && c.assignedToUserId === user.id
+  );
+
+  if (!isAdmin) {
+    if (rejectedOnly) {
+      return (
+        <div className="flex items-center justify-center min-h-[60vh] p-4">
+          <div className="max-w-md text-center">
+            <XCircle className="h-16 w-16 text-red-400/80 mx-auto mb-4" />
+            <h1 className="text-xl font-semibold text-white mb-2">You have rejected the contract</h1>
+            <p className="text-white/70 mb-6">
+              You do not have access to {group.name}. Only members who accept their contract can view the organization.
+            </p>
+            <Link
+              href="/organization"
+              className="inline-block rounded-full bg-white/10 text-white px-6 py-3 font-medium hover:bg-white/20 border border-white/20"
+            >
+              Back to organizations
+            </Link>
+          </div>
+        </div>
+      );
+    }
+    if (pendingContract && !hasSignedContract) {
+      return (
+        <>
+          <div className="flex items-center justify-center min-h-[60vh] p-4">
+            <div className="max-w-md text-center">
+              <h1 className="text-xl font-semibold text-white mb-2">Contract pending</h1>
+              <p className="text-white/70 mb-6">
+                You have a pending contract for {group.name}. View the contract to accept or reject it and access the organization.
+              </p>
+              <button
+                type="button"
+                onClick={() => setPendingContractModalOpen(true)}
+                className="inline-flex items-center justify-center gap-2 rounded-full bg-white text-black px-6 py-3 font-medium hover:bg-white/90"
+              >
+                <FileText className="h-5 w-5" />
+                View contract
+              </button>
+            </div>
+          </div>
+          <ContractGateModal
+            isOpen={pendingContractModalOpen}
+            onClose={() => setPendingContractModalOpen(false)}
+            contract={pendingContract}
+            onReject={() => router.push("/organization")}
+          />
+        </>
+      );
+    }
+    if (!hasSignedContract) {
+      return (
+        <div className="flex items-center justify-center min-h-[60vh] p-4">
+          <div className="max-w-md text-center">
+            <h1 className="text-xl font-semibold text-white mb-2">Access required</h1>
+            <p className="text-white/70 mb-6">
+              You need to accept a contract to access {group.name}. Check your email for the contract link from the organization admin.
+            </p>
+            <Link
+              href="/organization"
+              className="inline-block rounded-full bg-white/10 text-white px-6 py-3 font-medium hover:bg-white/20 border border-white/20"
+            >
+              Back to organizations
+            </Link>
+          </div>
+        </div>
+      );
+    }
+  }
 
   const contextValue = {
     organizationId,

@@ -67,7 +67,7 @@ export function AddMemberModal({
           // Then add as friend
           addFriend(memberEmail, {
             onSuccess: () => {
-              toast.success("Member added to group and as friend successfully");
+              toast.success("Admin added and invited as friend");
               setEmail("");
 
               // refetch the specific group data
@@ -87,7 +87,7 @@ export function AddMemberModal({
             onError: (friendError) => {
               // Member was added to group but friend addition failed
               console.error("Failed to add as friend:", friendError);
-              toast.success("Member added to group successfully");
+              toast.success("Admin added to organization");
               toast.warning("Could not add as friend - they may already be your friend");
               setEmail("");
 
@@ -102,7 +102,7 @@ export function AddMemberModal({
           });
         },
         onError: (error) => {
-          toast.error(error.message || "Failed to add member");
+          toast.error(error.message || "Failed to add admin");
         },
       }
     );
@@ -127,7 +127,7 @@ export function AddMemberModal({
           <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
             <div className="flex items-center justify-between mb-6 lg:mb-8">
               <h3 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em]">
-                Add Member
+                Add Admin
               </h3>
               <button
                 onClick={onClose}
@@ -138,7 +138,8 @@ export function AddMemberModal({
             </div>
 
             <div className="space-y-4 lg:space-y-6">
-              <label className="block text-lg font-medium text-white mb-2 mt-2">Invite member</label>
+              <p className="text-white/60 text-sm -mt-2">Add a new org admin by email. Regular members join via contract.</p>
+              <label className="block text-lg font-medium text-white mb-2 mt-2">Admin email</label>
               <div className="relative">
                 <input
                   type="text"
@@ -168,7 +169,7 @@ export function AddMemberModal({
                     Adding...
                   </>
                 ) : (
-                  "Add Member"
+                  "Add Admin"
                 )}
               </Button>
             </div>
