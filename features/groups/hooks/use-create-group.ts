@@ -11,6 +11,7 @@ import {
   joinGroup,
   updateGroup,
   updateMemberRole,
+  removeMemberFromGroup as removeMemberFromGroupApi,
   markAsPaid,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
@@ -172,6 +173,19 @@ export const useUpdateMemberRole = () => {
       userId: string;
       role: "ADMIN" | "MEMBER";
     }) => updateMemberRole(groupId, userId, role),
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, variables.groupId] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS] });
+    },
+  });
+};
+
+export const useRemoveMemberFromGroup = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ groupId, userId }: { groupId: string; userId: string }) =>
+      removeMemberFromGroupApi(groupId, userId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
       queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, variables.groupId] });

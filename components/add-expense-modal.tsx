@@ -18,7 +18,6 @@ import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 import { useAuthStore } from "@/stores/authStore";
-import { X } from "lucide-react";
 import { User } from "@/api-helpers/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import type { CreateExpenseParams } from "@/features/expenses/hooks/use-create-expense";
@@ -139,6 +138,7 @@ export function AddExpenseModal({
     return `${symbol}${amount}`;
   };
 
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     description: "",
@@ -154,6 +154,11 @@ export function AddExpenseModal({
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
   const expenseMutation = useCreateExpense(groupId);
+
+  // Reset to step 1 when modal opens
+  useEffect(() => {
+    if (isOpen) setStep(1);
+  }, [isOpen]);
 
   const allChainTokenOptions = useAllChainsTokens();
   const [resolver, setResolver] = useState<Option | undefined>(undefined);
@@ -284,7 +289,7 @@ export function AddExpenseModal({
     // Create a properly typed payload
     const payload: ExpensePayload = {
       category: "OTHER",
-      name: formData.description || "Expense",
+      name: formData.name || "Expense",
       description: formData.description || "",
       amount: parseFloat(formData.amount),
       currency: formData.currency,
@@ -385,6 +390,30 @@ export function AddExpenseModal({
     return member?.name || "You";
   };
 
+  // When currency is selected (step 1), sync currencyType, chainId, tokenId from API currency
+  const handleCurrencySelect = (currencies: string[]) => {
+    const currencyId = currencies[0] || "";
+    const currency = allCurrencies?.currencies?.find((c) => c.id === currencyId);
+    setFormData((prev) => {
+      const next = { ...prev, currency: currencyId };
+      if (currency) {
+        next.currencyType = currency.type === "FIAT" ? "FIAT" : "TOKEN";
+        if (next.currencyType === "TOKEN") {
+          next.chainId = currency.chainId ?? undefined;
+          next.tokenId = currency.id;
+        } else {
+          next.chainId = undefined;
+          next.tokenId = undefined;
+        }
+      }
+      return next;
+    });
+  };
+
+  const isCrypto = formData.currencyType === "TOKEN";
+  const canProceedStep1 = formData.name.trim() !== "" && formData.currency !== "";
+  const canProceedStep2 = formData.amount !== "" && Number(formData.amount) > 0 && formData.paidBy !== "";
+
   // Only allow tokens (with chainId) as resolver
   const handleResolverChange = (option: Option | undefined) => {
     if (option && !option.chainId) {
@@ -403,162 +432,211 @@ export function AddExpenseModal({
       />
       <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] max-h-[90vh] overflow-auto">
         <div className="relative z-10 rounded-[20px] bg-black p-6 border border-white/20">
-          <h2 className="text-2xl font-medium text-white mb-6">Add Expense</h2>
-
+          {/* Progress indicator */}
+          <div className="flex gap-1.5 mb-6">
+            {([1, 2, 3] as const).map((s) => (
+              <div
+                key={s}
+                className={`h-1 flex-1 rounded-full ${
+                  step >= s ? "bg-[#53E45E]" : "bg-white/20"
+                }`}
+              />
+            ))}
+          </div>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="text-white mb-2 block">Split Amount</label>
-              <div className="relative">
-                <input
-                  type="number"
-                  value={formData.amount}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      amount: e.target.value,
-                    }))
-                  }
-                  placeholder={getCurrencyPlaceholder(formData.currency)}
-                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-                  required
-                />
-              </div>
-            </div>
+            {/* Step 1: What's the expense? — Name + Currency */}
+            {step === 1 && (
+              <>
+                <h2 className="text-2xl font-medium text-white mb-2">
+                  What&apos;s the expense?
+                </h2>
+                <div>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="e.g. Dinner, Airbnb, Groceries..."
+                    className="w-full h-12 px-4 rounded-xl bg-[#17171A] text-white border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/20 placeholder:text-white/50"
+                  />
+                </div>
+                <div>
+                  <label className="text-white/60 text-xs font-medium uppercase tracking-wider block mb-2">
+                    Currency
+                  </label>
+                  <CurrencyDropdown
+                    selectedCurrencies={
+                      formData.currency ? [formData.currency] : []
+                    }
+                    setSelectedCurrencies={handleCurrencySelect}
+                    showFiatCurrencies={true}
+                    disableChainCurrencies={false}
+                    mode="single"
+                    placeholder="Select currency..."
+                  />
+                </div>
+                <div className="flex justify-between items-center pt-2">
+                  <Button
+                    type="button"
+                    onClick={onClose}
+                    variant="ghost"
+                    className="text-white/80 hover:text-white hover:bg-white/10"
+                  >
+                    Close
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    disabled={!canProceedStep1}
+                    className="rounded-full bg-white/15 text-white hover:bg-white/25 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    Continue →
+                  </Button>
+                </div>
+              </>
+            )}
 
-            <div>
-              <label className="text-white mb-2 block">Spent in </label>
-              {formData.currencyType === "FIAT" ? (
-                <CurrencyDropdown
-                  selectedCurrencies={
-                    formData.currency ? [formData.currency] : []
-                  }
-                  setSelectedCurrencies={(currencies) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      currency: currencies[0] || "",
-                    }));
-                  }}
-                  showFiatCurrencies={true}
-                  mode="single"
-                />
-              ) : (
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      currency: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#17171A] border-white/10">
-                    {isLoadingAll ? (
-                      <SelectItem value="loading">Loading...</SelectItem>
-                    ) : (
-                      (() => {
-                        const tokens =
-                          allCurrencies?.currencies?.filter(
-                            (c) =>
-                              c.type === "token" &&
-                              c.chainId === formData.chainId
-                          ) || [];
-                        return tokens.length > 0 ? (
-                          tokens.map((token) => (
-                            <SelectItem key={token.id} value={token.id}>
-                              {token.symbol} - {token.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <span className="block px-4 py-2 text-white/60">
-                            No tokens found
-                          </span>
-                        );
-                      })()
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            {/* Time Lock-In toggle */}
-            <TimeLockToggle
-              value={formData.timeLockIn}
-              onChange={(val) =>
-                setFormData((prev) => ({ ...prev, timeLockIn: val }))
-              }
-              label="Lock exchange rate (Fix the value at current exchange rate)"
-            />
-
-            <div>
-              <label className="text-white mb-2 block">Who Paid</label>
-              <Select
-                value={formData.paidBy}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    paidBy: value,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select who paid" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#17171A] border-white/10">
-                  {members.map((member) => (
-                    <SelectItem
-                      key={member.id}
-                      value={member.id}
-                      className="text-white hover:bg-white/10"
+            {/* Step 2: Amount & who paid — Amount + Paid by + Lock-in (crypto only) */}
+            {step === 2 && (
+              <>
+                <h2 className="text-2xl font-medium text-white mb-2">
+                  Amount & who paid
+                </h2>
+                <div>
+                  <div className="relative flex items-center rounded-xl bg-[#17171A] border border-white/10 overflow-hidden">
+                    <span className="pl-4 text-[#53E45E] font-medium">
+                      {getCurrencySymbol(formData.currency)}{" "}
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          amount: e.target.value,
+                        }))
+                      }
+                      placeholder="0.00"
+                      className="flex-1 h-14 px-2 bg-transparent text-[#53E45E] font-medium text-lg focus:outline-none focus:ring-0 placeholder:text-[#53E45E]/60"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-white/60 text-xs font-medium uppercase tracking-wider block mb-2">
+                    Paid by
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {members.map((member) => (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            paidBy: member.id,
+                          }))
+                        }
+                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-colors ${
+                          formData.paidBy === member.id
+                            ? "border-[#53E45E] bg-[#53E45E]/10 text-white"
+                            : "border-white/20 bg-[#17171A] text-white hover:border-white/30"
+                        }`}
+                      >
+                        <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center text-sm font-medium text-white">
+                          {member.id === user?.id
+                            ? "Y"
+                            : (member.name || "?")
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase()}
+                        </div>
+                        <span>
+                          {member.id === user?.id ? "You" : member.name}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {isCrypto && (
+                  <div className="pt-2">
+                    <TimeLockToggle
+                      value={formData.timeLockIn}
+                      onChange={(val) =>
+                        setFormData((prev) => ({ ...prev, timeLockIn: val }))
+                      }
+                      label="Lock exchange rate (Fix the value at current exchange rate)"
+                    />
+                  </div>
+                )}
+                <div className="flex justify-between items-center pt-2">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={onClose}
+                      variant="ghost"
+                      className="text-white/80 hover:text-white hover:bg-white/10"
                     >
-                      {member.id === user?.id ? "You" : member.name}
-                    </SelectItem>
+                      Close
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setStep(1)}
+                      variant="ghost"
+                      className="text-white/80 hover:text-white hover:bg-white/10"
+                    >
+                      ← Back
+                    </Button>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    disabled={!canProceedStep2}
+                    className="rounded-full bg-white/15 text-white hover:bg-white/25 disabled:opacity-50 disabled:pointer-events-none"
+                  >
+                    Continue →
+                  </Button>
+                </div>
+              </>
+            )}
+
+            {/* Step 3: How to split */}
+            {step === 3 && (
+              <>
+                <h2 className="text-2xl font-medium text-white mb-2">
+                  How to split
+                </h2>
+                <div className="flex gap-2">
+                  {(["equal", "custom", "percentage"] as const).map((type) => (
+                    <button
+                      key={type}
+                      type="button"
+                      onClick={() =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          splitType: type,
+                        }))
+                      }
+                      className={`flex-1 py-2.5 px-3 rounded-xl border font-medium capitalize ${
+                        formData.splitType === type
+                          ? "border-[#53E45E] bg-[#53E45E]/10 text-white"
+                          : "border-white/20 bg-[#17171A] text-white hover:border-white/30"
+                      }`}
+                    >
+                      {type === "equal"
+                        ? "Equal"
+                        : type === "percentage"
+                          ? "Percentage"
+                          : "Custom"}
+                    </button>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-white mb-2 block">Choose Split Type</label>
-              <Select
-                value={formData.splitType}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    splitType: value,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select expense type" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#17171A] border-white/10">
-                  <SelectItem
-                    value="equal"
-                    className="text-white hover:bg-white/10"
-                  >
-                    Equal Split
-                  </SelectItem>
-                  <SelectItem
-                    value="percentage"
-                    className="text-white hover:bg-white/10"
-                  >
-                    Percentage Split
-                  </SelectItem>
-                  <SelectItem
-                    value="custom"
-                    className="text-white hover:bg-white/10"
-                  >
-                    Custom Split
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Member splits list */}
-            <div className="max-h-[200px] overflow-y-auto space-y-4 pr-2">
+                </div>
+                {/* Member splits list */}
+                <div className="max-h-[200px] overflow-y-auto space-y-4 pr-2 mt-4">
               {members.map((member) => {
                 const split = splits.find((s) => s.address === member.id);
                 const amount = split?.amount || 0;
@@ -625,7 +703,7 @@ export function AddExpenseModal({
                         </span>
                       </div>
                     ) : (
-                      <div className="bg-[#17171A] rounded-lg px-3 py-1 min-w-[60px] text-white">
+                      <div className="bg-[#17171A] rounded-lg px-3 py-1 min-w-[60px] text-[#53E45E] font-medium">
                         {formatCurrency(amount, formData.currency)}
                       </div>
                     )}
@@ -633,7 +711,7 @@ export function AddExpenseModal({
                 );
               })}
 
-              {/* Total summary for custom and percentage splits */}
+                {/* Total summary for custom and percentage splits */}
               {(formData.splitType === "custom" ||
                 formData.splitType === "percentage") && (
                 <div className="flex justify-between items-center mt-4 border-t border-white/10 pt-3">
@@ -753,52 +831,72 @@ export function AddExpenseModal({
                   )}
                 </div>
               )}
-            </div>
+                </div>
 
-            <div>
-              <label className="text-white mb-2 block">Description</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="What's this expense for?"
-                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-                  required
-                />
-              </div>
-            </div>
+                <div>
+                  <label className="text-white/60 text-xs font-medium uppercase tracking-wider block mb-2">
+                    Description (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.description}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                    placeholder="What's this expense for?"
+                    className="w-full h-12 px-4 rounded-xl bg-[#17171A] text-white border border-white/10 focus:outline-none focus:ring-1 focus:ring-white/20 placeholder:text-white/50"
+                  />
+                </div>
 
-            {/* Resolver Selector */}
-            <div>
-              <label className="text-white mb-2 block text-base font-semibold">
-                Settle in
-              </label>
-              <ResolverSelector
-                value={resolver}
-                onChange={handleResolverChange}
-              />
-            </div>
+                <div>
+                  <label className="text-white mb-2 block text-base font-semibold">
+                    Settle in
+                  </label>
+                  <ResolverSelector
+                    value={resolver}
+                    onChange={handleResolverChange}
+                  />
+                </div>
 
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-full bg-white text-black font-medium hover:bg-white/90 transition-colors mt-6"
-              disabled={expenseMutation.isPending}
-            >
-              {expenseMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add Expense"
-              )}
-            </Button>
+                <div className="flex justify-between items-center pt-4">
+                  <div className="flex items-center gap-2">
+                    <Button
+                      type="button"
+                      onClick={onClose}
+                      variant="ghost"
+                      className="text-white/80 hover:text-white hover:bg-white/10"
+                    >
+                      Close
+                    </Button>
+                    <Button
+                      type="button"
+                      onClick={() => setStep(2)}
+                      variant="ghost"
+                      className="text-white/80 hover:text-white hover:bg-white/10"
+                    >
+                      ← Back
+                    </Button>
+                  </div>
+                  <Button
+                    type="submit"
+                    className="rounded-full bg-[#53E45E] text-white font-medium hover:bg-[#53E45E]/90 px-6 disabled:opacity-50"
+                    disabled={expenseMutation.isPending || !validateSplits()}
+                  >
+                    {expenseMutation.isPending ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Adding...
+                      </>
+                    ) : (
+                      "Add Expense"
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
           </form>
         </div>
       </div>

@@ -13,6 +13,16 @@ import { Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
+function isOrgAdmin(
+  org: { userId: string; groupUsers?: { userId: string; role?: string | null }[] },
+  currentUserId: string | undefined
+): boolean {
+  if (!currentUserId) return false;
+  if (org.userId === currentUserId) return true;
+  const membership = org.groupUsers?.find((gu) => gu.userId === currentUserId);
+  return membership?.role === "ADMIN";
+}
+
 export default function OrganizationOrganizationsPage() {
   const router = useRouter();
   const { user } = useAuthStore();
@@ -101,17 +111,19 @@ export default function OrganizationOrganizationsPage() {
                     </p>
                   </div>
                 </Link>
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    setOrgToDelete({ id: org.id, name: org.name });
-                  }}
-                  className="shrink-0 p-2 rounded-lg text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  aria-label={`Delete organization ${org.name}`}
-                >
-                  <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
+                {isOrgAdmin(org, user?.id) && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setOrgToDelete({ id: org.id, name: org.name });
+                    }}
+                    className="shrink-0 p-2 rounded-lg text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+                    aria-label={`Delete organization ${org.name}`}
+                  >
+                    <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
+                  </button>
+                )}
               </div>
             ))}
           </div>

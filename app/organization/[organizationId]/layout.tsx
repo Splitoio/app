@@ -337,12 +337,14 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
                   <button type="submit" className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90">Save</button>
                 </div>
               </form>
-              <div className="mt-8 pt-6 border-t border-white/20">
-                <button onClick={handleDeleteOrganization} className="flex items-center gap-2 text-red-500 hover:text-red-400">
-                  <Trash2 className="h-4 w-4" />
-                  <span>Delete Organization</span>
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="mt-8 pt-6 border-t border-white/20">
+                  <button onClick={handleDeleteOrganization} className="flex items-center gap-2 text-red-500 hover:text-red-400">
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete Organization</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

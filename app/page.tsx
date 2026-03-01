@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
+import { ProfileDropdown } from "@/components/profile-dropdown";
 import { useRouter } from "next/navigation";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
@@ -390,34 +391,13 @@ export default function Page() {
                 </>
               )}
             </button> */}
-            <Link href="/settings" className="cursor-pointer">
-              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                  {user?.image ? (
-                    <Image
-                      src={user.image}
-                      alt="Profile"
-                      width={56}
-                      height={56}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Image
-                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                      alt="Profile"
-                      width={56}
-                      height={56}
-                      className="h-full w-full"
-                      onError={(e) => {
-                        console.error(`Error loading identicon for user`);
-                        const target = e.target as HTMLImageElement;
-                        target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            </Link>
+            {user && (
+              <ProfileDropdown
+                user={user}
+                profileHref="/settings"
+                avatarSizeClass="h-10 w-10 sm:h-14 sm:w-14"
+              />
+            )}
           </div>
         </div>
       </div>

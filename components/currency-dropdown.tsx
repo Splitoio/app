@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, ChevronDown, Check, X } from "lucide-react";
+import { useState, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
+import { Loader2, ChevronDown, Check, X, Search } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import type { Currency } from "@/features/currencies/api/client";
@@ -44,6 +45,47 @@ export default function CurrencyDropdown({
   disableChainCurrencies = false,
 }: Props) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    if (activeDropdown !== "currency" || !triggerRef.current) {
+      setDropdownRect(null);
+      setSearchQuery("");
+      return;
+    }
+    const el = triggerRef.current;
+    const rect = el.getBoundingClientRect();
+    const padding = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - padding;
+    const spaceAbove = rect.top - padding;
+    const maxH = 320;
+    const maxHeight = Math.min(maxH, spaceBelow > spaceAbove ? spaceBelow : spaceAbove, window.innerHeight - padding * 2);
+    setDropdownRect({
+      top: spaceBelow >= maxH ? rect.bottom + 4 : rect.top - maxHeight - 4,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(120, maxHeight),
+    });
+  }, [activeDropdown]);
+
+  // Close on click outside
+  useLayoutEffect(() => {
+    if (activeDropdown !== "currency") return;
+    const handleClick = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if ((e.target as Element).closest("[data-currency-dropdown-portal]")) return;
+      setActiveDropdown(null);
+    };
+    document.addEventListener("mousedown", handleClick, true);
+    return () => document.removeEventListener("mousedown", handleClick, true);
+  }, [activeDropdown]);
 
   const { data: organizedCurrencies, isLoading: isLoadingCurrencies } =
     useOrganizedCurrencies();
@@ -88,6 +130,14 @@ export default function CurrencyDropdown({
     setSelectedCurrencies(newCurrencies);
   };
 
+  const matchesSearch = (c: Currency, q: string) => {
+    if (!q.trim()) return true;
+    const lower = q.toLowerCase().trim();
+    return [c.id, c.symbol, c.name].some(
+      (s) => s && String(s).toLowerCase().includes(lower)
+    );
+  };
+
   const renderCurrencyDropdown = () => {
     if (isLoadingCurrencies) {
       return (
@@ -98,97 +148,109 @@ export default function CurrencyDropdown({
       );
     }
 
-    // Use the cached organized currencies from our hook
-    const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
-    const chainGroups = organizedCurrencies?.chainGroups || {};
-
-    // Apply filter if provided
-    const filteredFiatCurrencies = filterCurrencies
-      ? fiatCurrencies.filter(filterCurrencies)
-      : fiatCurrencies;
-
-    // Filter chain groups
-    const filteredChainGroups: Record<string, Currency[]> = {};
-    Object.entries(chainGroups).forEach(([chainId, currencies]) => {
-      const filteredCurrencies = filterCurrencies
-        ? currencies.filter(filterCurrencies)
-        : currencies;
-      if (filteredCurrencies.length > 0) {
-        filteredChainGroups[chainId] = filteredCurrencies;
-      }
-    });
+    const fiatList = filteredFiatCurrencies.filter((c) =>
+      matchesSearch(c, searchQuery)
+    );
+    const cryptoList = filteredChainCurrencies.filter((c) =>
+      matchesSearch(c, searchQuery)
+    );
 
     return (
       <>
-        {showFiatCurrencies && (
-          <>
-            <div className="px-4 py-2 text-sm text-white/50 font-medium">
-              Fiat
-            </div>
-            {filteredFiatCurrencies.map((currency) => (
-              <button
-                key={`fiat-${currency.id}`}
-                type="button"
-                className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-                  selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
-                }`}
-                onClick={() => toggleCurrencySelection(currency.id)}
-              >
-                <div
-                  className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                    selectedCurrencies.includes(currency.id)
-                      ? "border-white bg-white"
-                      : "border-white/30 bg-transparent"
-                  } mr-3`}
-                >
-                  {selectedCurrencies.includes(currency.id) && (
-                    <Check className="h-3.5 w-3.5 text-black" />
-                  )}
-                </div>
-                <div>
-                  <span className="font-medium">{currency.id}</span>
-                  <span className="text-white/70"> • {currency.name}</span>
-                </div>
-              </button>
-            ))}
-          </>
-        )}
-
-        {/* Chain Currencies */}
-        {!disableChainCurrencies &&
-          Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
-            <div key={`chain-${chainId}`}>
-              <div className="px-4 py-2 text-sm text-white/50 font-medium">
-                {chainId.charAt(0).toUpperCase() + chainId.slice(1).toLowerCase()}
+        <div className="sticky top-0 bg-[#17171A] px-3 py-2 border-b border-white/10 z-10">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50 pointer-events-none" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.stopPropagation()}
+              placeholder="Search currency..."
+              className="w-full h-9 pl-9 pr-3 rounded-lg bg-black/50 border border-white/10 text-white placeholder:text-white/50 text-sm focus:outline-none focus:ring-1 focus:ring-white/20"
+            />
+          </div>
+        </div>
+        <div className="py-2">
+          {showFiatCurrencies && (
+            <>
+              <div className="px-4 py-2 text-xs font-medium text-white/50 uppercase tracking-wider">
+                Fiat
               </div>
-              {currencies.map((currency) => (
-                <button
-                  key={`chain-${chainId}-${currency.id}`}
-                  type="button"
-                  className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-                    selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
-                  }`}
-                  onClick={() => toggleCurrencySelection(currency.id)}
-                >
-                  <div
-                    className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                      selectedCurrencies.includes(currency.id)
-                        ? "border-white bg-white"
-                        : "border-white/30 bg-transparent"
-                    } mr-3`}
+              {fiatList.length === 0 ? (
+                <div className="px-4 py-2 text-sm text-white/50">
+                  No matching fiat currencies
+                </div>
+              ) : (
+                fiatList.map((currency) => (
+                  <button
+                    key={`fiat-${currency.id}`}
+                    type="button"
+                    className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
+                      selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
+                    }`}
+                    onClick={() => toggleCurrencySelection(currency.id)}
                   >
-                    {selectedCurrencies.includes(currency.id) && (
-                      <Check className="h-3.5 w-3.5 text-black" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium">{currency.symbol}</span>
-                    <span className="text-white/70"> • {currency.name}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          ))}
+                    <div
+                      className={`w-5 h-5 flex items-center justify-center rounded-md border mr-3 ${
+                        selectedCurrencies.includes(currency.id)
+                          ? "border-white bg-white"
+                          : "border-white/30 bg-transparent"
+                      }`}
+                    >
+                      {selectedCurrencies.includes(currency.id) && (
+                        <Check className="h-3.5 w-3.5 text-black" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-medium">{currency.id}</span>
+                      <span className="text-white/70"> • {currency.name}</span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </>
+          )}
+
+          {!disableChainCurrencies && (
+            <>
+              <div className="px-4 py-2 text-xs font-medium text-white/50 uppercase tracking-wider mt-1">
+                Crypto
+              </div>
+              {cryptoList.length === 0 ? (
+                <div className="px-4 py-2 text-sm text-white/50">
+                  No matching crypto
+                </div>
+              ) : (
+                cryptoList.map((currency) => (
+                  <button
+                    key={`crypto-${currency.id}`}
+                    type="button"
+                    className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
+                      selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
+                    }`}
+                    onClick={() => toggleCurrencySelection(currency.id)}
+                  >
+                    <div
+                      className={`w-5 h-5 flex items-center justify-center rounded-md border mr-3 ${
+                        selectedCurrencies.includes(currency.id)
+                          ? "border-white bg-white"
+                          : "border-white/30 bg-transparent"
+                      }`}
+                    >
+                      {selectedCurrencies.includes(currency.id) && (
+                        <Check className="h-3.5 w-3.5 text-black" />
+                      )}
+                    </div>
+                    <div>
+                      <span className="font-medium">{currency.symbol}</span>
+                      <span className="text-white/70"> • {currency.name}</span>
+                    </div>
+                  </button>
+                ))
+              )}
+            </>
+          )}
+        </div>
       </>
     );
   };
@@ -197,7 +259,7 @@ export default function CurrencyDropdown({
     mode === "single" ? "Select currency..." : "Select Payment Token...";
 
   return (
-    <div className="relative">
+    <div className="relative" ref={triggerRef}>
       <button
         type="button"
         onClick={() => toggleDropdown("currency")}
@@ -272,19 +334,32 @@ export default function CurrencyDropdown({
         />
       </button>
 
-      <AnimatePresence>
-        {activeDropdown === "currency" && (
-          <motion.div
-            variants={dropdownVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-[9999] max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
-          >
-            {renderCurrencyDropdown()}
-          </motion.div>
+      {typeof document !== "undefined" &&
+        activeDropdown === "currency" &&
+        dropdownRect &&
+        createPortal(
+          <AnimatePresence>
+            <motion.div
+              data-currency-dropdown-portal
+              variants={dropdownVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{
+                position: "fixed",
+                top: dropdownRect.top,
+                left: dropdownRect.left,
+                width: dropdownRect.width,
+                maxHeight: dropdownRect.maxHeight,
+                zIndex: 99999,
+              }}
+              className="bg-[#17171A] rounded-lg py-2 overflow-y-auto shadow-xl border border-white/10"
+            >
+              {renderCurrencyDropdown()}
+            </motion.div>
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }

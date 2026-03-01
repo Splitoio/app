@@ -7,6 +7,7 @@ import {
   createContract,
   updateContract,
   deleteContract,
+  revokeContract,
   claimContractByToken,
   signContract,
   rejectContract,
@@ -70,6 +71,16 @@ export const useDeleteContract = () => {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: deleteContract,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
+    },
+  });
+};
+
+export const useRevokeContract = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: revokeContract,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
     },

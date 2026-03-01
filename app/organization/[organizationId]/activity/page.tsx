@@ -77,11 +77,19 @@ export default function OrganizationActivityPage() {
                     {act.invoice.recipient?.name && ` to ${act.invoice.recipient.name}`})
                   </span>
                 )}
-                {act.contract && (
+                {act.contract && act.type === "CONTRACT_CREATED" && (
+                  <span className="text-white/70">
+                    {" "}for &quot;{act.contract.assignedToEmail ?? act.contract.assignedTo?.email ?? "—"}&quot;
+                    {(act.contract.jobTitle || act.contract.title) && (
+                      <> ({act.contract.jobTitle || act.contract.title})</>
+                    )}
+                  </span>
+                )}
+                {act.contract && act.type !== "CONTRACT_CREATED" && (
                   <span className="text-white/70">
                     {" "}
                     ({act.contract.title || "Contract"}
-                    {act.contract.assignedTo?.name && ` · assigned to ${act.contract.assignedTo.name}`})
+                    {act.contract.assignedTo?.name && ` · ${act.contract.assignedTo.name}`})
                   </span>
                 )}
               </p>

@@ -17,7 +17,6 @@ import {
   FileSignature,
   FileText,
   UserCircle,
-  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useMobileMenu } from "@/contexts/mobile-menu";
@@ -145,7 +144,7 @@ export function Sidebar() {
               </div>
             )}
 
-            {/* ── Organization mode links ── */}
+            {/* ── Organization mode links (when an org is selected) ── */}
             {isOrganizationMode && linkOrgId && (
               <>
                 <Link
@@ -228,21 +227,6 @@ export function Sidebar() {
                     Members
                   </Link>
                 )}
-
-                <Link
-                  id="sidebar-org-settings-link"
-                  href={`/organization/${linkOrgId}/settings`}
-                  onClick={close}
-                  className={cn(
-                    "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                    pathname === `/organization/${linkOrgId}/settings`
-                      ? "bg-white/[0.07] text-white shadow-sm"
-                      : "text-white/60 hover:bg-white/[0.04] hover:text-white"
-                  )}
-                >
-                  <Settings className="h-5 w-5" strokeWidth={1.5} />
-                  Settings
-                </Link>
               </>
             )}
 
@@ -276,20 +260,6 @@ export function Sidebar() {
                 >
                   <UserPlus className="h-5 w-5" strokeWidth={1.5} />
                   Friends
-                </Link>
-                <Link
-                  id="sidebar-settings-link"
-                  href="/settings"
-                  onClick={close}
-                  className={cn(
-                    "flex h-[45px] sm:h-[50px] items-center gap-3 rounded-xl px-4 text-mobile-base sm:text-[15px] font-medium transition-all",
-                    pathname === "/settings"
-                      ? "bg-white/[0.07] text-white shadow-sm"
-                      : "text-white/60 hover:bg-white/[0.04] hover:text-white"
-                  )}
-                >
-                  <Settings className="h-5 w-5" strokeWidth={1.5} />
-                  Settings
                 </Link>
               </>
             )}

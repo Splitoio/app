@@ -21,8 +21,56 @@ import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
-import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
+import { useGetAllCurrencies, useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
+
+/** Shows aggregated (converted to default currency) balance for one group */
+function GroupBalanceAggregated({
+  oweItems,
+  owedItems,
+  defaultCurrency,
+  formatCurrency,
+}: {
+  oweItems: { amount: number; currency: string }[];
+  owedItems: { amount: number; currency: string }[];
+  defaultCurrency: string;
+  formatCurrency: (amount: number, currency: string) => string;
+}) {
+  const { total: totalOwe, isLoading: loadingOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
+  const { total: totalOwed, isLoading: loadingOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
+  const hasOwe = oweItems.length > 0;
+  const hasOwed = owedItems.length > 0;
+  if (!hasOwe && !hasOwed) return <span className="text-white/60">Settled</span>;
+  if (loadingOwe || loadingOwed) return <span className="text-white/60">…</span>;
+  if (hasOwe && hasOwed) {
+    return (
+      <div className="text-mobile-xs sm:text-sm">
+        <div>
+          You owe{" "}
+          <span className="text-[#FF4444]">{formatCurrency(totalOwe, defaultCurrency)}</span>
+        </div>
+        <div>
+          Owes you{" "}
+          <span className="text-[#53e45d]">{formatCurrency(totalOwed, defaultCurrency)}</span>
+        </div>
+      </div>
+    );
+  }
+  if (hasOwe) {
+    return (
+      <span>
+        You owe{" "}
+        <span className="text-[#FF4444]">{formatCurrency(totalOwe, defaultCurrency)}</span>
+      </span>
+    );
+  }
+  return (
+    <span>
+      Owes you{" "}
+      <span className="text-[#53e45d]">{formatCurrency(totalOwed, defaultCurrency)}</span>
+    </span>
+  );
+}
 
 export function GroupsList() {
   const {
@@ -181,7 +229,7 @@ export function GroupsList() {
           className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
         >
           <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
-          <span>Create app</span>
+          <span>Create Group</span>
         </button>
       </div>
     );
@@ -225,74 +273,17 @@ export function GroupsList() {
               }
             });
 
-            const hasOwedBalances = Object.keys(owedBalances).length > 0;
-            const hasOweBalances = Object.keys(oweBalances).length > 0;
+            const oweItems = Object.entries(oweBalances).map(([currency, amount]) => ({ amount, currency }));
+            const owedItems = Object.entries(owedBalances).map(([currency, amount]) => ({ amount, currency }));
 
-            // Total owed to you in default currency (for "Owes you" line)
-            const owedInDefault = owedBalances[defaultCurrency] ?? 0;
-            const owedOtherCurrencies = Object.entries(owedBalances).filter(([c]) => c !== defaultCurrency);
-
-            if (hasOwedBalances && hasOweBalances) {
-              // Show both what you owe and what you're owed
-              balanceDisplay = (
-                <div className="text-mobile-xs sm:text-sm">
-                  <div>
-                    You owe{" "}
-                    {Object.entries(oweBalances).map(([curr, amount], index) => (
-                      <span key={curr}>
-                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                        {index < Object.entries(oweBalances).length - 1 && ", "}
-                      </span>
-                    ))}
-                  </div>
-                  <div>
-                    Owes you{" "}
-                    <span className="text-[#53e45d]">{formatCurrency(owedInDefault, defaultCurrency)}</span>
-                    {owedOtherCurrencies.length > 0 && (
-                      <>{" "}
-                        {owedOtherCurrencies.map(([curr, amount], index) => (
-                          <span key={curr}>
-                            <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                            {index < owedOtherCurrencies.length - 1 && ", "}
-                          </span>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            } else if (hasOweBalances) {
-              balanceDisplay = (
-                <span>
-                  You owe{" "}
-                  {Object.entries(oweBalances).map(([curr, amount], index) => (
-                    <span key={curr}>
-                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                      {index < Object.entries(oweBalances).length - 1 && ", "}
-                    </span>
-                  ))}
-                </span>
-              );
-            } else if (hasOwedBalances) {
-              balanceDisplay = (
-                <span>
-                  Owes you{" "}
-                  <span className="text-[#53e45d]">{formatCurrency(owedInDefault, defaultCurrency)}</span>
-                  {owedOtherCurrencies.length > 0 && (
-                    <>{" "}
-                      {owedOtherCurrencies.map(([curr, amount], index) => (
-                        <span key={curr}>
-                          <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                          {index < owedOtherCurrencies.length - 1 && ", "}
-                        </span>
-                      ))}
-                    </>
-                  )}
-                </span>
-              );
-            } else {
-              balanceDisplay = <span className="text-white/60">Settled</span>;
-            }
+            balanceDisplay = (
+              <GroupBalanceAggregated
+                oweItems={oweItems}
+                owedItems={owedItems}
+                defaultCurrency={defaultCurrency}
+                formatCurrency={formatCurrency}
+              />
+            );
           } else {
             balanceDisplay = <span className="text-white/60">No balance</span>;
           }
@@ -307,22 +298,32 @@ export function GroupsList() {
                   href={groupUrl}
                   className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer"
                 >
-                  <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
-                    <Image
-                      src={group.image || "/group_icon_placeholder.png"}
-                      alt={group.name}
-                      className="h-full w-full object-cover"
-                      width={48}
-                      height={48}
-                      onError={(e) => {
-                        console.error(
-                          `Error loading image for group ${group.name}:`,
-                          group.image
-                        );
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/group_icon_placeholder.png";
-                      }}
-                    />
+                  <div className="flex-shrink-0 h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">
+                    {group.image ? (
+                      <Image
+                        src={group.image}
+                        alt={group.name}
+                        width={56}
+                        height={56}
+                        className="h-full w-full object-cover"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`;
+                        }}
+                      />
+                    ) : (
+                      <Image
+                        src={`https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`}
+                        alt={group.name}
+                        width={56}
+                        height={56}
+                        className="h-full w-full"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=group`;
+                        }}
+                      />
+                    )}
                   </div>
                   <div className="min-w-0">
                     <p className="text-mobile-base sm:text-xl font-medium text-white">

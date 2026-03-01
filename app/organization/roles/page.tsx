@@ -46,7 +46,6 @@ export default function OrganizationRolesPage() {
           Manage roles
         </h1>
         <button
-          onClick={() => router.push("/organization/settings")}
           className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
           aria-label="Settings"
         >

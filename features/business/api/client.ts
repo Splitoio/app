@@ -90,6 +90,8 @@ export const OrganizationActivitySchema = z.object({
     .object({
       id: z.string(),
       title: z.string().nullable(),
+      jobTitle: z.string().nullable().optional(),
+      assignedToEmail: z.string().optional(),
       assignedTo: z.object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable() }).nullable().optional(),
     })
     .nullable()
@@ -224,7 +226,7 @@ export const deleteStream = async (organizationId: string, streamId: string) => 
 };
 
 // Contracts
-export const ContractStatusSchema = z.enum(["DRAFT", "SENT", "REJECTED"]);
+export const ContractStatusSchema = z.enum(["DRAFT", "SENT", "REJECTED", "REVOKED"]);
 export const ContractSchema = z.object({
   id: z.string(),
   organizationId: z.string(),
@@ -320,6 +322,10 @@ export const signContract = async (contractId: string) => {
 
 export const rejectContract = async (contractId: string) => {
   await apiClient.patch(`/contracts/${contractId}/reject`, {});
+};
+
+export const revokeContract = async (contractId: string) => {
+  await apiClient.patch(`/contracts/${contractId}/revoke`, {});
 };
 
 export const deleteContract = async (contractId: string) => {

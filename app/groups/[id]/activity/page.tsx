@@ -1,91 +1,170 @@
 "use client";
 
-import Image from "next/image";
+import { useMemo } from "react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
+import { formatRelativeTime } from "@/lib/utils";
+
+type ExpenseItem = {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string | null;
+  paidBy: string;
+  createdAt: Date;
+  splitType: string;
+  expenseParticipants?: { userId: string; amount: number }[];
+};
+
+type JoinItem = {
+  type: "join";
+  id: string;
+  date: Date;
+  userName: string;
+};
+
+type ActivityItem =
+  | { type: "expense"; id: string; date: Date; expense: ExpenseItem; paidByName: string; settlementPayeeName: string | null; settlementPayeeId: string | null }
+  | JoinItem;
 
 export default function GroupActivityPage() {
   const { user } = useAuthStore();
   const { group, formatCurrency } = useGroupLayout();
 
+  const activities = useMemo((): ActivityItem[] => {
+    if (!group || !user) return [];
+
+    const list: ActivityItem[] = [];
+
+    for (const expense of group.expenses ?? []) {
+      const paidBy = group.groupUsers.find((u) => u.user.id === expense.paidBy)?.user;
+      const paidByName = paidBy?.name ?? "Someone";
+      let settlementPayeeName: string | null = null;
+      let settlementPayeeId: string | null = null;
+      if (expense.splitType === "SETTLEMENT" && expense.expenseParticipants) {
+        const payeeParticipant = expense.expenseParticipants.find((p: { amount: number }) => p.amount > 0);
+        if (payeeParticipant) {
+          const payeeUser = group.groupUsers.find((u) => u.user.id === payeeParticipant.userId)?.user;
+          settlementPayeeName = payeeUser?.name ?? null;
+          settlementPayeeId = payeeParticipant.userId ?? null;
+        }
+      }
+      list.push({
+        type: "expense",
+        id: expense.id,
+        date: new Date(expense.createdAt),
+        expense: expense as ExpenseItem,
+        paidByName,
+        settlementPayeeName,
+        settlementPayeeId,
+      });
+    }
+
+    for (const gu of group.groupUsers ?? []) {
+      const createdAt = (gu as { createdAt?: Date }).createdAt;
+      if (createdAt) {
+        list.push({
+          type: "join",
+          id: `join-${gu.userId}`,
+          date: createdAt instanceof Date ? createdAt : new Date(createdAt),
+          userName: gu.user?.name ?? "Someone",
+        });
+      }
+    }
+
+    list.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return list;
+  }, [group, user]);
+
   if (!group || !user) return null;
 
-  const expenses = group.expenses;
-
   return (
-    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
+    <div className="p-4 sm:p-6 space-y-0">
       <h3 className="text-mobile-lg sm:text-xl font-medium text-white mb-3 sm:mb-4">
         Recent Activity
       </h3>
 
-      {expenses && expenses.length > 0 ? (
-        expenses.map((expense, index) => {
-          const paidBy = group.groupUsers.find((u) => u.user.id === expense.paidBy)?.user;
-          if (!paidBy) return null;
-
-          let settlementPayee = null;
-          if (expense.splitType === "SETTLEMENT" && expense.expenseParticipants) {
-            const payeeParticipant = expense.expenseParticipants.find((p: { amount: number }) => p.amount > 0);
-            if (payeeParticipant) {
-              settlementPayee = group.groupUsers.find(
-                (u) => u.user.id === payeeParticipant.userId
-              )?.user;
+      {activities.length > 0 ? (
+        <ul className="divide-y divide-white/10">
+          {activities.map((item) => {
+            if (item.type === "join") {
+              return (
+                <li
+                  key={item.id}
+                  className="py-3 sm:py-3.5 flex items-center justify-between gap-4"
+                >
+                  <span className="text-mobile-base sm:text-base text-white">
+                    {item.userName} joined the group
+                  </span>
+                  <span className="text-mobile-sm sm:text-sm text-white/60 shrink-0">
+                    {formatRelativeTime(item.date)}
+                  </span>
+                </li>
+              );
             }
-          }
 
-          return (
-            <div
-              key={expense.id}
-              className="p-3 sm:p-4 rounded-xl flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full">
-                  <Image
-                    src={
-                      paidBy.image ||
-                      `https://api.dicebear.com/9.x/identicon/svg?seed=${paidBy.id}`
-                    }
-                    alt={paidBy.name || "User"}
-                    width={40}
-                    height={40}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${paidBy.id}`;
-                    }}
-                  />
-                </div>
-                <div>
-                  {expense.splitType === "SETTLEMENT" && settlementPayee ? (
-                    <p className="text-mobile-base sm:text-base text-white">
-                      <span className="font-medium">
-                        {paidBy.id === user?.id ? "You" : paidBy.name}
-                      </span>{" "}
-                      marked payment to{" "}
-                      <span className="font-medium">
-                        {settlementPayee.id === user?.id ? "you" : settlementPayee.name}
-                      </span>{" "}
-                      as settled
-                    </p>
-                  ) : (
-                    <p className="text-mobile-base sm:text-base text-white">
-                      <span className="font-medium">
-                        {paidBy.id === user?.id ? "You" : paidBy.name}
-                      </span>{" "}
-                      added expense &quot;{expense.name}&quot;
-                    </p>
-                  )}
-                  <p className="text-mobile-xs sm:text-sm text-white/60">
-                    {new Date(expense.createdAt).toLocaleString()}
-                  </p>
-                </div>
-              </div>
-              <div className="text-mobile-base sm:text-base text-white font-medium">
-                {formatCurrency(expense.amount, expense.currency || "USD")}
-              </div>
-            </div>
-          );
-        })
+            const { expense, paidByName, settlementPayeeName, settlementPayeeId } = item;
+            const isYouPayer = expense.paidBy === user.id;
+            const payerLabel = isYouPayer ? "You" : paidByName;
+            const amountStr = formatCurrency(expense.amount, expense.currency || "USD");
+
+            // Red = money out, Green = money in (from current user's perspective)
+            let amountColor: "red" | "green" | "white" = "white";
+            if (expense.splitType === "SETTLEMENT" && settlementPayeeName && settlementPayeeId !== null) {
+              if (settlementPayeeId === user.id) amountColor = "green"; // payment to you as settled
+              else if (isYouPayer) amountColor = "red"; // you marked payment to someone as settled
+            } else {
+              if (isYouPayer) amountColor = "red"; // you added expense (you paid)
+              else {
+                const myPart = expense.expenseParticipants?.find((p: { userId: string }) => p.userId === user.id);
+                if (myPart) {
+                  if (myPart.amount < 0) amountColor = "red"; // you owe
+                  else if (myPart.amount > 0) amountColor = "green"; // they owe you
+                }
+              }
+            }
+
+            const amountStyle =
+              amountColor === "red"
+                ? { color: "#FF4444" }
+                : amountColor === "green"
+                  ? { color: "#53E45E" }
+                  : undefined;
+            const amountClass = amountColor === "white" ? "text-white" : undefined;
+
+            if (expense.splitType === "SETTLEMENT" && settlementPayeeName) {
+              const payeeLabel = settlementPayeeId === user.id ? "you" : settlementPayeeName;
+              return (
+                <li
+                  key={item.id}
+                  className="py-3 sm:py-3.5 flex items-center justify-between gap-4"
+                >
+                  <span className="text-mobile-base sm:text-base text-white">
+                    {payerLabel} marked payment to {payeeLabel} as settled{" "}
+                    <span style={amountStyle} className={amountClass}>({amountStr})</span>
+                  </span>
+                  <span className="text-mobile-sm sm:text-sm text-white/60 shrink-0">
+                    {formatRelativeTime(item.date)}
+                  </span>
+                </li>
+              );
+            }
+
+            return (
+              <li
+                key={item.id}
+                className="py-3 sm:py-3.5 flex items-center justify-between gap-4"
+              >
+                <span className="text-mobile-base sm:text-base text-white">
+                  {payerLabel} added {expense.name} <span style={amountStyle} className={amountClass}>({amountStr})</span>
+                </span>
+                <span className="text-mobile-sm sm:text-sm text-white/60 shrink-0">
+                  {formatRelativeTime(item.date)}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
       ) : (
         <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
           No activity yet

@@ -1,15 +1,14 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useQueries } from "@tanstack/react-query";
+import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
+import { ProfileDropdown } from "@/components/profile-dropdown";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
 import { useGetContractsByOrganization } from "@/features/business/hooks/use-contracts";
-import { getStreamsByOrganization } from "@/features/business/api/client";
-import { QueryKeys } from "@/lib/constants";
-import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp, FileSignature } from "lucide-react";
+import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
+import { Loader2, UserPlus, Building2, FileText, TrendingUp, FileSignature } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { OrganizationConnectionError } from "@/components/organization-connection-error";
 import { ContractNotifications } from "@/components/contract-notifications";
@@ -41,37 +40,33 @@ export default function OrganizationDashboardPage() {
   const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
 
   const orgIds = organizations.map((o) => o.id);
-  const firstOrgId = orgIds[0] ?? "";
-  const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
+  const selectedOrgId = orgIds[0] ?? "";
+  const selectedOrg = organizations.find((o) => o.id === selectedOrgId);
   const hasAdminOrg = organizations.some((o) => isOrgAdmin(o, user?.id ?? ""));
-  const firstOrgIdForAdmin = hasAdminOrg ? firstOrgId : "";
+  const isAdminOfSelectedOrg = selectedOrg ? isOrgAdmin(selectedOrg, user?.id ?? "") : false;
 
-  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgIdForAdmin);
-  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgIdForAdmin);
+  const { data: invoicesForOrg = [] } = useGetInvoicesByOrganization(isAdminOfSelectedOrg ? selectedOrgId : "");
+  const { data: contractsForOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(selectedOrgId);
 
-  const streamQueries = useQueries({
-    queries: adminOrgIds.map((orgId) => ({
-      queryKey: [QueryKeys.STREAMS, orgId],
-      queryFn: () => getStreamsByOrganization(orgId),
-      enabled: !!orgId,
-    })),
+  const { data: streamsForOrg = [], isLoading: streamsLoading } = useGetStreamsByOrganization(selectedOrgId, {
+    enabled: !!selectedOrgId && isAdminOfSelectedOrg,
   });
-  const allStreams = streamQueries.flatMap((q) => q.data ?? []);
-  const streamsLoading = streamQueries.some((q) => q.isLoading);
-  const totalStreamsCount = allStreams.length;
-  const expectedUsd = allStreams
+
+  const memberCountForOrg = selectedOrg ? (selectedOrg.groupUsers?.length ?? 0) : 0;
+  const totalStreamsCount = streamsForOrg.length;
+  const expectedUsd = streamsForOrg
     .filter((s) => s.currency === "USD" && s.expectedAmount != null)
     .reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
-  const streamsWithAmount = allStreams.filter((s) => s.expectedAmount != null).length;
+  const streamsWithAmount = streamsForOrg.filter((s) => s.expectedAmount != null).length;
 
-  const totalOutstanding = invoicesFirstOrg
+  const totalOutstanding = invoicesForOrg
     .filter((i) => i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED")
     .reduce((sum, i) => sum + i.amount, 0);
-  const currencyFirst = invoicesFirstOrg[0]?.currency ?? "USD";
-  const pendingCount = invoicesFirstOrg.filter(
+  const currencyFirst = invoicesForOrg[0]?.currency ?? "USD";
+  const pendingCount = invoicesForOrg.filter(
     (i) => i.status === "DRAFT" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED"
   ).length;
-  const totalInvoicesFirstOrg = invoicesFirstOrg.length;
+  const totalInvoicesForOrg = invoicesForOrg.length;
 
   const membersMap = new Map<string, { id: string; name: string | null; image: string | null; email: string | null; orgNames: string[] }>();
   organizations.forEach((org) => {
@@ -111,30 +106,20 @@ export default function OrganizationDashboardPage() {
           </h2>
           <div className="flex items-center gap-2">
             <ContractNotifications />
-            <Link href="/organization/settings" className="cursor-pointer">
-              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                  {user?.image ? (
-                    <Image src={user.image} alt="Profile" width={56} height={56} className="h-full w-full object-cover" />
-                  ) : (
-                    <Image
-                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                      alt="Profile"
-                      width={56}
-                      height={56}
-                      className="h-full w-full"
-                    />
-                  )}
-                </div>
-              </div>
-            </Link>
+            {user && (
+              <ProfileDropdown
+                user={user}
+                profileHref="/settings"
+                avatarSizeClass="h-10 w-10 sm:h-14 sm:w-14"
+              />
+            )}
           </div>
         </div>
       </div>
 
-      {/* Stats: Team for everyone; Invoices, Streams, Contracts for admin only */}
+      {/* Stats: all 4 cards are for the selected (first) organization only */}
       <div
-        className={`grid grid-cols-1 gap-5 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 ${hasAdminOrg ? (adminOrgIds.length > 0 ? "sm:grid-cols-2" : "sm:grid-cols-3") : ""}`}
+        className={`grid grid-cols-1 gap-5 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 ${hasAdminOrg ? (selectedOrgId ? "sm:grid-cols-2" : "sm:grid-cols-3") : ""}`}
       >
         <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
           <div className="flex items-center gap-2 text-white/60 mb-4">
@@ -143,15 +128,9 @@ export default function OrganizationDashboardPage() {
           </div>
           <div className="flex justify-between gap-4">
             <div>
-              <p className="text-white/50 text-xs sm:text-sm">Organizations</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {isOrgsLoading ? "—" : organizations.length}
-              </p>
-            </div>
-            <div>
               <p className="text-white/50 text-xs sm:text-sm">Members</p>
               <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {isOrgsLoading ? "—" : members.length}
+                {isOrgsLoading || !selectedOrgId ? "—" : memberCountForOrg}
               </p>
             </div>
           </div>
@@ -166,16 +145,13 @@ export default function OrganizationDashboardPage() {
               <div>
                 <p className="text-white/50 text-xs sm:text-sm">Total</p>
                 <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {totalInvoicesFirstOrg}
+                  {totalInvoicesForOrg}
                 </p>
-                {organizations.length > 1 && (
-                  <p className="text-white/50 text-xs mt-0.5">First org</p>
-                )}
               </div>
               <div>
                 <p className="text-white/50 text-xs sm:text-sm">Outstanding</p>
                 <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {invoicesFirstOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
+                  {invoicesForOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
                 </p>
                 {pendingCount > 0 && (
                   <p className="text-white/50 text-xs mt-0.5">{pendingCount} pending</p>
@@ -184,7 +160,7 @@ export default function OrganizationDashboardPage() {
             </div>
           </div>
         )}
-        {adminOrgIds.length > 0 && (
+        {selectedOrgId && isAdminOfSelectedOrg && (
           <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
             <div className="flex items-center gap-2 text-white/60 mb-4">
               <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -217,14 +193,14 @@ export default function OrganizationDashboardPage() {
             </div>
             <div className="flex flex-col gap-2">
               <div>
-                <p className="text-white/50 text-xs sm:text-sm">Total (first org)</p>
+                <p className="text-white/50 text-xs sm:text-sm">Total</p>
                 <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {contractsLoading ? "—" : contractsFirstOrg.length}
+                  {contractsLoading ? "—" : contractsForOrg.length}
                 </p>
               </div>
-              {firstOrgId && (
+              {selectedOrgId && (
                 <Link
-                  href={`/organization/${firstOrgId}/contracts`}
+                  href={`/organization/${selectedOrgId}/contracts`}
                   className="text-white/70 hover:text-white text-sm font-medium mt-1 inline-flex items-center gap-1"
                 >
                   View contracts
@@ -236,97 +212,44 @@ export default function OrganizationDashboardPage() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 sm:gap-6">
-        <div className="space-y-4 sm:space-y-6">
-          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-white">Your Members</h2>
-              <Link href="/organization/members" className={viewAllButtonClass}>
-                <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>View All</span>
-              </Link>
-            </div>
-            <div className="space-y-4 sm:space-y-8">
-              {isOrgsLoading ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
-                </div>
-              ) : members.length > 0 ? (
-                members.slice(0, 5).map((member) => (
-                  <div key={member.id} className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full">
-                        <Image
-                          src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`}
-                          alt={member.name || "Member"}
-                          width={56}
-                          height={56}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-mobile-base sm:text-xl text-white font-medium">{member.name || member.email || "Member"}</p>
-                        <p className="text-mobile-sm sm:text-base text-white/60">{member.orgNames.join(", ")}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
-                  No members yet. Create an organization and add members to get started.
-                </div>
-              )}
-            </div>
-          </div>
+      <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
+        <div className="flex items-center justify-between mb-4 sm:mb-8">
+          <h2 className="text-xl sm:text-2xl font-semibold text-white">Your Members</h2>
+          <Link href="/organization/members" className={viewAllButtonClass}>
+            <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
+            <span>View All</span>
+          </Link>
         </div>
-
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 min-w-0">
-          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold text-white truncate min-w-0">Your Organizations</h2>
-            <Link href="/organization/organizations" className={viewAllButtonClass}>
-              <Users2 className="h-4 w-4 sm:h-5 sm:w-5" />
-              <span>View All</span>
-            </Link>
-          </div>
-          <div className="space-y-4 sm:space-y-6">
-            {isOrgsLoading ? (
-              <div className="flex items-center justify-center p-6 sm:p-8">
-                <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
-              </div>
-            ) : organizations.length > 0 ? (
-              organizations.slice(0, 4).map((org) => (
-                <Link href={`/organization/${org.id}/invoices`} key={org.id}>
-                  <div className="flex items-center justify-between hover:bg-white/[0.02] p-2 sm:p-3 rounded-lg transition-colors">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">
-                        {org.image ? (
-                          <Image src={org.image} alt={org.name} width={56} height={56} className="h-full w-full object-cover" />
-                        ) : (
-                          <Image
-                            src={`https://api.dicebear.com/9.x/identicon/svg?seed=${org.id}`}
-                            alt={org.name}
-                            width={56}
-                            height={56}
-                            className="h-full w-full"
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-mobile-base sm:text-xl text-white font-medium">{org.name}</p>
-                        <p className="text-mobile-sm sm:text-base text-white/60">
-                          {(org.groupUsers || []).length} member{(org.groupUsers || []).length !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    </div>
+        <div className="space-y-4 sm:space-y-8">
+          {isOrgsLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
+            </div>
+          ) : members.length > 0 ? (
+            members.slice(0, 5).map((member) => (
+              <div key={member.id} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3 sm:gap-4">
+                  <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full">
+                    <Image
+                      src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`}
+                      alt={member.name || "Member"}
+                      width={56}
+                      height={56}
+                      className="h-full w-full object-cover"
+                    />
                   </div>
-                </Link>
-              ))
-            ) : (
-              <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
-                No organizations yet. Create one to get started!
+                  <div>
+                    <p className="text-mobile-base sm:text-xl text-white font-medium">{member.name || member.email || "Member"}</p>
+                    <p className="text-mobile-sm sm:text-base text-white/60">{member.orgNames.join(", ")}</p>
+                  </div>
+                </div>
               </div>
-            )}
-          </div>
+            ))
+          ) : (
+            <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
+              No members yet. Create an organization and add members to get started.
+            </div>
+          )}
         </div>
       </div>
     </div>
