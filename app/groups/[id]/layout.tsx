@@ -201,7 +201,9 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           group={group}
         />
 
-        <div className="bg-[#101012] rounded-xl sm:rounded-3xl min-h-[calc(100vh-200px)]">
+        <div
+          className="rounded-xl sm:rounded-3xl min-h-[calc(100vh-200px)] overflow-y-auto p-4 sm:p-7"
+        >
           {children}
         </div>
 

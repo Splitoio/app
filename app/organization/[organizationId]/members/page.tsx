@@ -3,12 +3,13 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Image from "next/image";
-import { Plus, UserMinus, Loader2 } from "lucide-react";
+import { UserMinus, Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { useGetGroupById, useUpdateMemberRole, useRemoveMemberFromGroup } from "@/features/groups/hooks/use-create-group";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { Card, SectionLabel, T, A, Icons } from "@/lib/splito-design";
 import {
   Select,
   SelectContent,
@@ -93,21 +94,21 @@ export default function OrganizationMembersPage() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-3 sm:mb-4">
-        <h3 className="text-mobile-lg sm:text-xl font-medium text-white">Members</h3>
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SectionLabel>Members</SectionLabel>
         {currentUserIsAdmin && (
           <button
             onClick={openAddMember}
-            className="flex items-center gap-2 rounded-full border border-white/20 h-9 sm:h-10 px-3 sm:px-4 text-sm text-white hover:bg-white/5"
+            className="flex items-center gap-2 rounded-xl h-9 sm:h-10 px-3 sm:px-4 text-sm font-extrabold transition-all hover:opacity-90"
+            style={{ background: A, color: "#0a0a0a" }}
           >
-            <Plus className="h-4 w-4" />
-            Add Admin
+            {Icons.plus({ size: 16 })} Add Admin
           </button>
         )}
       </div>
       {currentUserIsAdmin && (
-        <p className="text-white/60 text-mobile-sm sm:text-base mb-4">
+        <p className="text-sm mb-4" style={{ color: T.muted }}>
           Manage members and their roles. Admins can manage roles and organization settings.
         </p>
       )}
@@ -116,37 +117,33 @@ export default function OrganizationMembersPage() {
           <Loader2 className="h-8 w-8 animate-spin text-white/50" />
         </div>
       ) : members.length > 0 ? (
-        <div className="space-y-3">
-          {members.map((gu) => {
+        <Card className="p-0 overflow-hidden">
+          {members.map((gu, idx) => {
             const displayRole = gu.role ?? (group?.userId === gu.userId ? "ADMIN" : "MEMBER");
             const isCurrentUser = gu.userId === user?.id;
             return (
               <div
                 key={gu.userId}
-                className="flex items-center justify-between gap-4 p-3 sm:p-4 rounded-xl bg-white/[0.02]"
+                className="flex items-center justify-between gap-4 p-4 sm:p-5 border-b border-white/[0.06] last:border-b-0"
               >
                 <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                  <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full flex-shrink-0">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.08]">
                     <Image
                       src={gu.user.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${gu.user.id}`}
                       alt={gu.user.name || "Member"}
-                      width={56}
-                      height={56}
+                      width={48}
+                      height={48}
                       className="h-full w-full object-cover"
                     />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-mobile-base sm:text-xl text-white font-medium truncate">
+                    <p className="font-semibold truncate" style={{ color: T.bright }}>
                       {gu.user.name || gu.user.email || "Member"}
-                      {isCurrentUser && (
-                        <span className="ml-1.5 text-white/60 text-mobile-sm sm:text-base">(you)</span>
-                      )}
-                      {gu.userId === group?.userId && (
-                        <span className="ml-1.5 text-white/60 text-mobile-sm sm:text-base">(Owner)</span>
-                      )}
+                      {isCurrentUser && <span className="ml-1.5 text-sm" style={{ color: T.muted }}>(you)</span>}
+                      {gu.userId === group?.userId && <span className="ml-1.5 text-sm" style={{ color: T.muted }}>(Owner)</span>}
                     </p>
                     {gu.user.email && (
-                      <p className="text-mobile-sm sm:text-base text-white/60 truncate">{gu.user.email}</p>
+                      <p className="text-sm truncate mt-0.5" style={{ color: T.muted }}>{gu.user.email}</p>
                     )}
                   </div>
                 </div>
@@ -192,11 +189,13 @@ export default function OrganizationMembersPage() {
               </div>
             );
           })}
-        </div>
+        </Card>
       ) : (
-        <div className="text-center py-12 text-white/60">
-          No members yet. {currentUserIsAdmin ? "Use Add Admin above to add org admins; members join via contract." : "Ask an admin to add admins or send you a contract."}
-        </div>
+        <Card className="p-8 sm:p-12 text-center">
+          <p className="text-[15px] font-semibold" style={{ color: T.muted }}>
+            No members yet. {currentUserIsAdmin ? "Use Add Admin above to add org admins; members join via contract." : "Ask an admin to add admins or send you a contract."}
+          </p>
+        </Card>
       )}
 
       <AnimatePresence>

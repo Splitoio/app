@@ -1,44 +1,21 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import Image from "next/image";
-import { Loader2, Trash2, LogOut, Save, Info } from "lucide-react";
+import React, { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { fadeIn } from "@/utils/animations";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { AddWalletModal } from "@/components/add-wallet-modal";
 import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { asEnhancedUser } from "@/types/user";
-import {
-  useGetAllCurrencies,
-  useOrganizedCurrencies,
-} from "@/features/currencies/hooks/use-currencies";
-import type { Currency } from "@/features/currencies/api/client";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import {
   useUserWallets,
   useAddWallet,
   useSetWalletAsPrimary,
   useRemoveWallet,
 } from "@/features/wallets/hooks/use-wallets";
-import CurrencyDropdown from "@/components/currency-dropdown";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { getUser } from "@/features/user/api/client";
-import { Button } from "@/components/ui/button";
+import { SettingsPageContent } from "@/app/settings/settings-page-content";
 
 // Base API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -331,9 +308,7 @@ export default function SettingsPage() {
         </div>
       </div>
     );
-  }
-
-  if (!isAuthenticated || !user) {
+  } else   if (!isAuthenticated || !user) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="text-white/70 text-lg">
@@ -343,359 +318,34 @@ export default function SettingsPage() {
     );
   }
 
-  return (
-    <motion.div
-      variants={fadeIn}
-      initial="initial"
-      animate="animate"
-      className="flex w-full min-h-screen bg-black rounded-xl"
-    >
-      <div className="w-[750px] pl-10 pt-10 pr-4 pb-24">
-        <div className="flex items-center justify-between mb-8">
-          <h1 className="text-2xl font-semibold text-white">Settings</h1>
-          <div className="flex gap-3">
-            <button
-              onClick={handleLogout}
-              disabled={isLoggingOut}
-              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-transparent border border-white/20 text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isLoggingOut ? (
-                <>
-                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                  <span>Logging out...</span>
-                </>
-              ) : (
-                <>
-                  <LogOut className="h-4 w-4 sm:h-5 sm:w-5" />
-                  <span>Logout</span>
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-        {/* Profile Photo Upload */}
-        <div className="mb-8">
-          <p className="text-white mb-3">Upload your PFP</p>
-          <div className="flex items-center gap-5">
-            <div className="relative">
-              <div className="w-[100px] h-[100px] rounded-full border border-dashed border-white/30 flex items-center justify-center overflow-hidden">
-                {user.image ? (
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={100}
-                    height={100}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <div className="text-xs text-white/60 text-center p-2">
-                    PNGs, JPGs
-                  </div>
-                )}
-                {isUploadingImage && (
-                  <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center">
-                    <Loader2 className="h-6 w-6 animate-spin text-white mb-2" />
-                    <span className="text-xs text-white">
-                      {uploadProgress}%
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col">
-              <label
-                htmlFor="profile-upload"
-                className={`bg-transparent border border-white/20 text-white rounded-full px-6 py-2.5 hover:bg-white/5 transition cursor-pointer ${
-                  isUploadingImage ? "opacity-50 cursor-not-allowed" : ""
-                }`}
-              >
-                {isUploadingImage ? "Uploading..." : "Select Image"}
-                <input
-                  id="profile-upload"
-                  type="file"
-                  accept="image/png, image/jpeg"
-                  className="hidden"
-                  disabled={isUploadingImage}
-                  onChange={(e) => {
-                    const file = e.target.files?.[0];
-                    if (file) {
-                      handleImageUpload(file);
-                    }
-                  }}
-                />
-              </label>
-              {uploadError && (
-                <p className="text-red-500 text-xs mt-2">{uploadError}</p>
-              )}
-            </div>
-          </div>
-        </div>
-        {/* Display Name */}
-        <div className="mb-8">
-          <label htmlFor="display-name" className="block text-white mb-2">
-            Display Name
-          </label>
-          <input
-            id="display-name"
-            type="text"
-            value={displayName}
-            onChange={(e) => setDisplayName(e.target.value)}
-            className="w-full bg-black border border-white/20 text-white p-3 rounded-lg h-12 focus:outline-none focus:ring-1 focus:ring-white/40"
-            placeholder="Enter your name"
-          />
-        </div>
-        <div id="settings-accept-payments-section" className="mb-8">
-          <label className="text-white mb-2 flex items-center gap-2">
-            Accept Payments in
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-white/80" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Select the tokens you want to accept payments in</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </label>
-
-          {wallets.length > 0 ? (
-            <CurrencyDropdown
-              selectedCurrencies={selectedCurrencies}
-              setSelectedCurrencies={setSelectedCurrencies}
-              filterCurrencies={(currency: Currency) =>
-                currency.symbol !== "ETH" &&
-                currency.symbol !== "USDC" &&
-                wallets.some((wallet) => wallet.chainId === currency.chainId)
-              }
-              showFiatCurrencies={false}
-            />
-          ) : (
-            <div className="text-white/50 text-sm">
-              You don't have any wallets yet. Add one to get started.
-            </div>
-          )}
-        </div>
-
-        {/* Preferred Currency - Single Dropdown */}
-        <div className="mb-8">
-          <label className="text-white mb-2 flex items-center gap-2">
-            Default Currency
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger>
-                  <Info className="h-4 w-4 text-white/80" />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>
-                    Currencies will be converted to this currency for Display
-                    purposes
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </label>
-          <CurrencyDropdown
-            selectedCurrencies={preferredCurrency ? [preferredCurrency] : []}
-            setSelectedCurrencies={(currencies) =>
-              setPreferredCurrency(currencies[0] || "")
-            }
-            mode="single"
-            showFiatCurrencies={true}
-            filterCurrencies={(currency: Currency) =>
-              currency.symbol !== "ETH" && currency.symbol !== "USDC"
-            }
-            disableChainCurrencies={true}
-          />
-        </div>
-
-        {hasChanges && (
-          <button
-            onClick={handleSaveChanges}
-            disabled={isUpdatatingUser}
-            className={`flex w-full items-center justify-center gap-1 sm:gap-2 rounded-full border text-white h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium transition-all disabled:cursor-not-allowed ${
-              !isUpdatatingUser
-                ? "bg-black text-black border-white hover:bg-zinc-900"
-                : "bg-transparent border-white/20 text-white/40"
-            }`}
-          >
-            {isUpdatatingUser ? (
-              <>
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                <span>Saving...</span>
-              </>
-            ) : (
-              <>
-                <Save className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>Save Changes</span>
-              </>
-            )}
-          </button>
-        )}
-        {/* Divider Line */}
-        <div className="h-px w-full bg-white/10 my-8"></div>
-        {/* Wallet Management */}
-        <div className="mb-8">
-          <button
-            id="settings-add-wallet-button"
-            onClick={() => setIsWalletModalOpen(true)}
-            disabled={isAddingWallet}
-            className="w-full flex items-center justify-center h-10 sm:h-12 gap-1 sm:gap-2 bg-white text-black rounded-full px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-          >
-
-            {isAddingWallet ? (
-              <>
-                <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                <span>Adding Wallet...</span>
-              </>
-            ) : (
-              <span>Add Wallet</span>
-            )}
-          </button>
-
-          {/* Wallet List */}
-          <div className="space-y-6 pt-6">
-            <h2 className="text-white text-2lg font-semibold ">Your Wallets</h2>
-            {isLoadingWallets ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-white/50" />
-              </div>
-            ) : wallets.length > 0 ? (
-              wallets.map((wallet) => (
-                <div key={wallet.id} className="pb-6 mb-2">
-                  <div className="flex items-center justify-between">
-                    <p className="text-white font-mono">
-                      {wallet.address.length > 20
-                        ? wallet.address.slice(0, 17) +
-                          "..." +
-                          wallet.address.slice(-4)
-                        : wallet.address}
-                    </p>
-                    {!wallet.isDefault ? (
-                      <div className="flex items-center">
-                        {/* <button
-                          onClick={() => handleSetAsPrimary(wallet.id)}
-                          className="border border-white/80 text-white text-sm rounded-full px-4 py-1.5 hover:bg-white/5 transition"
-                        >
-                          Set as primary
-                        </button> */}
-                        <button
-                          onClick={() => handleRemoveWallet(wallet.id)}
-                          disabled={isRemovingWallet}
-                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isRemovingWallet ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-5 w-5" />
-                          )}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <div className="text-white/60 text-sm">
-                          Primary Wallet
-                        </div>
-                        <button
-                          onClick={() => handleRemoveWallet(wallet.id)}
-                          disabled={isRemovingWallet}
-                          className="text-white/70 p-1.5 rounded-full hover:bg-white/5 transition ml-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isRemovingWallet ? (
-                            <Loader2 className="h-5 w-5 animate-spin" />
-                          ) : (
-                            <Trash2 className="h-5 w-5" />
-                          )}
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                  <div className="mt-2">
-                    <p className="text-white/60 text-sm">
-                      {getChainName(wallet.chainId)}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="py-8 text-center text-white/50">
-                You don't have any wallets yet. Add one to get started.
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Add Wallet Modal */}
-      <AddWalletModal
-        isOpen={isWalletModalOpen}
-        onClose={() => {
-          setIsWalletModalOpen(false);
-          // Optionally, refetch user wallets or user profile here if needed
-          // handleWalletAdded();
-        }}
-      />
-
-      {/* Remove Wallet Confirmation Modal */}
-      <AnimatePresence>
-        {isRemoveConfirmOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-              onClick={cancelRemoveWallet}
-            />
-
-            {/* Modal */}
-            <motion.div
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              className="relative bg-[#1A1A1D] border border-white/10 rounded-2xl p-6 w-full max-w-md shadow-2xl"
-            >
-              <div className="text-center">
-                <h3 className="text-xl font-semibold text-white mb-2">
-                  Remove Wallet
-                </h3>
-
-                <p className="text-white/70 mb-6">
-                  Are you sure you want to remove this wallet? This action
-                  cannot be undone.
-                </p>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={cancelRemoveWallet}
-                    disabled={isRemovingWallet}
-                    className="flex-1 px-4 py-2.5 bg-transparent border border-white/20 text-white rounded-lg hover:bg-white/5 transition-colors disabled:opacity-70 disabled:cursor-not-allowed"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    onClick={confirmRemoveWallet}
-                    disabled={isRemovingWallet}
-                    className="flex-1 px-4 py-2.5 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                  >
-                    {isRemovingWallet ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Removing...
-                      </>
-                    ) : (
-                      "Remove Wallet"
-                    )}
-                  </button>
-                </div>
-              </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </motion.div>
-  );
+  return React.createElement(SettingsPageContent, {
+    user,
+    displayName,
+    setDisplayName,
+    preferredCurrency,
+    setPreferredCurrency,
+    hasChanges,
+    handleSaveChanges,
+    isUpdatatingUser,
+    wallets,
+    handleRemoveWallet,
+    handleSetAsPrimary,
+    getChainName,
+    isAddingWallet,
+    isWalletModalOpen,
+    setIsWalletModalOpen,
+    isRemovingWallet,
+    isRemoveConfirmOpen,
+    confirmRemoveWallet,
+    cancelRemoveWallet,
+    isUploadingImage,
+    uploadProgress,
+    uploadError,
+    handleImageUpload,
+    selectedCurrencies,
+    setSelectedCurrencies,
+    isLoadingWallets,
+    onLogout: handleLogout,
+    isLoggingOut: isLoggingOut,
+  });
 }

@@ -2,8 +2,6 @@
 
 import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
-import { useWallet } from "@/hooks/useWallet";
 import { DetailGroup } from "@/features/groups/api/client";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -14,6 +12,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { cn } from "@/lib/utils";
+import { BackBtn, Btn, Icons, A, T } from "@/lib/splito-design";
 
 export function GroupInfoHeader({
   groupId,
@@ -30,7 +29,6 @@ export function GroupInfoHeader({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const { address } = useWallet();
   const [isAddingExpense, setIsAddingExpense] = useState(false);
   const [isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
@@ -72,11 +70,6 @@ export function GroupInfoHeader({
   );
   const converting = loadingOwe || loadingOwed;
 
-  // Handle profile click to redirect to settings
-  const handleProfileClick = () => {
-    router.push("/settings");
-  };
-
   if (!group) return null;
 
   const handleAddExpenseClick = () => {
@@ -101,237 +94,129 @@ export function GroupInfoHeader({
   };
 
   const tabs = [
-    { label: "Expenses", href: `/groups/${groupId}/splits` },
-    { label: "Activity", href: `/groups/${groupId}/activity` },
+    { label: "Splits", href: `/groups/${groupId}/splits` },
     { label: "Members", href: `/groups/${groupId}/members` },
+    { label: "Activity", href: `/groups/${groupId}/activity` },
   ];
 
+  const memberCount = group.groupUsers?.length ?? 0;
+  const isOwedToUser = owed.length > 0;
+  const isUserOwes = owe.length > 0;
+  const balanceLabel = isOwedToUser ? "owed to you" : isUserOwes ? "you owe" : "all settled";
+
+  const desktopSubtitle = isOwedToUser
+    ? <>You are owed <span className="font-bold text-[#34D399]">{converting ? "…" : formatCurrency(totalOwedToUser, defaultCurrency)}</span></>
+    : isUserOwes
+      ? <>You owe <span className="font-bold text-[#F87171]">{converting ? "…" : formatCurrency(totalUserOwes, defaultCurrency)}</span></>
+      : <span className="font-bold text-[#34D399]">All settled ✓</span>;
+
   return (
-    <div className="mb-6">
-      <div className="flex justify-between items-start">
-        {/* Group Info */}
-        <div className="flex-1 min-w-0 pr-2">
-          <h1 className="text-xl sm:text-2xl font-semibold text-white mb-1 truncate">
-            {group.name}
-          </h1>
-          <p className="text-mobile-base sm:text-lg text-white/70">
-            {owed.length > 0 ? (
-              <>
-                Overall, you owe{" "}
-                <span className="text-[#FF4444]">
-                  {converting ? "…" : formatCurrency(totalUserOwes, defaultCurrency)}
-                </span>
-              </>
-            ) : owe.length > 0 ? (
-              <>
-                Overall, you are owed{" "}
-                <span className="text-[#53e45d]">
-                  {converting ? "…" : formatCurrency(totalOwedToUser, defaultCurrency)}
-                </span>
-              </>
-            ) : (
-              <>You're all settled up!</>
+    <div
+      className="flex flex-col sticky top-0 z-10 border-b"
+      style={{
+        borderBottom: "1px solid rgba(255,255,255,0.07)",
+        background: "rgba(11,11,11,0.95)",
+        backdropFilter: "blur(20px)",
+      }}
+    >
+      {/* Top row: mobile = [icon][name+members][balance]; desktop = [← Back][name+balance text][Settle all][Add Expense] */}
+      <div className="flex items-center justify-between gap-3 px-4 sm:px-7 h-14 sm:h-[70px] min-h-[56px]">
+        <div className="flex items-center gap-3 sm:gap-[14px] min-w-0 flex-1">
+          <BackBtn onClick={() => router.push("/groups")} className="hidden sm:flex" />
+          <div className="min-w-0">
+            <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.03em] text-white truncate">
+              {group.name}
+            </h1>
+            <p className="text-[11px] sm:text-[12px] font-medium mt-0.5" style={{ color: T.mid }}>
+              <span className="sm:hidden">{memberCount} member{memberCount !== 1 ? "s" : ""}</span>
+              <span className="hidden sm:inline">{desktopSubtitle}</span>
+            </p>
+          </div>
+        </div>
+        <div className="flex flex-col items-end flex-shrink-0 text-right sm:hidden">
+          <span
+            className={cn(
+              "text-[15px] font-bold tabular-nums",
+              isOwedToUser && "text-[#34D399]",
+              isUserOwes && "text-[#F87171]",
+              !isOwedToUser && !isUserOwes && "text-[#34D399]"
             )}
-          </p>
+          >
+            {converting ? "…" : isOwedToUser ? `+${formatCurrency(totalOwedToUser, defaultCurrency)}` : isUserOwes ? formatCurrency(totalUserOwes, defaultCurrency) : "All settled ✓"}
+          </span>
+          <span className="text-[11px] font-medium" style={{ color: T.mid }}>
+            {balanceLabel}
+          </span>
         </div>
-
-        {/* 2x2 Button Grid for Mobile / Row for Desktop */}
-        <div className="sm:hidden flex gap-3 flex-shrink-0">
-          {/* Left Column - Action Buttons */}
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={handleAddExpenseClick}
-              disabled={isAddingExpense}
-              className="flex h-10 items-center justify-center gap-1 rounded-full bg-white text-black px-4 text-mobile-sm font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
-            >
-              {isAddingExpense ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-                  <span className="truncate">Adding...</span>
-                </>
-              ) : (
-                <>
-                  <Image
-                    src="/plus-sign-circle.svg"
-                    alt="Add Expense"
-                    width={20}
-                    height={20}
-                    className="invert h-4 w-4 flex-shrink-0"
-                  />
-                  <span className="truncate">Add Expense</span>
-                </>
-              )}
-            </button>
-
-            {/* Settle all debts button - mobile version - commented out */}
-            {/* <button
-              onClick={handleSettleClick}
-              disabled={isSettling}
-              className="flex h-10 items-center justify-center gap-1 rounded-full border border-white/80 bg-transparent px-4 text-mobile-sm font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed truncate"
-            >
-              {isSettling ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin flex-shrink-0" />
-                  <span className="truncate">Settling...</span>
-                </>
-              ) : (
-                <>
-                  <Image
-                    src="/coins-dollar.svg"
-                    alt="Settle Debts"
-                    width={20}
-                    height={20}
-                    className="h-4 w-4 flex-shrink-0"
-                  />
-                  <span className="truncate">Settle all debts</span>
-                </>
-              )}
-            </button> */}
-          </div>
-
-          {/* Right Column - Profile and Settings */}
-          <div className="flex flex-col gap-2">
-            <button
-              onClick={handleProfileClick}
-              className="h-10 w-10 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
-            >
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                {user?.image ? (
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                      user?.id || user?.email || "user"
-                    }`}
-                    alt="Profile"
-                    width={48}
-                    height={48}
-                    className="h-full w-full"
-                    onError={(e) => {
-                      console.error(`Error loading identicon for user`);
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                    }}
-                  />
-                )}
-              </div>
-            </button>
-
-          </div>
-        </div>
-
-        {/* Horizontal layout for desktop */}
-        <div className="hidden sm:flex items-center gap-3">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleAddExpenseClick}
-              disabled={isAddingExpense}
-              className="flex h-12 items-center justify-center gap-2 rounded-full bg-white text-black px-5 text-base font-medium hover:bg-white/90 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isAddingExpense ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Adding...</span>
-                </>
-              ) : (
-                <>
-                  <Image
-                    src="/plus-sign-circle.svg"
-                    alt="Add Expense"
-                    width={20}
-                    height={20}
-                    className="invert h-5 w-5"
-                  />
-                  <span>Add Expense</span>
-                </>
-              )}
-            </button>
-
-            {/* Settle all debts button - desktop version - commented out */}
-            {/* <button
-              onClick={handleSettleClick}
-              disabled={isSettling}
-              className="flex h-12 items-center justify-center gap-2 rounded-full border border-white/80 bg-transparent px-5 text-base font-medium text-white hover:bg-white/5 transition-all disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isSettling ? (
-                <>
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                  <span>Settling...</span>
-                </>
-              ) : (
-                <>
-                  <Image
-                    src="/coins-dollar.svg"
-                    alt="Settle Debts"
-                    width={20}
-                    height={20}
-                    className="h-5 w-5"
-                  />
-                  <span>Settle all debts</span>
-                </>
-              )}
-            </button> */}
-
-            <button
-              onClick={handleProfileClick}
-              className="h-12 w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
-            >
-              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                {user?.image ? (
-                  <Image
-                    src={user.image}
-                    alt="Profile"
-                    width={48}
-                    height={48}
-                    className="h-full w-full object-cover"
-                  />
-                ) : (
-                  <Image
-                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                      user?.id || user?.email || "user"
-                    }`}
-                    alt="Profile"
-                    width={48}
-                    height={48}
-                    className="h-full w-full"
-                    onError={(e) => {
-                      console.error(`Error loading identicon for user`);
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                    }}
-                  />
-                )}
-              </div>
-            </button>
-          </div>
+        <div className="hidden sm:flex items-center gap-2 flex-shrink-0">
+          <Btn
+            onClick={handleSettleClick}
+            variant="ghost"
+            style={{ padding: "9px 16px", fontSize: 13 }}
+          >
+            <Icons.wallet /> Settle all
+          </Btn>
+          <button
+            onClick={handleAddExpenseClick}
+            disabled={isAddingExpense}
+            className="flex items-center gap-1.5 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-all disabled:opacity-70 hover:opacity-90"
+            style={{ background: A, padding: "10px 18px", gap: 6 }}
+          >
+            {isAddingExpense ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icons.plus />}
+            Add Expense
+          </button>
         </div>
       </div>
 
-      {/* Tab bar */}
-      <div className="mt-5 flex gap-1">
-        {tabs.map((tab) => {
-          const isActive = pathname === tab.href;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={cn(
-                "px-4 py-2 rounded-full text-sm font-medium transition-all",
-                isActive
-                  ? "bg-white text-black"
-                  : "text-white/60 hover:text-white hover:bg-white/[0.06]"
-              )}
-            >
-              {tab.label}
-            </Link>
-          );
-        })}
+      {/* Action buttons row: mobile only */}
+      <div className="flex gap-2 px-4 sm:px-7 pb-3 sm:pb-4 sm:hidden">
+        <Btn
+          onClick={handleSettleClick}
+          variant="ghost"
+          className="flex-1"
+          style={{ padding: "10px 14px", fontSize: 13, justifyContent: "center" }}
+        >
+          <Icons.wallet /> Settle All
+        </Btn>
+        <button
+          onClick={handleAddExpenseClick}
+          disabled={isAddingExpense}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-all disabled:opacity-70 hover:opacity-90 min-h-[42px]"
+          style={{ background: A, padding: "10px 18px", gap: 6 }}
+        >
+          {isAddingExpense ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icons.plus />}
+          Add Expense
+        </button>
+      </div>
+
+      {/* Tabs: Splits, Members, Activity */}
+      <div className="flex items-center px-4 sm:px-7 pb-4 sm:pb-6">
+        <div
+          className="flex rounded-[14px] transition-all w-full sm:w-auto"
+          style={{
+            gap: 3,
+            padding: 4,
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+          }}
+        >
+          {tabs.map((tab) => {
+            const isActive = pathname === tab.href;
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={cn(
+                  "flex-1 sm:flex-initial rounded-[10px] text-[13px] transition-all text-center",
+                  isActive ? "bg-white/10 text-white font-bold" : "text-white/60 font-medium"
+                )}
+                style={{ padding: "8px 12px" }}
+              >
+                {tab.label}
+              </Link>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

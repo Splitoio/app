@@ -118,22 +118,67 @@ export interface OrganizedCurrencies {
   chainGroups: Record<string, Currency[]>;
 }
 
-// Hook to get currencies organized by type and chain
+// Map FiatCurrency to Currency for merging
+function toCurrency(f: FiatCurrency): Currency {
+  return {
+    id: f.id,
+    name: f.name,
+    symbol: f.symbol,
+    type: "FIAT",
+    chainId: null,
+    logoUrl: f.logoUrl ?? null,
+  };
+}
+
+// Fallback fiat list so the dropdown always shows multiple options even when API returns few/none
+const FALLBACK_FIAT: Currency[] = [
+  { id: "USD", name: "US Dollar", symbol: "$", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "EUR", name: "Euro", symbol: "€", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "GBP", name: "British Pound", symbol: "£", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "JPY", name: "Japanese Yen", symbol: "¥", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "THB", name: "Thai Baht", symbol: "฿", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "INR", name: "Indian Rupee", symbol: "₹", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "AUD", name: "Australian Dollar", symbol: "A$", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "CAD", name: "Canadian Dollar", symbol: "C$", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "SGD", name: "Singapore Dollar", symbol: "S$", type: "FIAT", chainId: null, logoUrl: null },
+  { id: "CHF", name: "Swiss Franc", symbol: "Fr", type: "FIAT", chainId: null, logoUrl: null },
+];
+
+// Hook to get currencies organized by type and chain.
+// Merges in fiat from /api/currency/fiat when /api/currency/all returns few or no fiat,
+// so the dropdown always shows a full list (USD, EUR, GBP, JPY, etc.).
 export const useOrganizedCurrencies = () => {
-  const { data, isLoading, error } = useGetAllCurrencies();
+  const { data: allData, isLoading: allLoading } = useGetAllCurrencies();
+  const { data: fiatList, isLoading: fiatLoading } = useGetFiatCurrencies();
 
   return useQuery({
-    queryKey: [CURRENCY_QUERY_KEYS.ORGANIZED_CURRENCIES],
+    queryKey: [
+      CURRENCY_QUERY_KEYS.ORGANIZED_CURRENCIES,
+      allData?.currencies?.length ?? 0,
+      fiatList?.length ?? 0,
+    ],
     queryFn: () => {
-      if (!data) return { fiatCurrencies: [], chainGroups: {} };
+      const fromAll = allData?.currencies ?? [];
+      const fiatFromAll = fromAll.filter((c) => c.type === "FIAT");
+      const chainCurrencies = fromAll.filter((c) => c.type !== "FIAT");
 
-      // Group currencies by type (fiat vs chains)
-      const fiatCurrencies = data.currencies.filter((c) => c.type === "FIAT");
-      const chainCurrencies = data.currencies.filter((c) => c.type !== "FIAT");
+      // Merge fiat: prefer all, then fiat endpoint, then fallback so we always show multiple
+      const byId = new Map<string, Currency>();
+      fiatFromAll.forEach((c) => byId.set(c.id, c));
+      (fiatList ?? []).forEach((f) => {
+        if (!byId.has(f.id)) byId.set(f.id, toCurrency(f));
+      });
+      if (byId.size < 3) {
+        FALLBACK_FIAT.forEach((c) => {
+          if (!byId.has(c.id)) byId.set(c.id, c);
+        });
+      }
+      const fiatCurrencies = Array.from(byId.values()).sort((a, b) =>
+        a.id.localeCompare(b.id)
+      );
 
       // Group chain currencies by their chainId
       const chainGroups: Record<string, Currency[]> = {};
-
       chainCurrencies.forEach((currency) => {
         const chainId = currency.chainId || "Unknown";
         if (!chainGroups[chainId]) {
@@ -144,7 +189,7 @@ export const useOrganizedCurrencies = () => {
 
       return { fiatCurrencies, chainGroups };
     },
-    enabled: !!data,
+    enabled: !!allData || !!fiatList,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 };

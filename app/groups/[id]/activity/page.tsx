@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { formatRelativeTime } from "@/lib/utils";
+import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
 
 type ExpenseItem = {
   id: string;
@@ -24,8 +25,24 @@ type JoinItem = {
 };
 
 type ActivityItem =
-  | { type: "expense"; id: string; date: Date; expense: ExpenseItem; paidByName: string; settlementPayeeName: string | null; settlementPayeeId: string | null }
+  | {
+      type: "expense";
+      id: string;
+      date: Date;
+      expense: ExpenseItem;
+      paidByName: string;
+      settlementPayeeName: string | null;
+      settlementPayeeId: string | null;
+    }
   | JoinItem;
+
+const DOT_COLORS: Record<string, string> = {
+  paid: G,
+  added: A,
+  settled: "#A78BFA",
+  created: "#FB923C",
+  join: "#FB923C",
+};
 
 export default function GroupActivityPage() {
   const { user } = useAuthStore();
@@ -42,9 +59,13 @@ export default function GroupActivityPage() {
       let settlementPayeeName: string | null = null;
       let settlementPayeeId: string | null = null;
       if (expense.splitType === "SETTLEMENT" && expense.expenseParticipants) {
-        const payeeParticipant = expense.expenseParticipants.find((p: { amount: number }) => p.amount > 0);
+        const payeeParticipant = expense.expenseParticipants.find(
+          (p: { amount: number }) => p.amount > 0
+        );
         if (payeeParticipant) {
-          const payeeUser = group.groupUsers.find((u) => u.user.id === payeeParticipant.userId)?.user;
+          const payeeUser = group.groupUsers.find(
+            (u) => u.user.id === payeeParticipant.userId
+          )?.user;
           settlementPayeeName = payeeUser?.name ?? null;
           settlementPayeeId = payeeParticipant.userId ?? null;
         }
@@ -66,7 +87,8 @@ export default function GroupActivityPage() {
         list.push({
           type: "join",
           id: `join-${gu.userId}`,
-          date: createdAt instanceof Date ? createdAt : new Date(createdAt),
+          date:
+            createdAt instanceof Date ? createdAt : new Date(createdAt),
           userName: gu.user?.name ?? "Someone",
         });
       }
@@ -79,95 +101,228 @@ export default function GroupActivityPage() {
   if (!group || !user) return null;
 
   return (
-    <div className="p-4 sm:p-6 space-y-0">
-      <h3 className="text-mobile-lg sm:text-xl font-medium text-white mb-3 sm:mb-4">
-        Recent Activity
-      </h3>
+    <div style={{ padding: "0 0 24px" }}>
+      <SectionLabel>Recent Activity</SectionLabel>
 
       {activities.length > 0 ? (
-        <ul className="divide-y divide-white/10">
-          {activities.map((item) => {
+        <Card>
+          {activities.map((item, idx) => {
             if (item.type === "join") {
               return (
-                <li
+                <div
                   key={item.id}
-                  className="py-3 sm:py-3.5 flex items-center justify-between gap-4"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "15px 22px",
+                    borderBottom:
+                      idx < activities.length - 1
+                        ? "1px solid rgba(255,255,255,0.06)"
+                        : "none",
+                  }}
                 >
-                  <span className="text-mobile-base sm:text-base text-white">
+                  <div
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: DOT_COLORS.join,
+                      flexShrink: 0,
+                    }}
+                  />
+                  <p
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      color: T.body,
+                      fontWeight: 500,
+                    }}
+                  >
                     {item.userName} joined the group
-                  </span>
-                  <span className="text-mobile-sm sm:text-sm text-white/60 shrink-0">
+                  </p>
+                  <span
+                    style={{
+                      color: T.sub,
+                      fontSize: 12,
+                      flexShrink: 0,
+                      fontWeight: 600,
+                    }}
+                  >
                     {formatRelativeTime(item.date)}
                   </span>
-                </li>
+                </div>
               );
             }
 
-            const { expense, paidByName, settlementPayeeName, settlementPayeeId } = item;
+            const {
+              expense,
+              paidByName,
+              settlementPayeeName,
+              settlementPayeeId,
+            } = item;
             const isYouPayer = expense.paidBy === user.id;
             const payerLabel = isYouPayer ? "You" : paidByName;
-            const amountStr = formatCurrency(expense.amount, expense.currency || "USD");
+            const amountStr = formatCurrency(
+              expense.amount,
+              expense.currency || "USD"
+            );
 
-            // Red = money out, Green = money in (from current user's perspective)
-            let amountColor: "red" | "green" | "white" = "white";
-            if (expense.splitType === "SETTLEMENT" && settlementPayeeName && settlementPayeeId !== null) {
-              if (settlementPayeeId === user.id) amountColor = "green"; // payment to you as settled
-              else if (isYouPayer) amountColor = "red"; // you marked payment to someone as settled
+            let activityType: keyof typeof DOT_COLORS = "added";
+            if (
+              expense.splitType === "SETTLEMENT" &&
+              settlementPayeeName &&
+              settlementPayeeId !== null
+            ) {
+              activityType = "paid";
+            } else if (expense.splitType === "SETTLEMENT") {
+              activityType = "settled";
+            }
+
+            let amountColor = T.bright;
+            if (
+              expense.splitType === "SETTLEMENT" &&
+              settlementPayeeName &&
+              settlementPayeeId !== null
+            ) {
+              if (settlementPayeeId === user.id) amountColor = G;
+              else if (isYouPayer) amountColor = "#F87171";
             } else {
-              if (isYouPayer) amountColor = "red"; // you added expense (you paid)
+              if (isYouPayer) amountColor = "#F87171";
               else {
-                const myPart = expense.expenseParticipants?.find((p: { userId: string }) => p.userId === user.id);
+                const myPart = expense.expenseParticipants?.find(
+                  (p: { userId: string }) => p.userId === user.id
+                );
                 if (myPart) {
-                  if (myPart.amount < 0) amountColor = "red"; // you owe
-                  else if (myPart.amount > 0) amountColor = "green"; // they owe you
+                  if (myPart.amount < 0) amountColor = "#F87171";
+                  else if (myPart.amount > 0) amountColor = G;
                 }
               }
             }
 
-            const amountStyle =
-              amountColor === "red"
-                ? { color: "#FF4444" }
-                : amountColor === "green"
-                  ? { color: "#53E45E" }
-                  : undefined;
-            const amountClass = amountColor === "white" ? "text-white" : undefined;
-
-            if (expense.splitType === "SETTLEMENT" && settlementPayeeName) {
-              const payeeLabel = settlementPayeeId === user.id ? "you" : settlementPayeeName;
+            if (
+              expense.splitType === "SETTLEMENT" &&
+              settlementPayeeName
+            ) {
+              const payeeLabel =
+                settlementPayeeId === user.id ? "you" : settlementPayeeName;
               return (
-                <li
+                <div
                   key={item.id}
-                  className="py-3 sm:py-3.5 flex items-center justify-between gap-4"
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "15px 22px",
+                    borderBottom:
+                      idx < activities.length - 1
+                        ? "1px solid rgba(255,255,255,0.06)"
+                        : "none",
+                  }}
                 >
-                  <span className="text-mobile-base sm:text-base text-white">
+                  <div
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: DOT_COLORS[activityType],
+                      flexShrink: 0,
+                    }}
+                  />
+                  <p
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      color: T.body,
+                      fontWeight: 500,
+                    }}
+                  >
                     {payerLabel} marked payment to {payeeLabel} as settled{" "}
-                    <span style={amountStyle} className={amountClass}>({amountStr})</span>
-                  </span>
-                  <span className="text-mobile-sm sm:text-sm text-white/60 shrink-0">
+                    <span style={{ color: amountColor }}>({amountStr})</span>
+                  </p>
+                  <span
+                    style={{
+                      color: T.sub,
+                      fontSize: 12,
+                      flexShrink: 0,
+                      fontWeight: 600,
+                    }}
+                  >
                     {formatRelativeTime(item.date)}
                   </span>
-                </li>
+                </div>
               );
             }
 
             return (
-              <li
+              <div
                 key={item.id}
-                className="py-3 sm:py-3.5 flex items-center justify-between gap-4"
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "15px 22px",
+                  borderBottom:
+                    idx < activities.length - 1
+                      ? "1px solid rgba(255,255,255,0.06)"
+                      : "none",
+                }}
               >
-                <span className="text-mobile-base sm:text-base text-white">
-                  {payerLabel} added {expense.name} <span style={amountStyle} className={amountClass}>({amountStr})</span>
-                </span>
-                <span className="text-mobile-sm sm:text-sm text-white/60 shrink-0">
+                <div
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: DOT_COLORS[activityType],
+                    flexShrink: 0,
+                  }}
+                />
+                <p
+                  style={{
+                    flex: 1,
+                    fontSize: 13,
+                    color: T.body,
+                    fontWeight: 500,
+                  }}
+                >
+                  {payerLabel} added {expense.name}{" "}
+                  <span style={{ color: amountColor }}>({amountStr})</span>
+                </p>
+                <span
+                  style={{
+                    color: T.sub,
+                    fontSize: 12,
+                    flexShrink: 0,
+                    fontWeight: 600,
+                  }}
+                >
                   {formatRelativeTime(item.date)}
                 </span>
-              </li>
+              </div>
             );
           })}
-        </ul>
+        </Card>
       ) : (
-        <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
-          No activity yet
+        <div
+          style={{
+            textAlign: "center",
+            padding: "80px 20px",
+          }}
+        >
+          <p style={{ fontSize: 48, marginBottom: 18 }}>💸</p>
+          <p
+            style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: T.body,
+              marginBottom: 8,
+            }}
+          >
+            No activity yet
+          </p>
+          <p style={{ fontSize: 14, color: T.sub }}>
+            Expenses and settlements will show here
+          </p>
         </div>
       )}
     </div>

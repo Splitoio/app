@@ -1,136 +1,55 @@
 "use client";
 
 import { GroupsList } from "@/components/groups-list";
-import { motion } from "framer-motion";
-import { fadeIn } from "@/utils/animations";
-import { useRouter } from "next/navigation";
-import Image from "next/image";
-import { useAuthStore } from "@/stores/authStore";
 import { useState, useEffect } from "react";
 import { CreateGroupForm } from "@/components/create-group-form";
-import { toast } from "sonner";
+import { Icons } from "@/lib/splito-design";
 
 export default function GroupsPage() {
-  const router = useRouter();
-  const { user } = useAuthStore();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
-  // Listen for custom event to open the create group modal
   useEffect(() => {
-    const handleOpenModal = () => {
-      // Check if user has a connected wallet
-      // if (!user?.stellarAccount) {
-      //   toast.error("You need to connect a wallet before creating a group", {
-      //     description: "Add a wallet in your settings to continue",
-      //     action: {
-      //       label: "Add Wallet",
-      //       onClick: () => router.push("/settings"),
-      //     },
-      //     duration: 8000,
-      //   });
-      //   return;
-      // }
-
-      // If they have a wallet, open the modal
-      setIsCreateModalOpen(true);
-    };
-
+    const handleOpenModal = () => setIsCreateModalOpen(true);
     document.addEventListener("open-create-group-modal", handleOpenModal);
-
-    return () => {
-      document.removeEventListener("open-create-group-modal", handleOpenModal);
-    };
-  }, [user, router]);
-
-  // Function to handle clicking the "Create Group" button
-  const handleAddGroupClick = () => {
-    // Check if user has a connected wallet
-    // if (!user?.stellarAccount) {
-    //   toast.error("You need to connect a wallet before creating a group", {
-    //     description: "Add a wallet in your settings to continue",
-    //     action: {
-    //       label: "Add Wallet",
-    //       onClick: () => router.push("/settings"),
-    //     },
-    //     duration: 8000,
-    //   });
-    //   return;
-    // }
-
-    // If they have a wallet, open the modal
-    setIsCreateModalOpen(true);
-  };
-
-  // Handle profile click to redirect to settings
-  const handleProfileClick = () => {
-    router.push("/settings");
-  };
+    return () => document.removeEventListener("open-create-group-modal", handleOpenModal);
+  }, []);
 
   return (
-    <motion.div
-      variants={fadeIn}
-      initial="initial"
-      animate="animate"
-      className="w-full -mt-2"
-    >
-      <div className="flex items-center justify-between px-3 sm:px-5 py-3 sm:py-4">
-        <h1 className="text-mobile-base sm:text-xl font-medium text-white">
+    <div className="flex-1 flex flex-col min-w-0">
+      <div
+        className="flex items-center justify-between sticky top-0 z-10 px-4 sm:px-7 h-14 sm:h-[70px] border-b border-white/[0.07] bg-[#0b0b0b]/95 backdrop-blur-xl"
+      >
+        <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
           My Groups
         </h1>
-        <div className="flex items-center gap-3 sm:gap-4">
-          <button
-            onClick={handleAddGroupClick}
-            className="flex items-center justify-center gap-1 sm:gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-sm sm:text-base font-medium hover:bg-white/90 transition-all"
-          >
-            <Image
-              alt="Create Group"
-              src="/plus-sign-circle.svg"
-              width={20}
-              height={20}
-              className="h-4 w-4 sm:h-5 sm:w-5 invert"
-            />
-            <span>Create Group</span>
-          </button>
-          <button
-            onClick={handleProfileClick}
-            className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:from-purple-500/30 hover:to-blue-500/30 transition-all cursor-pointer"
-          >
-            <div className="h-full w-full rounded-full overflow-hidden bg-[#0f0f10]">
-              {user?.image ? (
-                <Image
-                  src={user.image}
-                  alt="Profile"
-                  width={56}
-                  height={56}
-                  className="h-full w-full object-cover"
-                />
-              ) : (
-                <Image
-                  src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                    user?.id || user?.email || "user"
-                  }`}
-                  alt="Profile"
-                  width={56}
-                  height={56}
-                  className="h-full w-full"
-                  onError={(e) => {
-                    console.error(`Error loading identicon for user`);
-                    const target = e.target as HTMLImageElement;
-                    target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                  }}
-                />
-              )}
-            </div>
-          </button>
-        </div>
+        <button
+          onClick={() => setIsCreateModalOpen(true)}
+          className="flex items-center gap-1.5 rounded-xl text-[12px] sm:text-[13px] font-extrabold text-[#0a0a0a] transition-all hover:opacity-90 shrink-0 py-2.5 px-3 sm:py-2.5 sm:px-[18px]"
+          style={{ background: "#22D3EE", gap: 6 }}
+        >
+          <Icons.plus /> New Group
+        </button>
       </div>
-      <GroupsList />
-
-      {/* Create Group Modal */}
+      <div className="flex-1 overflow-y-auto p-4 sm:p-7">
+        <div
+          className="flex items-center rounded-[14px] mb-5 sm:mb-6 py-2.5 px-4 gap-2 bg-white/[0.04] border border-white/[0.08]"
+        >
+          <span className="text-[#999] shrink-0">{Icons.search({ size: 18 })}</span>
+          <input
+            type="text"
+            placeholder="Search groups…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="flex-1 min-w-0 bg-transparent text-[14px] text-white placeholder:text-white/50 focus:outline-none font-medium"
+          />
+        </div>
+        <GroupsList searchQuery={searchQuery} />
+      </div>
       <CreateGroupForm
         isOpen={isCreateModalOpen}
         onClose={() => setIsCreateModalOpen(false)}
       />
-    </motion.div>
+    </div>
   );
 }
