@@ -384,7 +384,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
                   <CurrencyDropdown selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []} setSelectedCurrencies={(currencies) => setGroupSettings((prev) => ({ ...prev, currency: currencies[0] || "" }))} mode="single" showFiatCurrencies={true} filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"} disableChainCurrencies={true} />
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <Btn variant="ghost" type="button" onClick={() => setIsSettingsModalOpen(false)}>Cancel</Btn>
+                  <Btn variant="ghost" onClick={() => setIsSettingsModalOpen(false)}>Cancel</Btn>
                   <button
                     type="submit"
                     style={{ padding: "9px 22px", borderRadius: 12, background: A, color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", border: "none" }}

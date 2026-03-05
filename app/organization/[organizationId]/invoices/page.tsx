@@ -18,7 +18,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { InvoiceReviewModal } from "@/components/invoice-review-modal";
 import type { Invoice } from "@/features/business/api/client";
-import { Card, SectionLabel, Btn, T, Icons } from "@/lib/splito-design";
+import { Card, SectionLabel, Btn, T, Icons, A } from "@/lib/splito-design";
 
 export default function OrganizationInvoicesPage() {
   const params = useParams();

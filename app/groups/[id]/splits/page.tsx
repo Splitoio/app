@@ -259,9 +259,7 @@ export default function GroupSplitsPage() {
     openAddExpense,
   } = useGroupLayout();
 
-  if (!group || !user) return null;
-
-  const expenses = (group.expenses ?? []) as ExpenseWithParticipants[];
+  const expenses = (group?.expenses ?? []) as ExpenseWithParticipants[];
   const nonSettlement = useMemo(
     () => expenses.filter((e) => e.splitType !== "SETTLEMENT"),
     [expenses]
@@ -281,6 +279,8 @@ export default function GroupSplitsPage() {
     }
     return Array.from(map.entries());
   }, [nonSettlement]);
+
+  if (!group || !user) return null;
 
   return (
     <div className="space-y-6">

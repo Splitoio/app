@@ -104,11 +104,15 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
   const Row = ({
     children,
     style = {},
+    onClick,
   }: {
     children: React.ReactNode;
     style?: React.CSSProperties;
+    onClick?: () => void;
   }) => (
     <div
+      role={onClick ? "button" : undefined}
+      onClick={onClick}
       style={{
         display: "flex",
         alignItems: "center",

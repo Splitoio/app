@@ -214,12 +214,14 @@ export const Btn = ({
   variant = "ghost",
   style = {},
   className = "",
+  disabled = false,
 }: {
   children: React.ReactNode;
   onClick?: () => void;
   variant?: "primary" | "ghost" | "danger";
   style?: React.CSSProperties;
   className?: string;
+  disabled?: boolean;
 }) => {
   const styles: Record<string, React.CSSProperties> = {
     primary: { background: A, color: "#0a0a0a", border: "none" },
@@ -238,6 +240,7 @@ export const Btn = ({
     <button
       type="button"
       onClick={onClick}
+      disabled={disabled}
       className={`splito-btn ${className}`}
       style={{
         display: "flex",
@@ -247,7 +250,8 @@ export const Btn = ({
         padding: "9px 16px",
         fontSize: 13,
         fontWeight: 700,
-        cursor: "pointer",
+        cursor: disabled ? "not-allowed" : "pointer",
+        opacity: disabled ? 0.6 : 1,
         fontFamily: "inherit",
         transition: "all 0.2s",
         ...styles[variant],
@@ -295,12 +299,15 @@ export const Card = ({
   children,
   style = {},
   className = "",
+  id,
 }: {
   children: React.ReactNode;
   style?: React.CSSProperties;
   className?: string;
+  id?: string;
 }) => (
   <div
+    id={id}
     className={className}
     style={{
       background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)",
