@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
 import { OrganizationOrgProvider, useOrganizationOrg } from "@/contexts/organization-org-context";
+import { Card, Btn, T, A } from "@/lib/splito-design";
 
 function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -254,38 +255,72 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
   return (
     <OrganizationOrgProvider value={contextValue}>
-      <div className="w-full">
-        <div className="flex items-center justify-between py-4 sm:py-6 mb-4 sm:mb-6">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <div className="h-12 w-12 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">
+      <div className="w-full flex flex-col min-w-0">
+        {/* Sticky header – design language (matches Dashboard/personal), responsive */}
+        <div
+          className="border-b border-white/[0.07] flex items-center justify-between h-14 sm:h-[70px] px-4 sm:px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
+        >
+          <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+            <div className="h-12 w-12 sm:h-14 sm:w-14 overflow-hidden rounded-xl flex-shrink-0 border border-white/[0.08] bg-white/[0.03]">
               {group.image ? (
                 <Image src={group.image} alt={group.name} width={56} height={56} className="h-full w-full object-cover" />
               ) : (
                 <Image src={`https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`} alt={group.name} width={56} height={56} className="h-full w-full" />
               )}
             </div>
-            <div>
-              <h1 className="text-mobile-xl sm:text-2xl font-semibold text-white">{group.name}</h1>
-              <p className="text-white/60 text-sm">{(group.groupUsers || []).length} members</p>
+            <div className="min-w-0">
+            <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white truncate">{group.name}</h1>
+            <p style={{ color: T.muted, fontSize: 12, fontWeight: 600 }}>{(group.groupUsers || []).length} members</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             {!isAdmin && (
-              <button onClick={() => setIsAddInvoiceModalOpen(true)} className="flex items-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-sm font-medium hover:bg-white/90">
+              <button
+                onClick={() => setIsAddInvoiceModalOpen(true)}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 6,
+                  height: 40,
+                  padding: "0 18px",
+                  borderRadius: 12,
+                  background: A,
+                  color: "#0a0a0a",
+                  border: "none",
+                  fontSize: 13,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                  fontFamily: "inherit",
+                }}
+              >
                 <Plus className="h-4 w-4" />
                 <span>Raise Invoice</span>
               </button>
             )}
             {isAdmin && (
-              <button onClick={() => setIsSettingsModalOpen(true)} className="h-10 w-10 rounded-full border border-white/20 flex items-center justify-center text-white/70 hover:text-white">
+              <button
+                onClick={() => setIsSettingsModalOpen(true)}
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  border: "1px solid rgba(255,255,255,0.11)",
+                  background: "rgba(255,255,255,0.06)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  color: T.body,
+                  cursor: "pointer",
+                }}
+              >
                 <Settings className="h-5 w-5" />
               </button>
             )}
           </div>
         </div>
 
-        <div className="bg-[#101012] rounded-xl sm:rounded-3xl min-h-[calc(100vh-200px)]">
-          <div className="p-4 sm:p-6">{children}</div>
+        <div className="flex-1 p-4 sm:p-7 overflow-y-auto min-h-0">
+          {children}
         </div>
 
         <AddInvoiceModal isOpen={isAddInvoiceModalOpen} onClose={() => setIsAddInvoiceModalOpen(false)} organizationId={organizationId} initialContract={contractForInvoice ?? undefined} />
@@ -295,24 +330,31 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
         {declineInvoiceId && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             <div className="fixed inset-0 bg-black/70" onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} />
-            <div className="relative z-10 bg-[#101012] rounded-2xl border border-white/20 p-6 w-full max-w-sm" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-medium text-white mb-2">Decline invoice</h3>
-              <p className="text-white/60 text-sm mb-4">Optionally add a reason (visible in activity).</p>
-              <input type="text" value={declineNote} onChange={(e) => setDeclineNote(e.target.value)} placeholder="Reason" className="w-full px-4 py-2 rounded-lg bg-white/5 text-white border border-white/20 mb-4" />
-              <div className="flex gap-2">
-                <button onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} className="flex-1 py-2 rounded-full border border-white/20 text-white">Cancel</button>
-                <button
+            <div className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-2xl" style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }} onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold mb-2" style={{ color: T.bright }}>Decline invoice</h3>
+              <p className="text-sm mb-4" style={{ color: T.body }}>Optionally add a reason (visible in activity).</p>
+              <input
+                type="text"
+                value={declineNote}
+                onChange={(e) => setDeclineNote(e.target.value)}
+                placeholder="Reason"
+                className="w-full rounded-xl border outline-none mb-4 font-medium"
+                style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: "#fff", fontSize: 14 }}
+              />
+              <div className="flex gap-3">
+                <Btn variant="ghost" onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} style={{ flex: 1 }}>Cancel</Btn>
+                <Btn
+                  variant="danger"
                   onClick={() =>
                     declineInvoiceMutation.mutate(
                       { invoiceId: declineInvoiceId, note: declineNote || undefined },
                       { onSuccess: () => { toast.success("Invoice declined"); setDeclineInvoiceId(null); setDeclineNote(""); }, onError: () => toast.error("Failed to decline") }
                     )
                   }
-                  disabled={declineInvoiceMutation.isPending}
-                  className="flex-1 py-2 rounded-full bg-red-500/20 text-red-400 border border-red-500/50 hover:bg-red-500/30"
+                  style={{ flex: 1, opacity: declineInvoiceMutation.isPending ? 0.7 : 1, cursor: declineInvoiceMutation.isPending ? "not-allowed" : "pointer" }}
                 >
-                  {declineInvoiceMutation.isPending ? "Declining..." : "Decline"}
-                </button>
+                  {declineInvoiceMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Declining...</> : "Decline"}
+                </Btn>
               </div>
             </div>
           </div>
@@ -320,29 +362,49 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
         {isSettingsModalOpen && (
           <div className="fixed inset-0 z-50 h-screen w-screen">
-            <div className="fixed inset-0 bg-black/80 brightness-50" onClick={() => setIsSettingsModalOpen(false)} />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px] rounded-[20px] bg-black p-6 border border-white/20 z-10">
-              <h2 className="text-xl font-medium text-white mb-6">Organization settings</h2>
+            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsSettingsModalOpen(false)} />
+            <div
+              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px] rounded-2xl p-6 z-10"
+              style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+            >
+              <h2 className="text-xl font-extrabold tracking-[-0.02em] mb-6" style={{ color: T.bright }}>Organization settings</h2>
               <form onSubmit={handleSettingsSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-base text-white/80 mb-2">Organization Name</label>
-                  <input type="text" value={groupSettings.name || group.name} onChange={(e) => setGroupSettings((p) => ({ ...p, name: e.target.value }))} className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20" />
+                  <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Organization Name</label>
+                  <input
+                    type="text"
+                    value={groupSettings.name || group.name}
+                    onChange={(e) => setGroupSettings((p) => ({ ...p, name: e.target.value }))}
+                    className="w-full rounded-xl outline-none font-medium"
+                    style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: T.bright, fontSize: 14 }}
+                  />
                 </div>
                 <div>
-                  <label className="block text-base text-white/80 mb-2">Default Currency</label>
+                  <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Default Currency</label>
                   <CurrencyDropdown selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []} setSelectedCurrencies={(currencies) => setGroupSettings((prev) => ({ ...prev, currency: currencies[0] || "" }))} mode="single" showFiatCurrencies={true} filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"} disableChainCurrencies={true} />
                 </div>
                 <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => setIsSettingsModalOpen(false)} className="px-4 py-2 rounded-lg text-white/80 hover:text-white">Cancel</button>
-                  <button type="submit" className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90">Save</button>
+                  <Btn variant="ghost" onClick={() => setIsSettingsModalOpen(false)}>Cancel</Btn>
+                  <button
+                    type="submit"
+                    style={{ padding: "9px 22px", borderRadius: 12, background: A, color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", border: "none" }}
+                  >
+                    Save
+                  </button>
                 </div>
               </form>
-              <div className="mt-8 pt-6 border-t border-white/20">
-                <button onClick={handleDeleteOrganization} className="flex items-center gap-2 text-red-500 hover:text-red-400">
-                  <Trash2 className="h-4 w-4" />
-                  <span>Delete Organization</span>
-                </button>
-              </div>
+              {isAdmin && (
+                <div className="mt-8 pt-6 border-t border-white/[0.07]">
+                  <button
+                    onClick={handleDeleteOrganization}
+                    className="flex items-center gap-2 font-semibold text-sm transition-colors"
+                    style={{ color: "#F87171" }}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span>Delete Organization</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         )}

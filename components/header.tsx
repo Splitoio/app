@@ -2,12 +2,13 @@
 
 import { Menu } from "lucide-react";
 import { useMobileMenu } from "@/contexts/mobile-menu";
-import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
+import { ProfileDropdown } from "@/components/profile-dropdown";
 
 export function Header() {
   const { toggle } = useMobileMenu();
   const { user, isAuthenticated } = useAuthStore();
+  const profileHref = "/settings";
 
   return (
     <div className="fixed left-0 right-0 top-0 z-20 min-[1025px]:pl-[240px]">
@@ -23,33 +24,7 @@ export function Header() {
 
           <div className="flex flex-1 items-center justify-end gap-2 lg:gap-4">
             {isAuthenticated && user && (
-              <div className="h-9 w-9 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                  {user.image ? (
-                    <Image
-                      src={user.image}
-                      alt="Profile"
-                      width={48}
-                      height={48}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Image
-                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${
-                        user.id || user.email
-                      }`}
-                      alt="Profile"
-                      width={48}
-                      height={48}
-                      className="h-full w-full"
-                      onError={(e) => {
-                        // @ts-expect-error - fallback to a simpler seed
-                        e.target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
+              <ProfileDropdown user={user} profileHref={profileHref} />
             )}
           </div>
         </div>

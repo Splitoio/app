@@ -1,94 +1,328 @@
 "use client";
 
-import Image from "next/image";
+import { useMemo } from "react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
+import { formatRelativeTime } from "@/lib/utils";
+import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
+
+type ExpenseItem = {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string | null;
+  paidBy: string;
+  createdAt: Date;
+  splitType: string;
+  expenseParticipants?: { userId: string; amount: number }[];
+};
+
+type JoinItem = {
+  type: "join";
+  id: string;
+  date: Date;
+  userName: string;
+};
+
+type ActivityItem =
+  | {
+      type: "expense";
+      id: string;
+      date: Date;
+      expense: ExpenseItem;
+      paidByName: string;
+      settlementPayeeName: string | null;
+      settlementPayeeId: string | null;
+    }
+  | JoinItem;
+
+const DOT_COLORS: Record<string, string> = {
+  paid: G,
+  added: A,
+  settled: "#A78BFA",
+  created: "#FB923C",
+  join: "#FB923C",
+};
 
 export default function GroupActivityPage() {
   const { user } = useAuthStore();
   const { group, formatCurrency } = useGroupLayout();
 
+  const activities = useMemo((): ActivityItem[] => {
+    if (!group || !user) return [];
+
+    const list: ActivityItem[] = [];
+
+    for (const expense of group.expenses ?? []) {
+      const paidBy = group.groupUsers.find((u) => u.user.id === expense.paidBy)?.user;
+      const paidByName = paidBy?.name ?? "Someone";
+      let settlementPayeeName: string | null = null;
+      let settlementPayeeId: string | null = null;
+      if (expense.splitType === "SETTLEMENT" && expense.expenseParticipants) {
+        const payeeParticipant = expense.expenseParticipants.find(
+          (p: { amount: number }) => p.amount > 0
+        );
+        if (payeeParticipant) {
+          const payeeUser = group.groupUsers.find(
+            (u) => u.user.id === payeeParticipant.userId
+          )?.user;
+          settlementPayeeName = payeeUser?.name ?? null;
+          settlementPayeeId = payeeParticipant.userId ?? null;
+        }
+      }
+      list.push({
+        type: "expense",
+        id: expense.id,
+        date: new Date(expense.createdAt),
+        expense: expense as ExpenseItem,
+        paidByName,
+        settlementPayeeName,
+        settlementPayeeId,
+      });
+    }
+
+    for (const gu of group.groupUsers ?? []) {
+      const createdAt = (gu as { createdAt?: Date }).createdAt;
+      if (createdAt) {
+        list.push({
+          type: "join",
+          id: `join-${gu.userId}`,
+          date:
+            createdAt instanceof Date ? createdAt : new Date(createdAt),
+          userName: gu.user?.name ?? "Someone",
+        });
+      }
+    }
+
+    list.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return list;
+  }, [group, user]);
+
   if (!group || !user) return null;
 
-  const expenses = group.expenses;
-
   return (
-    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-      <h3 className="text-mobile-lg sm:text-xl font-medium text-white mb-3 sm:mb-4">
-        Recent Activity
-      </h3>
+    <div style={{ padding: "0 0 24px" }}>
+      <SectionLabel>Recent Activity</SectionLabel>
 
-      {expenses && expenses.length > 0 ? (
-        expenses.map((expense, index) => {
-          const paidBy = group.groupUsers.find((u) => u.user.id === expense.paidBy)?.user;
-          if (!paidBy) return null;
-
-          let settlementPayee = null;
-          if (expense.splitType === "SETTLEMENT" && expense.expenseParticipants) {
-            const payeeParticipant = expense.expenseParticipants.find((p: { amount: number }) => p.amount > 0);
-            if (payeeParticipant) {
-              settlementPayee = group.groupUsers.find(
-                (u) => u.user.id === payeeParticipant.userId
-              )?.user;
-            }
-          }
-
-          return (
-            <div
-              key={expense.id}
-              className="p-3 sm:p-4 rounded-xl flex items-center justify-between"
-            >
-              <div className="flex items-center gap-3">
-                <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full">
-                  <Image
-                    src={
-                      paidBy.image ||
-                      `https://api.dicebear.com/9.x/identicon/svg?seed=${paidBy.id}`
-                    }
-                    alt={paidBy.name || "User"}
-                    width={40}
-                    height={40}
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      const target = e.target as HTMLImageElement;
-                      target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${paidBy.id}`;
+      {activities.length > 0 ? (
+        <Card>
+          {activities.map((item, idx) => {
+            if (item.type === "join") {
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "15px 22px",
+                    borderBottom:
+                      idx < activities.length - 1
+                        ? "1px solid rgba(255,255,255,0.06)"
+                        : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: DOT_COLORS.join,
+                      flexShrink: 0,
                     }}
                   />
-                </div>
-                <div>
-                  {expense.splitType === "SETTLEMENT" && settlementPayee ? (
-                    <p className="text-mobile-base sm:text-base text-white">
-                      <span className="font-medium">
-                        {paidBy.id === user?.id ? "You" : paidBy.name}
-                      </span>{" "}
-                      marked payment to{" "}
-                      <span className="font-medium">
-                        {settlementPayee.id === user?.id ? "you" : settlementPayee.name}
-                      </span>{" "}
-                      as settled
-                    </p>
-                  ) : (
-                    <p className="text-mobile-base sm:text-base text-white">
-                      <span className="font-medium">
-                        {paidBy.id === user?.id ? "You" : paidBy.name}
-                      </span>{" "}
-                      added expense &quot;{expense.name}&quot;
-                    </p>
-                  )}
-                  <p className="text-mobile-xs sm:text-sm text-white/60">
-                    {new Date(expense.createdAt).toLocaleString()}
+                  <p
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      color: T.body,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {item.userName} joined the group
                   </p>
+                  <span
+                    style={{
+                      color: T.sub,
+                      fontSize: 12,
+                      flexShrink: 0,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {formatRelativeTime(item.date)}
+                  </span>
                 </div>
+              );
+            }
+
+            const {
+              expense,
+              paidByName,
+              settlementPayeeName,
+              settlementPayeeId,
+            } = item;
+            const isYouPayer = expense.paidBy === user.id;
+            const payerLabel = isYouPayer ? "You" : paidByName;
+            const amountStr = formatCurrency(
+              expense.amount,
+              expense.currency || "USD"
+            );
+
+            let activityType: keyof typeof DOT_COLORS = "added";
+            if (
+              expense.splitType === "SETTLEMENT" &&
+              settlementPayeeName &&
+              settlementPayeeId !== null
+            ) {
+              activityType = "paid";
+            } else if (expense.splitType === "SETTLEMENT") {
+              activityType = "settled";
+            }
+
+            let amountColor = T.bright;
+            if (
+              expense.splitType === "SETTLEMENT" &&
+              settlementPayeeName &&
+              settlementPayeeId !== null
+            ) {
+              if (settlementPayeeId === user.id) amountColor = G;
+              else if (isYouPayer) amountColor = "#F87171";
+            } else {
+              if (isYouPayer) amountColor = "#F87171";
+              else {
+                const myPart = expense.expenseParticipants?.find(
+                  (p: { userId: string }) => p.userId === user.id
+                );
+                if (myPart) {
+                  if (myPart.amount < 0) amountColor = "#F87171";
+                  else if (myPart.amount > 0) amountColor = G;
+                }
+              }
+            }
+
+            if (
+              expense.splitType === "SETTLEMENT" &&
+              settlementPayeeName
+            ) {
+              const payeeLabel =
+                settlementPayeeId === user.id ? "you" : settlementPayeeName;
+              return (
+                <div
+                  key={item.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    padding: "15px 22px",
+                    borderBottom:
+                      idx < activities.length - 1
+                        ? "1px solid rgba(255,255,255,0.06)"
+                        : "none",
+                  }}
+                >
+                  <div
+                    style={{
+                      width: 9,
+                      height: 9,
+                      borderRadius: "50%",
+                      background: DOT_COLORS[activityType],
+                      flexShrink: 0,
+                    }}
+                  />
+                  <p
+                    style={{
+                      flex: 1,
+                      fontSize: 13,
+                      color: T.body,
+                      fontWeight: 500,
+                    }}
+                  >
+                    {payerLabel} marked payment to {payeeLabel} as settled{" "}
+                    <span style={{ color: amountColor }}>({amountStr})</span>
+                  </p>
+                  <span
+                    style={{
+                      color: T.sub,
+                      fontSize: 12,
+                      flexShrink: 0,
+                      fontWeight: 600,
+                    }}
+                  >
+                    {formatRelativeTime(item.date)}
+                  </span>
+                </div>
+              );
+            }
+
+            return (
+              <div
+                key={item.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "15px 22px",
+                  borderBottom:
+                    idx < activities.length - 1
+                      ? "1px solid rgba(255,255,255,0.06)"
+                      : "none",
+                }}
+              >
+                <div
+                  style={{
+                    width: 9,
+                    height: 9,
+                    borderRadius: "50%",
+                    background: DOT_COLORS[activityType],
+                    flexShrink: 0,
+                  }}
+                />
+                <p
+                  style={{
+                    flex: 1,
+                    fontSize: 13,
+                    color: T.body,
+                    fontWeight: 500,
+                  }}
+                >
+                  {payerLabel} added {expense.name}{" "}
+                  <span style={{ color: amountColor }}>({amountStr})</span>
+                </p>
+                <span
+                  style={{
+                    color: T.sub,
+                    fontSize: 12,
+                    flexShrink: 0,
+                    fontWeight: 600,
+                  }}
+                >
+                  {formatRelativeTime(item.date)}
+                </span>
               </div>
-              <div className="text-mobile-base sm:text-base text-white font-medium">
-                {formatCurrency(expense.amount, expense.currency || "USD")}
-              </div>
-            </div>
-          );
-        })
+            );
+          })}
+        </Card>
       ) : (
-        <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
-          No activity yet
+        <div
+          style={{
+            textAlign: "center",
+            padding: "80px 20px",
+          }}
+        >
+          <p style={{ fontSize: 48, marginBottom: 18 }}>💸</p>
+          <p
+            style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: T.body,
+              marginBottom: 8,
+            }}
+          >
+            No activity yet
+          </p>
+          <p style={{ fontSize: 14, color: T.sub }}>
+            Expenses and settlements will show here
+          </p>
         </div>
       )}
     </div>

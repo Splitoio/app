@@ -199,3 +199,59 @@ input[type="number"] {
     @apply bg-background text-foreground;
   }
 }
+
+/* Splito design – personal view */
+.splito-page-wrap {
+  background: #0b0b0b;
+  min-height: 100vh;
+  font-family: var(--font-dm-sans), "DM Sans", "Segoe UI", sans-serif;
+}
+.splito-nav-item:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #e8e8e8 !important;
+}
+.splito-row-hover:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+.splito-btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+.splito-abtn:hover {
+  border-color: rgba(34, 211, 238, 0.35) !important;
+  color: #22d3ee !important;
+  background: rgba(34, 211, 238, 0.08) !important;
+}
+.splito-sbtn:hover {
+  background: #22d3ee !important;
+  color: #0a0a0a !important;
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.4) !important;
+}
+.splito-back-btn:hover {
+  opacity: 0.9;
+}
+input::placeholder {
+  color: #555;
+}
+@keyframes splito-fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+@keyframes splito-fadeUp {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.font-dm-mono {
+  font-family: "DM Mono", monospace;
+}

@@ -17,7 +17,7 @@ interface Step {
 const PERSONAL_STEPS: Step[] = [
   {
     id: "welcome",
-    title: "Welcome to Splito! 🚀",
+    title: "Welcome to Splito!",
     content: "Let's take a quick tour of Personal mode — where you manage splits with friends and flatmates.",
     targetId: "",
     position: "center",
@@ -45,19 +45,51 @@ const PERSONAL_STEPS: Step[] = [
   },
   {
     id: "finish",
-    title: "You're all set! 🎉",
+    title: "You're all set! ",
     content: "Start by creating a group or adding friends.",
     targetId: "",
     position: "center",
   },
 ];
 
-/** Organization onboarding for admins/owners — all tabs (Streams, Activity, Members) are visible. */
+/** First half: shown on sign up / business dashboard when user has no org or isn't inside an org yet. Only Settings and org switcher are visible. */
+const ORG_STEPS_BEFORE_FIRST: Step[] = [
+  {
+    id: "welcome",
+    title: "Welcome to Splito for businesses",
+    content: "On the business dashboard you can manage organizations, settings, and switch between orgs. Create or select an organization to get started.",
+    targetId: "",
+    position: "center",
+  },
+  {
+    id: "settings",
+    title: "Settings",
+    content: "Update your profile, display name, default currency, and manage your wallets.",
+    targetId: "sidebar-org-settings-link-no-org",
+    position: "right",
+  },
+  {
+    id: "org-switcher",
+    title: "Switch organization",
+    content: "Use the switcher at the bottom to select or switch between organizations. Create an organization if you don't have one yet.",
+    targetId: "sidebar-org-switcher-button",
+    position: "right",
+  },
+  {
+    id: "finish",
+    title: "You're set",
+    content: "Create an organization or select one from the switcher to access invoices, contracts, and more.",
+    targetId: "",
+    position: "center",
+  },
+];
+
+/** Second half: when user is inside their first org — admins see full tabs. */
 const ORG_STEPS_ADMIN: Step[] = [
   {
     id: "welcome",
-    title: "Welcome to Splito Organization! 🏢",
-    content: "As an admin, you manage invoices, income streams, contracts, activity, and team members.",
+    title: "You're in your organization",
+    content: "Here you can manage invoices, income streams, contracts, activity, and team members.",
     targetId: "",
     position: "center",
   },
@@ -119,19 +151,19 @@ const ORG_STEPS_ADMIN: Step[] = [
   },
   {
     id: "finish",
-    title: "You're ready! 🎊",
+    title: "You're ready!",
     content: "Start by creating contracts, adding members, or setting up income streams.",
     targetId: "",
     position: "center",
   },
 ];
 
-/** Organization onboarding for members — only Dashboard, Invoices, Contracts, Settings (no Streams, Activity, Members). */
+/** Second half: when user is inside their first org — members see Dashboard, Invoices, Contracts, Settings. */
 const ORG_STEPS_MEMBER: Step[] = [
   {
     id: "welcome",
-    title: "Welcome to Splito Organization! 🏢",
-    content: "You're a member of an organization. Raise invoices and view your contracts here.",
+    title: "You're in your organization",
+    content: "Raise invoices and view your contracts here. Admins can approve invoices and manage the team.",
     targetId: "",
     position: "center",
   },
@@ -172,7 +204,7 @@ const ORG_STEPS_MEMBER: Step[] = [
   },
   {
     id: "finish",
-    title: "You're ready! 🎊",
+    title: "You're ready!",
     content: "Raise an invoice or open a contract to get started.",
     targetId: "",
     position: "center",
@@ -181,26 +213,36 @@ const ORG_STEPS_MEMBER: Step[] = [
 
 export type OnboardingMode = "personal" | "organization";
 
+/** When mode is "organization", which half of the flow to show: no-org (settings + switcher) or in-org (invoices, contracts, etc.). */
+export type OrganizationOnboardingPhase = "no-org" | "in-org";
+
 export function OnboardingTutorial({
   onComplete,
   userId,
   mode,
   isOrgAdmin,
+  organizationPhase,
 }: {
   onComplete: () => void;
   userId?: string;
   mode: OnboardingMode;
   /** When mode is "organization", true = admin/owner (sees Streams, Activity, Members), false = member. */
   isOrgAdmin?: boolean;
+  /** When mode is "organization", "no-org" = first half (settings + switch org), "in-org" = second half (invoices, contracts, etc.). */
+  organizationPhase?: OrganizationOnboardingPhase;
 }) {
   const steps =
     mode === "organization"
-      ? isOrgAdmin
-        ? ORG_STEPS_ADMIN
-        : ORG_STEPS_MEMBER
+      ? organizationPhase === "no-org"
+        ? ORG_STEPS_BEFORE_FIRST
+        : isOrgAdmin
+          ? ORG_STEPS_ADMIN
+          : ORG_STEPS_MEMBER
       : PERSONAL_STEPS;
   const storageKey = userId
-    ? `hasSeenTutorial_${mode}_${userId}`
+    ? mode === "organization" && organizationPhase
+      ? `hasSeenTutorial_${mode}_${organizationPhase}_${userId}`
+      : `hasSeenTutorial_${mode}_${userId}`
     : null;
 
   const [currentStepIndex, setCurrentStepIndex] = useState(0);

@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Plus, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import {
   useGetStreamsByOrganization,
   useDeleteStream,
@@ -10,6 +10,7 @@ import {
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
+import { Card, SectionLabel, Btn, T, A, Icons } from "@/lib/splito-design";
 
 export default function OrganizationStreamsPage() {
   const params = useParams();
@@ -36,15 +37,15 @@ export default function OrganizationStreamsPage() {
   }
 
   return (
-    <div className="space-y-3 sm:space-y-4">
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-mobile-lg sm:text-xl font-medium text-white">Income streams</h3>
+    <div className="space-y-4 sm:space-y-5">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <SectionLabel>Income streams</SectionLabel>
         <button
           onClick={openStreamModal}
-          className="flex items-center gap-2 rounded-full bg-white text-black h-9 sm:h-10 px-3 sm:px-4 text-sm font-medium hover:bg-white/90"
+          className="flex items-center gap-2 rounded-xl h-9 sm:h-10 px-3 sm:px-4 text-sm font-extrabold transition-all hover:opacity-90"
+          style={{ background: A, color: "#0a0a0a" }}
         >
-          <Plus className="h-4 w-4" />
-          <span>Add stream</span>
+          {Icons.plus({ size: 16 })} Add stream
         </button>
       </div>
       {isStreamsLoading ? (
@@ -52,15 +53,15 @@ export default function OrganizationStreamsPage() {
           <Loader2 className="h-8 w-8 animate-spin text-white/50" />
         </div>
       ) : streams.length > 0 ? (
-        <div className="space-y-2">
-          {streams.map((stream) => (
+        <Card className="p-0 overflow-hidden">
+          {streams.map((stream, idx) => (
             <div
               key={stream.id}
-              className="flex items-center justify-between p-3 sm:p-4 rounded-xl bg-white/[0.02]"
+              className="flex items-center justify-between p-4 sm:p-5 border-b border-white/[0.06] last:border-b-0"
             >
               <div className="min-w-0">
-                <p className="text-white font-medium">{stream.name}</p>
-                <p className="text-white/60 text-sm">
+                <p className="font-semibold" style={{ color: T.bright }}>{stream.name}</p>
+                <p className="text-sm mt-1" style={{ color: T.muted }}>
                   {stream.expectedAmount != null
                     ? formatCurrencyLocal(stream.expectedAmount, stream.currency)
                     : stream.currency}
@@ -68,15 +69,11 @@ export default function OrganizationStreamsPage() {
                 </p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
-                <button
-                  type="button"
-                  onClick={() => openEditStream(stream)}
-                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm"
-                >
+                <Btn variant="ghost" onClick={() => openEditStream(stream)} style={{ padding: "6px 12px", fontSize: 12 }}>
                   Edit
-                </button>
-                <button
-                  type="button"
+                </Btn>
+                <Btn
+                  variant="danger"
                   onClick={() =>
                     deleteStreamMutation.mutate(
                       { organizationId, streamId: stream.id },
@@ -87,18 +84,27 @@ export default function OrganizationStreamsPage() {
                     )
                   }
                   disabled={deleteStreamMutation.isPending}
-                  className="rounded-full border border-red-500/50 px-3 py-1.5 text-red-400 hover:bg-red-500/10 text-sm"
+                  style={{ padding: "6px 12px", fontSize: 12 }}
                 >
-                  Delete
-                </button>
+                  {Icons.trash({ size: 12 })} Delete
+                </Btn>
               </div>
             </div>
           ))}
-        </div>
+        </Card>
       ) : (
-        <div className="text-center py-8 sm:py-12 text-white/60">
-          No income streams yet. Add one to track money coming into the organization.
-        </div>
+        <Card className="p-8 sm:p-12 text-center">
+          <p className="text-[15px] font-semibold mb-4" style={{ color: T.muted }}>
+            No income streams yet. Add one to track money coming into the organization.
+          </p>
+          <button
+            onClick={openStreamModal}
+            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold"
+            style={{ background: A, color: "#0a0a0a" }}
+          >
+            {Icons.plus({ size: 16 })} Add stream
+          </button>
+        </Card>
       )}
     </div>
   );

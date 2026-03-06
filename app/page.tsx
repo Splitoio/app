@@ -25,11 +25,24 @@ import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
+import { ProfileDropdown } from "@/components/profile-dropdown";
 import { useRouter } from "next/navigation";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
+import { formatRelativeTime } from "@/lib/utils";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+import {
+  A,
+  Card,
+  SectionLabel,
+  Avatar,
+  GroupAvatar,
+  fmt,
+  G,
+  T,
+  Icons,
+} from "@/lib/splito-design";
 
 /** Derive overall youOwe/youGet from groups' groupBalances (same source as group pages) */
 function useOverallBalancesFromGroups(
@@ -159,6 +172,100 @@ function DashboardGroupBalance({
       owedItems={owedItems}
       defaultCurrency={defaultCurrency}
     />
+  );
+}
+
+/** Single-line balance for group row: "+$X" (green) or "-$X" (red) or "Settled" */
+function GroupBalanceShort({
+  group,
+  userId,
+  defaultCurrency,
+}: {
+  group: { groupBalances?: { userId: string; currency: string; amount: number }[] };
+  userId: string | null;
+  defaultCurrency: string;
+}) {
+  const oweItems =
+    !userId || !group.groupBalances?.length
+      ? []
+      : group.groupBalances
+          .filter((b) => b.userId === userId && b.amount > 0)
+          .map((b) => ({ amount: b.amount, currency: b.currency }));
+  const owedItems =
+    !userId || !group.groupBalances?.length
+      ? []
+      : group.groupBalances
+          .filter((b) => b.userId === userId && b.amount < 0)
+          .map((b) => ({ amount: Math.abs(b.amount), currency: b.currency }));
+  const { total: oweTotal, isLoading: loadOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
+  const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
+  if (loadOwe || loadOwed) return <span className="text-white/60">…</span>;
+  const net = (owedTotal ?? 0) - (oweTotal ?? 0);
+  if (net === 0) return <span style={{ color: G, fontSize: 13, fontWeight: 800 }}>+$0</span>;
+  if (net > 0)
+    return (
+      <span
+        className="font-dm-mono font-extrabold text-[13px]"
+        style={{ color: G }}
+      >
+        +{formatCurrency(net, defaultCurrency)}
+      </span>
+    );
+  return (
+    <span
+      className="font-dm-mono font-extrabold text-[13px]"
+      style={{ color: "#F87171" }}
+    >
+      -{formatCurrency(Math.abs(net), defaultCurrency)}
+    </span>
+  );
+}
+
+/** Single friend card for Friends Balance: avatar, name, "Owes you $X" (green) or "You owe $X" (red) */
+function FriendBalanceCard({
+  friendName,
+  friendInit,
+  color,
+  oweItems,
+  owedItems,
+  defaultCurrency,
+}: {
+  friendName: string;
+  friendInit: string;
+  color: string;
+  oweItems: { amount: number; currency: string }[];
+  owedItems: { amount: number; currency: string }[];
+  defaultCurrency: string;
+}) {
+  const { total: totalOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
+  const { total: totalOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
+  const net = (totalOwed ?? 0) - (totalOwe ?? 0);
+  const balanceLine =
+    net === 0
+      ? { text: "Settled", color: T.muted }
+      : net > 0
+        ? { text: `Owes you ${formatCurrency(net, defaultCurrency)}`, color: G }
+        : { text: `You owe ${formatCurrency(Math.abs(net), defaultCurrency)}`, color: "#F87171" };
+  return (
+    <Card
+      style={{ padding: "18px 20px", display: "flex", alignItems: "center", gap: 14 }}
+    >
+      <Avatar init={friendInit} color={color} size={42} />
+      <div className="flex-1 min-w-0">
+        <p
+          className="text-[14px] font-bold truncate"
+          style={{ color: T.bright }}
+        >
+          {friendName}
+        </p>
+        <p
+          className="text-[12px] font-bold mt-1"
+          style={{ color: balanceLine.color }}
+        >
+          {balanceLine.text}
+        </p>
+      </div>
+    </Card>
   );
 }
 
@@ -311,487 +418,347 @@ export default function Page() {
     setIsFriendsBreakdownModalOpen(true);
   };
 
+  const netOwed = (overallGetLoading || overallOweLoading) ? 0 : overallGetTotal - overallOweTotal;
+
+  /** Recent activity from all groups (expenses + settlements) for Dashboard card */
+  const recentActivityFromGroups = useMemo(() => {
+    if (!user || !groups?.length) return [];
+    const items: { id: string; text: string; date: Date; dotColor: string }[] = [];
+    for (const group of groups) {
+      const expenses = (group as { expenses?: { id: string; name: string; amount: number; currency: string; paidBy: string; createdAt: Date; splitType: string }[] }).expenses ?? [];
+      const groupUsers = (group as { groupUsers?: { user: { id: string; name?: string | null } }[] }).groupUsers ?? [];
+      const paidByName = (userId: string) =>
+        userId === user.id ? "You" : (groupUsers.find((gu) => gu.user.id === userId)?.user?.name ?? "Someone");
+      for (const exp of expenses) {
+        const date = exp.createdAt instanceof Date ? exp.createdAt : new Date(exp.createdAt);
+        const amountStr = formatCurrency(exp.amount, exp.currency || defaultCurrency);
+        if (exp.splitType === "SETTLEMENT") {
+          items.push({
+            id: exp.id,
+            text: `${paidByName(exp.paidBy)} marked a payment as settled (${amountStr})`,
+            date,
+            dotColor: G,
+          });
+        } else {
+          items.push({
+            id: exp.id,
+            text: `${paidByName(exp.paidBy)} added ${exp.name} (${amountStr})`,
+            date,
+            dotColor: A,
+          });
+        }
+      }
+    }
+    items.sort((a, b) => b.date.getTime() - a.date.getTime());
+    return items.slice(0, 5);
+  }, [groups, user?.id, defaultCurrency]);
+
+  const groupAvatarItems = (g: { groupUsers?: { user: { name: string | null; id: string } }[] }) =>
+    (g.groupUsers ?? [])
+      .slice(0, 4)
+      .map((gu) => ({
+        init: gu.user.name?.charAt(0)?.toUpperCase() || "?",
+        color: "#22D3EE",
+      }));
+
   return (
-    <div className="w-full">
-      {/* Header integrated into the dashboard */}
-      <div className="py-4 sm:py-6 mb-4 sm:mb-6">
-        <div className="flex items-center justify-between">
-          <h2
-            id="dashboard-overall-balance"
-            className="text-mobile-base sm:text-xl text-white max-w-[60%]"
-          >
-            {isGroupsLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading balance...
-              </div>
-            ) : youOwe.length > 0 ? (
-              <div>
-                Overall, you owe{" "}
-                <span className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-[#FF4444]">
-                  {overallOweLoading
-                    ? "…"
-                    : formatCurrency(overallOweTotal, defaultCurrency)}
-                </span>
-                {youOwe.length > 1 && !overallOweLoading && (
-                  <span className="block text-mobile-sm text-white/60 mt-0.5">
-                    (
-                    {youOwe
-                      .map((d) => formatCurrency(d.amount, d.currency))
-                      .join(", ")}
-                    )
-                  </span>
-                )}
-              </div>
-            ) : youGet.length > 0 ? (
-              <div>
-                Overall, you are owed{" "}
-                <span className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-[#53e45d]">
-                  {overallGetLoading
-                    ? "…"
-                    : formatCurrency(overallGetTotal, defaultCurrency)}
-                </span>
-                {youGet.length > 1 && !overallGetLoading && (
-                  <span className="block text-mobile-sm text-white/60 mt-0.5">
-                    (
-                    {youGet
-                      .map((d) => formatCurrency(d.amount, d.currency))
-                      .join(", ")}
-                    )
-                  </span>
-                )}
-              </div>
-            ) : (
-              <div>You're all settled up!</div>
-            )}
-          </h2>
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Settle all debt button - commented out */}
-            {/* <button
-              onClick={handleSettleAllClick}
-              disabled={isSettling || isGroupsLoading}
-              className="group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/10 bg-white px-4 sm:px-6 text-mobile-sm sm:text-base font-medium text-black transition-all duration-300 hover:shadow-[0_0_15px_rgba(255,255,255,0.2)] disabled:opacity-70 disabled:cursor-not-allowed"
-            >
-              {isSettling ? (
-                <>
-                  <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                  <span className="truncate">Settling...</span>
-                </>
-              ) : (
-                <>
-                  <Image
-                    src="/coins-dollar.svg"
-                    alt="Settle"
-                    width={22}
-                    height={22}
-                    className="invert h-4 w-4 sm:h-5 sm:w-5"
-                  />
-                  <span className="truncate">Settle all debts</span>
-                </>
-              )}
-            </button> */}
-            <Link href="/settings" className="cursor-pointer">
-              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                  {user?.image ? (
-                    <Image
-                      src={user.image}
-                      alt="Profile"
-                      width={56}
-                      height={56}
-                      className="h-full w-full object-cover"
-                    />
-                  ) : (
-                    <Image
-                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                      alt="Profile"
-                      width={56}
-                      height={56}
-                      className="h-full w-full"
-                      onError={(e) => {
-                        console.error(`Error loading identicon for user`);
-                        const target = e.target as HTMLImageElement;
-                        target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=user`;
-                      }}
-                    />
-                  )}
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Monthly Stats - Three blocks side by side */}
+    <div className="flex-1 flex flex-col min-w-0">
+      {/* Sticky header – design, responsive padding */}
       <div
-        id="dashboard-monthly-stats"
-        className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 mb-4 sm:mb-6"
+        className="border-b border-white/[0.07] px-4 sm:px-7 flex items-center h-14 sm:h-[70px] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
       >
-        <div className="rounded-3xl bg-[#101012] p-8">
-          <div className="flex items-center mb-4">
-            <span className="text-white/60 text-xl">You owed this month</span>
-          </div>
-          <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {isAnalyticsLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
-            ) : analyticsError ? (
-              <button
-                onClick={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: [QueryKeys.ANALYTICS],
-                  })
-                }
-                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
-              >
-                <span>Error loading data</span>
-                <span className="text-sm">(click to retry)</span>
-              </button>
-            ) : owedConvLoading ? (
-              "…"
-            ) : (
-              formatCurrency(owedConverted, defaultCurrency)
-            )}
-          </p>
-        </div>
-
-        <div className="rounded-3xl bg-[#101012] p-8">
-          <div className="flex items-center mb-4">
-            <span className="text-white/60 text-xl">You lent this month</span>
-          </div>
-          <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {isAnalyticsLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
-            ) : analyticsError ? (
-              <button
-                onClick={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: [QueryKeys.ANALYTICS],
-                  })
-                }
-                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
-              >
-                <span>Error loading data</span>
-                <span className="text-sm">(click to retry)</span>
-              </button>
-            ) : lentConvLoading ? (
-              "…"
-            ) : (
-              formatCurrency(lentConverted, defaultCurrency)
-            )}
-          </p>
-        </div>
-
-        <div className="rounded-3xl bg-[#101012] p-8">
-          <div className="flex items-center mb-4">
-            <span className="text-white/60 text-xl">
-              You settled this month
-            </span>
-          </div>
-          <p className="font-inter font-semibold text-[24px] leading-[100%] tracking-[-0.04em] text-white">
-            {isAnalyticsLoading ? (
-              <Loader2 className="h-4 w-4 animate-spin text-white/50" />
-            ) : analyticsError ? (
-              <button
-                onClick={() =>
-                  queryClient.invalidateQueries({
-                    queryKey: [QueryKeys.ANALYTICS],
-                  })
-                }
-                className="text-red-500 text-base font-normal hover:underline flex items-center gap-2"
-              >
-                <span>Error loading data</span>
-                <span className="text-sm">(click to retry)</span>
-              </button>
-            ) : settledConvLoading ? (
-              "…"
-            ) : (
-              formatCurrency(settledConverted, defaultCurrency)
-            )}
-          </p>
-        </div>
+        <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
+          Dashboard
+        </h1>
       </div>
 
-      {/* Transaction Requests and Groups/Friends section */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_350px] gap-4 sm:gap-6">
-        {/* Friends and Groups section */}
-        <div className="space-y-4 sm:space-y-6">
-          {/* Friends block (wider) */}
+      <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
+        {/* Balance hero – design, responsive */}
+        <div
+          id="dashboard-overall-balance"
+          className="rounded-2xl sm:rounded-3xl border border-white/[0.09] p-4 sm:p-7 mb-5 sm:mb-7 relative overflow-hidden"
+          style={{
+            background: "linear-gradient(135deg, #111 0%, #0e0e0e 50%, #0f0f0f 100%)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+          }}
+        >
           <div
-            id="dashboard-friends-section"
-            className="lg:col-span-2 rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6"
+            className="absolute -top-10 -right-10 w-[200px] h-[200px] rounded-full pointer-events-none"
+            style={{
+              background: netOwed >= 0 ? `${G}08` : "#F871710a",
+            }}
+          />
+          <p
+            className="text-[11px] sm:text-[12px] font-bold tracking-[0.08em] uppercase mb-2.5"
+            style={{ color: T.muted }}
           >
-            <div className="flex items-center justify-between mb-4 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-white">
-                Your Friends
-              </h2>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => router.push("/groups")}
-                  className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
-                >
-                  <Image
-                    src="/coins-dollar.svg"
-                    alt="Manage Debts"
-                    width={20}
-                    height={20}
-                    className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
-                  />
-                  <span className="font-medium text-mobile-sm sm:text-base">
-                    Manage Debts
-                  </span>
-                </button>
-                <button
-                  onClick={() => setIsAddFriendModalOpen(true)}
-                  className="flex items-center gap-1 sm:gap-2 text-white/60 hover:text-white transition-colors"
-                >
-                  <Image
-                    src="/plus-sign-circle.svg"
-                    alt="Add"
-                    width={20}
-                    height={20}
-                    className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
-                  />
-                  <span className="font-medium text-mobile-sm sm:text-base">
-                    Add Friends
-                  </span>
-                </button>
-              </div>
-            </div>
-
-            <div className="space-y-4 sm:space-y-8">
-              {isFriendsLoading ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
-                  <span className="ml-2 text-white/70 text-mobile-sm sm:text-base">
-                    Loading friends...
-                  </span>
-                </div>
-              ) : friends && friends.length > 0 ? (
-                friends.map((friend) => {
-                  // Use balances from groups (same source as group expense page)
-                  const balances = friendBalancesFromGroups[friend.id] ?? [];
-                  const oweBalances: Record<string, number> = {};
-                  const owedBalances: Record<string, number> = {};
-
-                  balances.forEach((b) => {
-                    if (b.amount > 0) {
-                      oweBalances[b.currency] =
-                        (oweBalances[b.currency] ?? 0) + b.amount;
-                    } else if (b.amount < 0) {
-                      owedBalances[b.currency] =
-                        (owedBalances[b.currency] ?? 0) + Math.abs(b.amount);
-                    }
-                  });
-
-                  const oweItems = Object.entries(oweBalances).map(
-                    ([currency, amount]) => ({ amount, currency })
-                  );
-                  const owedItems = Object.entries(owedBalances).map(
-                    ([currency, amount]) => ({ amount, currency })
-                  );
-                  const hasOwedBalances = owedItems.length > 0;
-                  const hasOweBalances = oweItems.length > 0;
-
-                  return (
-                    <div
-                      key={friend.id}
-                      className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-0"
-                    >
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full">
-                          <Image
-                            src={
-                              friend.image ||
-                              `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
-                            }
-                            alt={friend.name}
-                            width={56}
-                            height={56}
-                            className="h-full w-full object-cover"
-                            onError={(e) => {
-                              console.error(
-                                `Error loading image for friend ${friend.id}`
-                              );
-                              const target = e.target as HTMLImageElement;
-                              target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
-                            }}
-                          />
-                        </div>
-                        <div>
-                          <p className="text-mobile-base sm:text-xl text-white font-medium">
-                            {friend.name}
-                          </p>
-                          <div className="text-mobile-sm sm:text-base text-white/60">
-                            <DashboardConvertedBalance
-                              oweItems={oweItems}
-                              owedItems={owedItems}
-                              defaultCurrency={defaultCurrency}
-                            />
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Show appropriate button based on debt direction */}
-                      {hasOwedBalances && (
-                        <button
-                          className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                          onClick={() =>
-                            sendReminder({
-                              receiverId: friend.id,
-                              reminderType: "USER",
-                              content: "Please settle your balance.",
-                            })
-                          }
-                          disabled={isSending}
-                        >
-                          <Image
-                            src="/clock-03.svg"
-                            alt="Reminder"
-                            width={20}
-                            height={20}
-                            className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
-                          />
-                          <span>{isSending ? "Sending..." : "Notify"}</span>
-                        </button>
-                      )}
-
-                      {/* Individual settle debt button - commented out, replaced with single Manage Debts button */}
-                      {/* {hasPositiveBalance && (
-                      <button
-                        className="w-full sm:w-56 group relative flex h-10 sm:h-12 items-center justify-center gap-1 sm:gap-2 rounded-full border-2 border-white/80 bg-transparent px-4 sm:px-5 text-mobile-sm sm:text-base font-medium text-white transition-all duration-300 hover:border-white/40 hover:shadow-[0_0_15px_rgba(255,255,255,0.1)]"
-                        onClick={() => handleSettleFriendClick(friend.id)}
-                      >
-                        <Image
-                          src="/coins-dollar.svg"
-                          alt="Settle"
-                          width={20}
-                          height={20}
-                          className="opacity-90 h-4 w-4 sm:h-5 sm:w-5"
-                        />
-                        <span>Settle Debts</span>
-                      </button>
-                    )} */}
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
-                  No friends added yet. Add some friends to get started!
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Groups block */}
+            Overall balance
+          </p>
+          <p className="text-[22px] sm:text-[26px] font-extrabold tracking-[-0.02em] text-white mb-1">
+            {isGroupsLoading ? (
+              <span className="flex items-center gap-2">
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                Loading…
+              </span>
+            ) : youOwe.length > 0 ? (
+              <>
+                Overall, you owe{" "}
+                <span style={{ color: "#F87171" }}>
+                  {overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)}
+                </span>
+              </>
+            ) : youGet.length > 0 ? (
+              <>
+                Overall, you are owed{" "}
+                <span style={{ color: G }}>
+                  +{overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)}
+                </span>
+              </>
+            ) : (
+              <span style={{ color: G }}>All settled ✓</span>
+            )}
+          </p>
           <div
-            id="dashboard-groups-section"
-            className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6"
-          >
-            <div className="flex items-center justify-between mb-4 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-white">
-                Your Groups
-              </h2>
-              <Link
-                href="/groups"
-                className="text-white font-medium flex items-center gap-1 sm:gap-2 rounded-full border border-white/80 px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-white/[0.03] transition-colors text-mobile-sm sm:text-base"
+            className="h-px my-5"
+            style={{ background: "rgba(255,255,255,0.07)" }}
+          />
+          <div className="grid grid-cols-3 gap-0">
+            {[
+              [
+                "You owed this month",
+                isAnalyticsLoading || owedConvLoading
+                  ? "…"
+                  : formatCurrency(owedConverted, defaultCurrency),
+              ],
+              [
+                "You lent this month",
+                isAnalyticsLoading || lentConvLoading
+                  ? "…"
+                  : formatCurrency(lentConverted, defaultCurrency),
+              ],
+              [
+                "You settled this month",
+                isAnalyticsLoading || settledConvLoading
+                  ? "…"
+                  : formatCurrency(settledConverted, defaultCurrency),
+              ],
+            ].map(([label, value], i) => (
+              <div
+                key={String(label)}
+                className={`min-w-0 ${i === 0 ? "pr-2 sm:pr-7" : i === 1 ? "px-2 sm:px-7 border-r border-white/[0.07]" : "pl-2 sm:pl-7"} text-center sm:text-left`}
               >
-                <Users2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>View All</span>
-              </Link>
-            </div>
+                <p
+                  className="text-[10px] sm:text-[11px] mb-1 sm:mb-2.5 font-semibold tracking-[0.04em] truncate"
+                  style={{ color: T.muted }}
+                >
+                  {label}
+                </p>
+                <p
+                  className="text-[14px] sm:text-[22px] font-extrabold tracking-[-0.02em] font-dm-mono truncate"
+                  style={{ color: "#e8e8e8" }}
+                >
+                  {value}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
 
-            <div className="space-y-4 sm:space-y-6">
-              {isGroupsLoading ? (
-                <div className="flex items-center justify-center p-6 sm:p-8">
-                  <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
-                  <span className="ml-2 text-white/70 text-mobile-sm sm:text-base">
-                    Loading groups...
-                  </span>
-                </div>
-              ) : groups && groups.length > 0 ? (
-                groups.slice(0, 4).map((group) => (
-                  <Link href={`/groups/${group.id}`} key={group.id}>
-                    <div className="flex items-center justify-between hover:bg-white/[0.02] p-2 sm:p-3 rounded-lg transition-colors">
-                      <div className="flex items-center gap-3 sm:gap-4">
-                        <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">
-                          {group.image ? (
-                            <Image
-                              src={group.image}
-                              alt={group.name}
-                              width={56}
-                              height={56}
-                              className="h-full w-full object-cover"
-                            />
-                          ) : (
-                            <Image
-                              src={`https://api.dicebear.com/9.x/identicon/svg?seed=${group.id}`}
-                              alt={group.name}
-                              width={56}
-                              height={56}
-                              className="h-full w-full"
-                            />
-                          )}
-                        </div>
-                        <div>
-                          <p className="text-mobile-base sm:text-xl text-white font-medium">
-                            {group.name}
-                          </p>
-                          <p className="text-mobile-sm sm:text-base text-white/60">
-                            <DashboardGroupBalance
-                              group={group}
-                              userId={user?.id ?? null}
-                              defaultCurrency={defaultCurrency}
-                            />
-                          </p>
-                        </div>
+        {/* Your Groups + Recent Activity – design grid, responsive */}
+        <div
+          className="grid gap-4 sm:gap-5 mb-5 sm:mb-7"
+          style={{
+            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
+          }}
+        >
+          <Card className="p-4 sm:p-[22px]">
+            <div className="flex justify-between items-center mb-4">
+              <SectionLabel>Your Groups</SectionLabel>
+              <span
+                className="text-[11px] font-bold rounded-full px-2.5 py-1 border border-white/[0.09]"
+                style={{ color: T.muted, background: "rgba(255,255,255,0.06)" }}
+              >
+                {groups?.length ?? 0} groups
+              </span>
+            </div>
+            {isGroupsLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+              </div>
+            ) : (
+              (groups ?? []).slice(0, 3).map((g, i) => {
+                const userBalances = (g.groupBalances ?? []).filter(
+                  (b: { userId: string }) => b.userId === user?.id
+                );
+                const byCurr = userBalances.reduce(
+                  (acc: Record<string, number>, b: { currency: string; amount: number }) => {
+                    acc[b.currency] = (acc[b.currency] ?? 0) + b.amount;
+                    return acc;
+                  },
+                  {}
+                );
+                const oweItems = Object.entries(byCurr)
+                  .filter(([, a]) => a > 0)
+                  .map(([currency, amount]) => ({ amount, currency }));
+                const owedItems = Object.entries(byCurr)
+                  .filter(([, a]) => a < 0)
+                  .map(([currency, amount]) => ({ amount: Math.abs(amount), currency }));
+                return (
+                  <Link href={`/groups/${g.id}`} key={g.id}>
+                    <div
+                      className="splito-row-hover flex items-center gap-3 py-2.5 border-b border-white/[0.06] cursor-pointer last:border-b-0"
+                      style={i < 2 ? { borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
+                    >
+                      <GroupAvatar
+                        items={groupAvatarItems(g)}
+                        size={38}
+                        radius={11}
+                      />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-bold text-[#f5f5f5] truncate">
+                          {g.name}
+                        </p>
+                        <p className="text-[13px] font-semibold" style={{ color: T.muted }}>
+                          {(Array.isArray((g as { expenses?: unknown[] }).expenses)
+                            ? (g as { expenses: unknown[] }).expenses.length
+                            : 0)}{" "}
+                          expenses
+                        </p>
                       </div>
+                      <GroupBalanceShort
+                        group={g}
+                        userId={user?.id ?? null}
+                        defaultCurrency={defaultCurrency}
+                      />
                     </div>
                   </Link>
-                ))
-              ) : (
-                <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
-                  No groups created yet. Create a group to get started!
-                </div>
-              )}
-            </div>
-          </div>
+                );
+              })
+            )}
+            {groups?.length === 0 && !isGroupsLoading && (
+              <p className="text-sm text-white/60 py-2">No groups yet</p>
+            )}
+          </Card>
+
+          <Card className="p-[22px] min-h-[200px] flex flex-col">
+            <SectionLabel>Recent Activity</SectionLabel>
+            {isGroupsLoading || isRemindersLoading ? (
+              <div className="flex justify-center py-8 flex-1 items-center">
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+              </div>
+            ) : recentActivityFromGroups.length > 0 ? (
+              <div className="flex flex-col">
+                {recentActivityFromGroups.map((a) => (
+                  <div
+                    key={a.id}
+                    className="flex gap-3 py-2.5 border-b border-white/[0.06] last:border-b-0"
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ background: a.dotColor }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium leading-snug" style={{ color: T.body }}>
+                        {a.text}
+                      </p>
+                      <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>
+                        {formatRelativeTime(a.date)}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (reminders ?? []).length > 0 ? (
+              <div className="flex flex-col">
+                {(reminders ?? []).slice(0, 5).map((r) => (
+                  <div
+                    key={r.id}
+                    className="flex gap-3 py-2.5 border-b border-white/[0.06] last:border-b-0"
+                  >
+                    <div
+                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                      style={{ background: A }}
+                    />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-[13px] font-medium leading-snug" style={{ color: T.body }}>
+                        {r.content || "Transaction request"}
+                      </p>
+                      <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>
+                        {r.createdAt ? formatRelativeTime(new Date(r.createdAt)) : ""}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                <p className="text-[40px] mb-2" aria-hidden>📋</p>
+                <p className="text-[13px] font-medium" style={{ color: T.body }}>
+                  No recent activity
+                </p>
+                <p className="text-[12px] mt-1" style={{ color: T.muted }}>
+                  Expenses and settlements from your groups will appear here
+                </p>
+              </div>
+            )}
+          </Card>
         </div>
 
-        {/* Transaction Requests */}
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl text-white font-medium">
-              Transaction Requests
-            </h2>
-            <button
-              onClick={() =>
-                queryClient.invalidateQueries({
-                  queryKey: [QueryKeys.REMINDERS],
+        {/* Friends Balance – design */}
+        <div>
+          <SectionLabel>Friends Balance</SectionLabel>
+          <div
+            className="grid gap-3"
+            style={{
+              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
+            }}
+          >
+            {isFriendsLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <Loader2 className="h-6 w-6 animate-spin text-white/50" />
+              </div>
+            ) : (
+              (friends ?? [])
+                .filter((friend) => {
+                  const balances = friendBalancesFromGroups[friend.id] ?? [];
+                  const hasBalance = balances.some((b: { amount: number }) => b.amount !== 0);
+                  return hasBalance;
                 })
-              }
-              className="p-2 rounded-full hover:bg-white/5 transition-colors"
-            >
-              <Bell className="h-5 w-5 text-white/70" />
-            </button>
+                .map((friend, index) => {
+                  const balances = friendBalancesFromGroups[friend.id] ?? [];
+                  const oweItems = balances
+                    .filter((b: { amount: number }) => b.amount > 0)
+                    .map((b: { amount: number; currency: string }) => ({
+                      amount: b.amount,
+                      currency: b.currency,
+                    }));
+                  const owedItems = balances
+                    .filter((b: { amount: number }) => b.amount < 0)
+                    .map((b: { amount: number; currency: string }) => ({
+                      amount: Math.abs(b.amount),
+                      currency: b.currency,
+                    }));
+                  const friendInit =
+                    friend.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
+                  const FRIEND_COLORS = [A, "#A78BFA", G, "#FB923C", "#F472B6", "#FBBF24", "#818CF8"];
+                  const color = FRIEND_COLORS[index % FRIEND_COLORS.length];
+                  return (
+                    <FriendBalanceCard
+                      key={friend.id}
+                      friendName={friend.name ?? "Friend"}
+                      friendInit={friendInit}
+                      color={color}
+                      oweItems={oweItems}
+                      owedItems={owedItems}
+                      defaultCurrency={defaultCurrency}
+                    />
+                  );
+                })
+            )}
+            {(!friends || friends.length === 0) && !isFriendsLoading && (
+              <p className="text-sm text-white/60 col-span-full py-4">No friends with balances</p>
+            )}
           </div>
-
-          {isRemindersLoading ? (
-            <div className="flex justify-center py-8">
-              <Loader2 className="h-8 w-8 animate-spin text-white/50" />
-            </div>
-          ) : (
-            <TransactionRequestList
-              reminders={reminders || []}
-              onAccept={(reminderId) => {
-                acceptReminder(reminderId);
-              }}
-              onReject={(reminderId) => {
-                rejectReminder(reminderId);
-              }}
-              isAccepting={isAccepting}
-              isRejecting={isRejecting}
-            />
-          )}
         </div>
       </div>
 

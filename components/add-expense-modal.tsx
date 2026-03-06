@@ -1,40 +1,39 @@
 "use client";
 
 import type React from "react";
-
 import { useGroups, type Split, type Debt } from "@/stores/groups";
 import { useState, useEffect } from "react";
-import { useWallet } from "@/hooks/useWallet";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
-import { useCreateGroup } from "@/features/groups/hooks/use-create-group";
 import { useAuthStore } from "@/stores/authStore";
-import { X } from "lucide-react";
 import { User } from "@/api-helpers/modelSchema";
 import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import type { CreateExpenseParams } from "@/features/expenses/hooks/use-create-expense";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
-import Image from "next/image";
 import {
-  useGetFiatCurrencies,
   useGetAllCurrencies,
+  useGetFiatCurrencies,
 } from "@/features/currencies/hooks/use-currencies";
 import { CurrencyType } from "@/api-helpers/types";
 import ResolverSelector from "./ResolverSelector";
 import axios from "axios";
 import CurrencyDropdown from "./currency-dropdown";
 import TimeLockToggle from "./ui/TimeLockToggle";
+import { Card, Avatar, A, T } from "@/lib/splito-design";
+import { useGroupLayout } from "@/contexts/group-layout-context";
+
+const CATEGORY_OPTIONS: { emoji: string; api: string }[] = [
+  { emoji: "🍽", api: "FOOD" },
+  { emoji: "🏠", api: "ACCOMMODATION" },
+  { emoji: "🚗", api: "TRAVEL" },
+  { emoji: "✈️", api: "TRAVEL" },
+  { emoji: "🛒", api: "OTHER" },
+  { emoji: "🎟", api: "OTHER" },
+  { emoji: "🎵", api: "OTHER" },
+  { emoji: "💊", api: "OTHER" },
+  { emoji: "🏄", api: "OTHER" },
+  { emoji: "⚡️", api: "OTHER" },
+];
 
 interface AddExpenseModalProps {
   isOpen: boolean;
@@ -54,6 +53,7 @@ interface ExpenseFormData {
   tokenId?: string;
   timeLockIn: boolean;
   paidBy: string;
+  category: string;
 }
 
 // Define an interface for the expense payload (matches CreateExpenseParams)
@@ -139,21 +139,30 @@ export function AddExpenseModal({
     return `${symbol}${amount}`;
   };
 
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     description: "",
     amount: "",
     splitType: "equal",
     currency: "USD",
-    currencyType: "FIAT", // Default to FIAT
-    timeLockIn: false, // Default to not locked in
+    currencyType: "FIAT",
+    timeLockIn: false,
     paidBy: user?.id || "",
+    category: "OTHER",
   });
 
   const [lockPrice, setLockPrice] = useState(true);
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
   const expenseMutation = useCreateExpense(groupId);
+
+  const group = useGroupLayout().group;
+  const groupName = group?.name ?? "Group";
+
+  useEffect(() => {
+    if (isOpen) setStep(1);
+  }, [isOpen]);
 
   const allChainTokenOptions = useAllChainsTokens();
   const [resolver, setResolver] = useState<Option | undefined>(undefined);
@@ -281,10 +290,9 @@ export function AddExpenseModal({
       return;
     }
 
-    // Create a properly typed payload
     const payload: ExpensePayload = {
-      category: "OTHER",
-      name: formData.description || "Expense",
+      category: formData.category || "OTHER",
+      name: formData.name || "Expense",
       description: formData.description || "",
       amount: parseFloat(formData.amount),
       currency: formData.currency,
@@ -385,6 +393,35 @@ export function AddExpenseModal({
     return member?.name || "You";
   };
 
+  // When currency is selected (step 1), sync currencyType, chainId, tokenId from API currency
+  const handleCurrencySelect = (currencies: string[]) => {
+    const currencyId = currencies[0] || "";
+    const currency = allCurrencies?.currencies?.find((c) => c.id === currencyId);
+    setFormData((prev) => {
+      const next = { ...prev, currency: currencyId };
+      if (currency) {
+        next.currencyType = currency.type === "FIAT" ? "FIAT" : "TOKEN";
+        if (next.currencyType === "TOKEN") {
+          next.chainId = currency.chainId ?? undefined;
+          next.tokenId = currency.id;
+        } else {
+          next.chainId = undefined;
+          next.tokenId = undefined;
+        }
+      }
+      return next;
+    });
+  };
+
+  const isCrypto = formData.currencyType === "TOKEN";
+  const canProceedStep1 = formData.name.trim() !== "";
+  const canProceedStep2 = formData.currency !== "";
+  const canProceedStep3 =
+    formData.amount !== "" &&
+    Number(formData.amount) > 0 &&
+    formData.paidBy !== "";
+  const canSubmit = validateSplits();
+
   // Only allow tokens (with chainId) as resolver
   const handleResolverChange = (option: Option | undefined) => {
     if (option && !option.chainId) {
@@ -395,412 +432,729 @@ export function AddExpenseModal({
     setResolver(option);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 h-screen w-screen">
-      <div
-        className="fixed inset-0 bg-black/80 brightness-50"
-        onClick={onClose}
-      />
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[550px] max-h-[90vh] overflow-auto">
-        <div className="relative z-10 rounded-[20px] bg-black p-6 border border-white/20">
-          <h2 className="text-2xl font-medium text-white mb-6">Add Expense</h2>
+  const inp = {
+    width: "100%",
+    background: "rgba(255,255,255,0.05)",
+    border: "1.5px solid rgba(255,255,255,0.09)",
+    borderRadius: 14,
+    padding: "12px 16px",
+    color: "#fff",
+    fontSize: 14,
+    outline: "none",
+    boxSizing: "border-box" as const,
+    fontFamily: "inherit",
+  };
+  const lbl = {
+    color: T.label,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase" as const,
+    marginBottom: 8,
+    display: "block",
+  };
+  const StepBackBtn = ({ onClick }: { onClick: () => void }) => {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        style={{
+          flex: 1,
+          padding: 13,
+          background: "rgba(255,255,255,0.05)",
+          color: T.body,
+          border: "1px solid rgba(255,255,255,0.09)",
+          borderRadius: 14,
+          fontSize: 14,
+          fontWeight: 700,
+          cursor: "pointer",
+          fontFamily: "inherit",
+        }}
+      >
+        ← Back
+      </button>
+    );
+  };
+  const PrimaryBtn = ({
+    children,
+    onClick,
+    disabled = false,
+    style = {},
+  }: {
+    children: React.ReactNode;
+    onClick?: () => void;
+    disabled?: boolean;
+    style?: React.CSSProperties;
+  }) => {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        style={{
+          flex: 2,
+          padding: 13,
+          background: disabled ? "rgba(255,255,255,0.05)" : A,
+          color: disabled ? "#555" : "#0a0a0a",
+          border: "none",
+          borderRadius: 14,
+          fontSize: 14,
+          fontWeight: 800,
+          cursor: disabled ? "default" : "pointer",
+          fontFamily: "inherit",
+          transition: "all 0.2s",
+          ...style,
+        }}
+      >
+        {children}
+      </button>
+    );
+  };
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div>
-              <label className="text-white mb-2 block">Split Amount</label>
-              <div className="relative">
+  const overlayStyle = {
+    position: "fixed" as const,
+    inset: 0,
+    background: "rgba(0,0,0,0.88)",
+    backdropFilter: "blur(16px)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 200,
+    padding: 24,
+  };
+
+  return (
+    <div onClick={onClose} style={overlayStyle}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          borderRadius: 28,
+          width: "100%",
+          maxWidth: 460,
+          padding: "28px 28px 32px",
+          maxHeight: "90vh",
+          overflowY: "auto",
+          boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+        }}
+      >
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: 24,
+          }}
+        >
+          <div>
+            <p
+              style={{
+                color: "#fff",
+                fontSize: 20,
+                fontWeight: 800,
+                letterSpacing: "-0.02em",
+              }}
+            >
+              Add Expense
+            </p>
+            <p style={{ color: T.mid, fontSize: 12, marginTop: 3 }}>{groupName}</p>
+            <div style={{ display: "flex", gap: 5, marginTop: 12 }}>
+              {[1, 2, 3, 4].map((s) => (
+                <div
+                  key={s}
+                  style={{
+                    height: 3,
+                    width: 26,
+                    borderRadius: 99,
+                    background: step >= s ? A : "#2a2a2a",
+                    transition: "background 0.3s",
+                    boxShadow: step >= s ? `0 0 8px ${A}88` : "none",
+                  }}
+                />
+              ))}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: T.soft,
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              cursor: "pointer",
+              fontSize: 18,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            ×
+          </button>
+        </div>
+
+        <form onSubmit={handleSubmit}>
+          {/* Step 1: Description + Category */}
+          {step === 1 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={lbl}>Description</label>
                 <input
-                  type="number"
-                  value={formData.amount}
+                  placeholder="e.g. Dinner, Hotel, Taxi…"
+                  value={formData.name}
                   onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      amount: e.target.value,
-                    }))
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
                   }
-                  placeholder={getCurrencyPlaceholder(formData.currency)}
-                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-                  required
+                  style={inp}
+                  autoFocus
                 />
               </div>
+              <div>
+                <label style={lbl}>Category</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(5, 1fr)",
+                    gap: 8,
+                  }}
+                >
+                  {CATEGORY_OPTIONS.map(({ emoji, api }) => {
+                    const sel = formData.category === api;
+                    return (
+                      <button
+                        key={emoji + api}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, category: api }))
+                        }
+                        style={{
+                          background: sel ? `${A}15` : "rgba(255,255,255,0.04)",
+                          border: `1.5px solid ${sel ? A + "44" : "rgba(255,255,255,0.08)"}`,
+                          borderRadius: 14,
+                          padding: "12px 0",
+                          fontSize: 20,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          boxShadow: sel ? `0 0 12px ${A}22` : "none",
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <PrimaryBtn
+                onClick={() => setStep(2)}
+                disabled={!canProceedStep1}
+                style={{ flex: "none" }}
+              >
+                {canProceedStep1 ? "Continue →" : "Enter a description"}
+              </PrimaryBtn>
             </div>
+          )}
 
-            <div>
-              <label className="text-white mb-2 block">Spent in </label>
-              {formData.currencyType === "FIAT" ? (
+          {/* Step 2: Spent in (currency) */}
+          {step === 2 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  borderRadius: 14,
+                  padding: "14px 16px",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                }}
+              >
+                <p
+                  style={{
+                    color: T.mid,
+                    fontSize: 12,
+                    marginBottom: 2,
+                    fontWeight: 600,
+                  }}
+                >
+                  Group default
+                </p>
+                <p
+                  style={{
+                    color: T.body,
+                    fontSize: 13,
+                    fontWeight: 700,
+                  }}
+                >
+                  {formData.currency || "USD"}{" "}
+                  <span style={{ color: T.sub, fontWeight: 400 }}>
+                    — change below if needed
+                  </span>
+                </p>
+              </div>
+              <div>
+                <label style={lbl}>Spent in</label>
                 <CurrencyDropdown
                   selectedCurrencies={
                     formData.currency ? [formData.currency] : []
                   }
-                  setSelectedCurrencies={(currencies) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      currency: currencies[0] || "",
-                    }));
-                  }}
+                  setSelectedCurrencies={handleCurrencySelect}
                   showFiatCurrencies={true}
+                  disableChainCurrencies={false}
                   mode="single"
-                />
-              ) : (
-                <Select
-                  value={formData.currency}
-                  onValueChange={(value) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      currency: value,
-                    }))
-                  }
-                >
-                  <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                    <SelectValue placeholder="Select currency" />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#17171A] border-white/10">
-                    {isLoadingAll ? (
-                      <SelectItem value="loading">Loading...</SelectItem>
-                    ) : (
-                      (() => {
-                        const tokens =
-                          allCurrencies?.currencies?.filter(
-                            (c) =>
-                              c.type === "token" &&
-                              c.chainId === formData.chainId
-                          ) || [];
-                        return tokens.length > 0 ? (
-                          tokens.map((token) => (
-                            <SelectItem key={token.id} value={token.id}>
-                              {token.symbol} - {token.name}
-                            </SelectItem>
-                          ))
-                        ) : (
-                          <span className="block px-4 py-2 text-white/60">
-                            No tokens found
-                          </span>
-                        );
-                      })()
-                    )}
-                  </SelectContent>
-                </Select>
-              )}
-            </div>
-
-            {/* Time Lock-In toggle */}
-            <TimeLockToggle
-              value={formData.timeLockIn}
-              onChange={(val) =>
-                setFormData((prev) => ({ ...prev, timeLockIn: val }))
-              }
-              label="Lock exchange rate (Fix the value at current exchange rate)"
-            />
-
-            <div>
-              <label className="text-white mb-2 block">Who Paid</label>
-              <Select
-                value={formData.paidBy}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    paidBy: value,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select who paid" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#17171A] border-white/10">
-                  {members.map((member) => (
-                    <SelectItem
-                      key={member.id}
-                      value={member.id}
-                      className="text-white hover:bg-white/10"
-                    >
-                      {member.id === user?.id ? "You" : member.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div>
-              <label className="text-white mb-2 block">Choose Split Type</label>
-              <Select
-                value={formData.splitType}
-                onValueChange={(value) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    splitType: value,
-                  }))
-                }
-              >
-                <SelectTrigger className="w-full h-12 bg-[#17171A] text-white border-none focus:ring-1 focus:ring-white/20">
-                  <SelectValue placeholder="Select expense type" />
-                </SelectTrigger>
-                <SelectContent className="bg-[#17171A] border-white/10">
-                  <SelectItem
-                    value="equal"
-                    className="text-white hover:bg-white/10"
-                  >
-                    Equal Split
-                  </SelectItem>
-                  <SelectItem
-                    value="percentage"
-                    className="text-white hover:bg-white/10"
-                  >
-                    Percentage Split
-                  </SelectItem>
-                  <SelectItem
-                    value="custom"
-                    className="text-white hover:bg-white/10"
-                  >
-                    Custom Split
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Member splits list */}
-            <div className="max-h-[200px] overflow-y-auto space-y-4 pr-2">
-              {members.map((member) => {
-                const split = splits.find((s) => s.address === member.id);
-                const amount = split?.amount || 0;
-                const percentage = percentages[member.id] || 0;
-                return (
-                  <div
-                    key={member.id}
-                    className="flex items-center justify-between"
-                  >
-                    <div className="flex items-center space-x-3">
-                      <div className="h-10 w-10 overflow-hidden rounded-full">
-                        <Image
-                          src={
-                            member.image ||
-                            `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`
-                          }
-                          alt={member.name || "User"}
-                          width={40}
-                          height={40}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            const target = e.target as HTMLImageElement;
-                            target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`;
-                          }}
-                        />
-                      </div>
-                      <span className="text-white">
-                        {member.id === user?.id ? "You" : member.name}
-                      </span>
-                    </div>
-
-                    {formData.splitType === "custom" ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={amount || ""}
-                          onChange={(e) =>
-                            updateCustomSplit(member.id, Number(e.target.value))
-                          }
-                          className="w-20 h-8 px-2 rounded-lg bg-[#17171A] text-white border border-white/20 focus:outline-none focus:ring-1 focus:ring-white/40"
-                          placeholder="0.00"
-                        />
-                        <span className="text-white/70 text-sm">
-                          {formData.currency}
-                        </span>
-                      </div>
-                    ) : formData.splitType === "percentage" ? (
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          value={percentage || ""}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-                            if (value >= 0 && value <= 100) {
-                              updatePercentage(member.id, value);
-                            }
-                          }}
-                          className="w-16 h-8 px-2 rounded-lg bg-[#17171A] text-white border border-white/20 focus:outline-none focus:ring-1 focus:ring-white/40"
-                          placeholder="0"
-                        />
-                        <span className="text-white/70 text-sm">%</span>
-                        <span className="text-white/70 text-sm ml-1">
-                          ({formatCurrency(amount, formData.currency)})
-                        </span>
-                      </div>
-                    ) : (
-                      <div className="bg-[#17171A] rounded-lg px-3 py-1 min-w-[60px] text-white">
-                        {formatCurrency(amount, formData.currency)}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-
-              {/* Total summary for custom and percentage splits */}
-              {(formData.splitType === "custom" ||
-                formData.splitType === "percentage") && (
-                <div className="flex justify-between items-center mt-4 border-t border-white/10 pt-3">
-                  <span className="text-white">Total Split</span>
-                  <div className="flex items-center">
-                    <span
-                      className={`text-white ${
-                        validateSplits() ? "" : "text-red-500"
-                      }`}
-                    >
-                      {formatCurrency(
-                        splits.reduce(
-                          (sum, split) => sum + (split.amount || 0),
-                          0
-                        ),
-                        formData.currency
-                      )}{" "}
-                      /{" "}
-                      {formatCurrency(
-                        Number(formData.amount),
-                        formData.currency
-                      )}
-                    </span>
-
-                    {formData.splitType === "percentage" && (
-                      <span
-                        className={`ml-3 text-sm ${
-                          Math.abs(
-                            Object.values(percentages).reduce(
-                              (sum, p) => sum + p,
-                              0
-                            ) - 100
-                          ) < 0.01
-                            ? "text-green-500"
-                            : "text-red-500"
-                        }`}
-                      >
-                        (
-                        {Object.values(percentages)
-                          .reduce((sum, p) => sum + p, 0)
-                          .toFixed(0)}
-                        %)
-                      </span>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* Quick actions for distribution */}
-              {(formData.splitType === "custom" ||
-                formData.splitType === "percentage") && (
-                <div className="flex gap-2 mt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (formData.splitType === "custom") {
-                        // Distribute equally
-                        const equalAmount =
-                          Number(formData.amount) / members.length;
-                        members.forEach((member) => {
-                          updateCustomSplit(member.id, equalAmount);
-                        });
-                      } else {
-                        // Reset to equal percentages
-                        const equalPercentage = 100 / members.length;
-                        members.forEach((member) => {
-                          updatePercentage(member.id, equalPercentage);
-                        });
-                      }
-                    }}
-                    className="text-xs text-white/70 px-2 py-1 bg-[#17171A] rounded hover:bg-[#252525] transition-colors"
-                  >
-                    Equal
-                  </button>
-                  {formData.paidBy && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (formData.splitType === "custom") {
-                          // Paid by one, rest split the amount
-                          const otherMembers = members.filter(
-                            (m) => m.id !== formData.paidBy
-                          );
-                          const equalAmount =
-                            Number(formData.amount) / otherMembers.length;
-
-                          members.forEach((member) => {
-                            if (member.id === formData.paidBy) {
-                              updateCustomSplit(member.id, 0);
-                            } else {
-                              updateCustomSplit(member.id, equalAmount);
-                            }
-                          });
-                        } else {
-                          // Percentage version
-                          const otherMembers = members.filter(
-                            (m) => m.id !== formData.paidBy
-                          );
-                          const equalPercentage = 100 / otherMembers.length;
-
-                          members.forEach((member) => {
-                            if (member.id === formData.paidBy) {
-                              updatePercentage(member.id, 0);
-                            } else {
-                              updatePercentage(member.id, equalPercentage);
-                            }
-                          });
-                        }
-                      }}
-                      className="text-xs text-white/70 px-2 py-1 bg-[#17171A] rounded hover:bg-[#252525] transition-colors"
-                    >
-                      Paid by{" "}
-                      {formData.paidBy === user?.id
-                        ? "you"
-                        : getPaidByUserName(formData.paidBy)}
-                    </button>
-                  )}
-                </div>
-              )}
-            </div>
-
-            <div>
-              <label className="text-white mb-2 block">Description</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      description: e.target.value,
-                    }))
-                  }
-                  placeholder="What's this expense for?"
-                  className="w-full h-12 px-4 rounded-lg bg-[#17171A] text-white border-none focus:outline-none focus:ring-1 focus:ring-white/20"
-                  required
+                  placeholder="Select currency..."
                 />
               </div>
-            </div>
-
-            {/* Resolver Selector */}
-            <div>
-              <label className="text-white mb-2 block text-base font-semibold">
-                Settle in
-              </label>
-              <ResolverSelector
-                value={resolver}
-                onChange={handleResolverChange}
-              />
-            </div>
-
-            <Button
-              type="submit"
-              className="w-full h-12 rounded-full bg-white text-black font-medium hover:bg-white/90 transition-colors mt-6"
-              disabled={expenseMutation.isPending}
-            >
-              {expenseMutation.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Adding...
-                </>
-              ) : (
-                "Add Expense"
+              {formData.currencyType === "FIAT" && formData.currency && (
+                <div
+                  style={{
+                    background: "rgba(52,211,153,0.06)",
+                    border: "1px solid rgba(52,211,153,0.15)",
+                    borderRadius: 14,
+                    padding: "12px 16px",
+                    display: "flex",
+                    gap: 10,
+                  }}
+                >
+                  <span style={{ color: "#34D399", fontSize: 14 }}>ℹ</span>
+                  <p
+                    style={{
+                      color: "#34D399aa",
+                      fontSize: 12,
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Fiat amounts will be converted to the group&apos;s settlement
+                    currency at time of settling.
+                  </p>
+                </div>
               )}
-            </Button>
-          </form>
-        </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <StepBackBtn onClick={() => setStep(1)} />
+                <PrimaryBtn onClick={() => setStep(3)}>Continue →</PrimaryBtn>
+              </div>
+            </div>
+          )}
+
+          {/* Step 3: Amount + Paid by */}
+          {step === 3 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={lbl}>
+                  Amount{" "}
+                  <span style={{ color: A }}>({formData.currency || "USD"})</span>
+                </label>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1.5px solid rgba(255,255,255,0.09)",
+                    borderRadius: 14,
+                    padding: "14px 16px",
+                  }}
+                >
+                  <span
+                    style={{
+                      color: A,
+                      fontSize: 20,
+                      fontWeight: 800,
+                      marginRight: 10,
+                      minWidth: 24,
+                    }}
+                  >
+                    {getCurrencySymbol(formData.currency)}
+                  </span>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    value={formData.amount}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        amount: e.target.value,
+                      }))
+                    }
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#fff",
+                      fontSize: 26,
+                      fontWeight: 800,
+                      outline: "none",
+                      width: "100%",
+                      fontFamily: "inherit",
+                    }}
+                    autoFocus
+                  />
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Paid by</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: `repeat(${Math.min(members.length, 4)}, 1fr)`,
+                    gap: 8,
+                  }}
+                >
+                  {members.map((member) => {
+                    const init =
+                      member.id === user?.id
+                        ? "Y"
+                        : (member.name || "?")
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)
+                            .toUpperCase();
+                    const isSelected = formData.paidBy === member.id;
+                    return (
+                      <button
+                        key={member.id}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, paidBy: member.id }))
+                        }
+                        style={{
+                          padding: "10px 4px",
+                          background: isSelected ? `${A}18` : "rgba(255,255,255,0.04)",
+                          border: `1.5px solid ${isSelected ? A + "55" : "rgba(255,255,255,0.08)"}`,
+                          borderRadius: 14,
+                          cursor: "pointer",
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          gap: 6,
+                          transition: "all 0.2s",
+                          boxShadow: isSelected ? `0 0 14px ${A}22` : "none",
+                        }}
+                      >
+                        <div
+                          style={{
+                            width: 34,
+                            height: 34,
+                            borderRadius: "50%",
+                            background: isSelected ? A : "rgba(255,255,255,0.08)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            fontSize: 10,
+                            fontWeight: 800,
+                            color: isSelected ? "#0a0a0a" : T.body,
+                          }}
+                        >
+                          {init}
+                        </div>
+                        <span
+                          style={{
+                            color: isSelected ? A : T.sub,
+                            fontSize: 10,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {member.id === user?.id
+                            ? "You"
+                            : (member.name || "?").split(" ")[0]}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <StepBackBtn onClick={() => setStep(2)} />
+                <PrimaryBtn
+                  onClick={() => setStep(4)}
+                  disabled={!canProceedStep3}
+                >
+                  Continue →
+                </PrimaryBtn>
+              </div>
+            </div>
+          )}
+
+          {/* Step 4: Split method + participants (excluding payer) + Lock In + submit */}
+          {step === 4 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+              <div>
+                <label style={lbl}>Split method</label>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {(["equal", "custom", "percentage"] as const).map((type) => {
+                    const sel = formData.splitType === type;
+                    const label =
+                      type === "equal"
+                        ? "Equal"
+                        : type === "custom"
+                          ? "Custom"
+                          : "Percentage";
+                    return (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({ ...prev, splitType: type }))
+                        }
+                        style={{
+                          flex: 1,
+                          padding: "12px 14px",
+                          background: sel ? `${A}18` : "rgba(255,255,255,0.04)",
+                          border: `1.5px solid ${sel ? A + "44" : "rgba(255,255,255,0.08)"}`,
+                          borderRadius: 14,
+                          color: sel ? A : T.body,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div>
+                <label style={lbl}>Participants</label>
+                <Card
+                  style={{
+                    padding: 0,
+                    overflow: "hidden",
+                    background: "rgba(255,255,255,0.03)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                  }}
+                >
+                  <div
+                    style={{
+                      maxHeight: 200,
+                      overflowY: "auto",
+                      padding: "8px 0",
+                    }}
+                  >
+                    {members
+                      .filter((m) => m.id !== formData.paidBy)
+                      .map((member) => {
+                        const split = splits.find((s) => s.address === member.id);
+                        const amount = split?.amount || 0;
+                        const percentage = percentages[member.id] ?? 0;
+                        const isEqual = formData.splitType === "equal";
+                        const init =
+                          member.id === user?.id
+                            ? "Y"
+                            : (member.name || "?")
+                                .split(" ")
+                                .map((n) => n[0])
+                                .join("")
+                                .slice(0, 2)
+                                .toUpperCase();
+                        return (
+                          <div
+                            key={member.id}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              padding: "12px 18px",
+                              borderBottom:
+                                "1px solid rgba(255,255,255,0.06)",
+                              gap: 12,
+                            }}
+                          >
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 10,
+                                minWidth: 0,
+                              }}
+                            >
+                              <Avatar
+                                size={28}
+                                init={init}
+                                color={T.body}
+                              />
+                              <span
+                                style={{
+                                  color: T.body,
+                                  fontSize: 14,
+                                  fontWeight: 600,
+                                  overflow: "hidden",
+                                  textOverflow: "ellipsis",
+                                  whiteSpace: "nowrap",
+                                }}
+                              >
+                                {member.id === user?.id ? "You" : member.name}
+                              </span>
+                            </div>
+                            <div
+                              style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                              }}
+                            >
+                              {isEqual ? (
+                                <span
+                                  style={{
+                                    color: T.sub,
+                                    fontSize: 12,
+                                    fontWeight: 600,
+                                  }}
+                                >
+                                  Equal
+                                </span>
+                              ) : formData.splitType === "percentage" ? (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  max={100}
+                                  value={percentage || ""}
+                                  onChange={(e) => {
+                                    const value = Number(e.target.value);
+                                    if (value >= 0 && value <= 100) {
+                                      updatePercentage(member.id, value);
+                                    }
+                                  }}
+                                  style={{
+                                    width: 56,
+                                    padding: "6px 8px",
+                                    background: "rgba(255,255,255,0.06)",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    borderRadius: 8,
+                                    color: "#fff",
+                                    fontSize: 12,
+                                    textAlign: "right",
+                                    outline: "none",
+                                  }}
+                                />
+                              ) : (
+                                <input
+                                  type="number"
+                                  min={0}
+                                  step={0.01}
+                                  value={amount || ""}
+                                  onChange={(e) =>
+                                    updateCustomSplit(
+                                      member.id,
+                                      Number(e.target.value)
+                                    )
+                                  }
+                                  style={{
+                                    width: 72,
+                                    padding: "6px 8px",
+                                    background: "rgba(255,255,255,0.06)",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    borderRadius: 8,
+                                    color: "#fff",
+                                    fontSize: 12,
+                                    textAlign: "right",
+                                    outline: "none",
+                                  }}
+                                />
+                              )}
+                              {!isEqual && (
+                                <span
+                                  style={{
+                                    color: T.sub,
+                                    fontSize: 11,
+                                    width: 18,
+                                  }}
+                                >
+                                  {formData.splitType === "percentage"
+                                    ? "%"
+                                    : getCurrencySymbol(formData.currency)}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                </Card>
+              </div>
+              {(formData.splitType === "custom" ||
+                formData.splitType === "percentage") && (
+                <div
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    padding: "10px 0",
+                    borderTop: "1px solid rgba(255,255,255,0.06)",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ color: T.body, fontSize: 12, fontWeight: 600 }}>
+                    Total split
+                  </span>
+                  <span
+                    style={{
+                      color: canSubmit ? A : "#ef4444",
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {formatCurrency(
+                      splits.reduce((sum, s) => sum + (s.amount || 0), 0),
+                      formData.currency
+                    )}{" "}
+                    / {formatCurrency(Number(formData.amount), formData.currency)}
+                    {formData.splitType === "percentage" &&
+                      ` (${Object.values(percentages).reduce((a, b) => a + b, 0).toFixed(0)}%)`}
+                  </span>
+                </div>
+              )}
+              {isCrypto && (
+                <div>
+                  <TimeLockToggle
+                    value={formData.timeLockIn}
+                    onChange={(val) =>
+                      setFormData((prev) => ({ ...prev, timeLockIn: val }))
+                    }
+                    label="Lock exchange rate (Fix the value at current exchange rate)"
+                  />
+                </div>
+              )}
+              {isCrypto && (
+                <div>
+                  <label style={lbl}>Settle in</label>
+                  <ResolverSelector
+                    value={resolver}
+                    onChange={handleResolverChange}
+                  />
+                </div>
+              )}
+              <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                <StepBackBtn onClick={() => setStep(3)} />
+                <button
+                  type="submit"
+                  disabled={!canSubmit || expenseMutation.isPending}
+                  style={{
+                    flex: 2,
+                    padding: 13,
+                    background:
+                      !canSubmit || expenseMutation.isPending
+                        ? "rgba(255,255,255,0.05)"
+                        : A,
+                    color:
+                      !canSubmit || expenseMutation.isPending ? "#555" : "#0a0a0a",
+                    border: "none",
+                    borderRadius: 14,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor:
+                      canSubmit && !expenseMutation.isPending
+                        ? "pointer"
+                        : "default",
+                    fontFamily: "inherit",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {expenseMutation.isPending ? "Adding…" : "Add Expense ✓"}
+                </button>
+              </div>
+            </div>
+          )}
+        </form>
       </div>
     </div>
   );

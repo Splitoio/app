@@ -1,16 +1,72 @@
 "use client";
 
-import { useState } from "react";
-import { Loader2, ChevronDown, Check, X } from "lucide-react";
+import { useState, useRef, useLayoutEffect } from "react";
+import { createPortal } from "react-dom";
+import { Loader2, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import type { Currency } from "@/features/currencies/api/client";
+import { A, T } from "@/lib/splito-design";
+import { Icons } from "@/lib/splito-design";
+
+// Flag emoji for common fiat currencies (id/code -> emoji)
+const FIAT_FLAGS: Record<string, string> = {
+  USD: "🇺🇸",
+  EUR: "🇪🇺",
+  GBP: "🇬🇧",
+  JPY: "🇯🇵",
+  THB: "🇹🇭",
+  INR: "🇮🇳",
+  AUD: "🇦🇺",
+  CAD: "🇨🇦",
+  SGD: "🇸🇬",
+  CHF: "🇨🇭",
+  CNY: "🇨🇳",
+  KRW: "🇰🇷",
+  MXN: "🇲🇽",
+  BRL: "🇧🇷",
+};
+
+const getCurrencyFlag = (c: Currency): string => {
+  if (c.type !== "FIAT") return "";
+  return FIAT_FLAGS[c.id] || FIAT_FLAGS[c.symbol] || "💱";
+};
+
+// Chain ID → display name and icon for section headers (Fiat, Aptos, Solana, Stellar, Base, etc.)
+const CHAIN_DISPLAY: Record<string, { name: string; icon: string; color: string }> = {
+  stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
+  Stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
+  solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
+  Solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
+  aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
+  Aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
+  base: { name: "Base", icon: "🔵", color: "#3B82F6" },
+  Base: { name: "Base", icon: "🔵", color: "#3B82F6" },
+  ethereum: { name: "Ethereum", icon: "◆", color: "#818CF8" },
+  Ethereum: { name: "Ethereum", icon: "◆", color: "#818CF8" },
+  polygon: { name: "Polygon", icon: "⬟", color: "#A855F7" },
+  Polygon: { name: "Polygon", icon: "⬟", color: "#A855F7" },
+  // Numeric chain IDs (string keys)
+  "1": { name: "Ethereum", icon: "◆", color: "#818CF8" },
+  "137": { name: "Polygon", icon: "⬟", color: "#A855F7" },
+  "8453": { name: "Base", icon: "🔵", color: "#3B82F6" },
+};
+
+const CHAIN_ORDER = ["Stellar", "Solana", "Aptos", "Base", "Ethereum", "Polygon"];
+
+function getChainDisplay(chainId: string): { name: string; icon: string; color: string } {
+  const key = chainId.toString();
+  return (
+    CHAIN_DISPLAY[key] ||
+    CHAIN_DISPLAY[key.toLowerCase()] || { name: chainId, icon: "◆", color: T.mid }
+  );
+}
 
 const dropdownVariants = {
   hidden: {
     opacity: 0,
-    y: -5,
-    scale: 0.95,
+    y: -6,
+    scale: 0.98,
   },
   visible: {
     opacity: 1,
@@ -19,8 +75,8 @@ const dropdownVariants = {
   },
   exit: {
     opacity: 0,
-    y: -5,
-    scale: 0.95,
+    y: -6,
+    scale: 0.98,
   },
 };
 
@@ -44,6 +100,47 @@ export default function CurrencyDropdown({
   disableChainCurrencies = false,
 }: Props) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const triggerRef = useRef<HTMLDivElement>(null);
+  const [dropdownRect, setDropdownRect] = useState<{
+    top: number;
+    left: number;
+    width: number;
+    maxHeight: number;
+  } | null>(null);
+
+  useLayoutEffect(() => {
+    if (activeDropdown !== "currency" || !triggerRef.current) {
+      setDropdownRect(null);
+      setSearchQuery("");
+      return;
+    }
+    const el = triggerRef.current;
+    const rect = el.getBoundingClientRect();
+    const padding = 8;
+    const spaceBelow = window.innerHeight - rect.bottom - padding;
+    const spaceAbove = rect.top - padding;
+    const maxH = 320;
+    const maxHeight = Math.min(maxH, spaceBelow > spaceAbove ? spaceBelow : spaceAbove, window.innerHeight - padding * 2);
+    setDropdownRect({
+      top: spaceBelow >= maxH ? rect.bottom + 4 : rect.top - maxHeight - 4,
+      left: rect.left,
+      width: rect.width,
+      maxHeight: Math.max(120, maxHeight),
+    });
+  }, [activeDropdown]);
+
+  // Close on click outside
+  useLayoutEffect(() => {
+    if (activeDropdown !== "currency") return;
+    const handleClick = (e: MouseEvent) => {
+      if (triggerRef.current?.contains(e.target as Node)) return;
+      if ((e.target as Element).closest("[data-currency-dropdown-portal]")) return;
+      setActiveDropdown(null);
+    };
+    document.addEventListener("mousedown", handleClick, true);
+    return () => document.removeEventListener("mousedown", handleClick, true);
+  }, [activeDropdown]);
 
   const { data: organizedCurrencies, isLoading: isLoadingCurrencies } =
     useOrganizedCurrencies();
@@ -61,6 +158,22 @@ export default function CurrencyDropdown({
     : chainCurrencies;
 
   const currencies = [...filteredChainCurrencies, ...filteredFiatCurrencies];
+
+  // Build ordered list of chain IDs for section headers (Stellar, Solana, Aptos, Base, etc.)
+  const orderedChainIds = (() => {
+    const ids = Object.keys(chainGroups);
+    const byName = (a: string, b: string) => {
+      const nameA = getChainDisplay(a).name;
+      const nameB = getChainDisplay(b).name;
+      const iA = CHAIN_ORDER.indexOf(nameA);
+      const iB = CHAIN_ORDER.indexOf(nameB);
+      if (iA !== -1 && iB !== -1) return iA - iB;
+      if (iA !== -1) return -1;
+      if (iB !== -1) return 1;
+      return nameA.localeCompare(nameB);
+    };
+    return ids.sort(byName);
+  })();
 
   const toggleDropdown = (dropdown: string) => {
     setActiveDropdown(activeDropdown === dropdown ? null : dropdown);
@@ -88,203 +201,398 @@ export default function CurrencyDropdown({
     setSelectedCurrencies(newCurrencies);
   };
 
+  const matchesSearch = (c: Currency, q: string) => {
+    if (!q.trim()) return true;
+    const lower = q.toLowerCase().trim();
+    return [c.id, c.symbol, c.name].some(
+      (s) => s && String(s).toLowerCase().includes(lower)
+    );
+  };
+
+  const renderCurrencyRow = (
+    currency: Currency,
+    isFiat: boolean,
+    isSelected: boolean
+  ) => (
+    <button
+      key={currency.id}
+      type="button"
+      onClick={() => toggleCurrencySelection(currency.id)}
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 16px",
+        borderBottom: "1px solid rgba(255,255,255,0.04)",
+        cursor: "pointer",
+        background: isSelected ? "rgba(34,211,238,0.06)" : "transparent",
+        width: "100%",
+        textAlign: "left",
+        fontFamily: "inherit",
+        transition: "background 0.15s",
+        border: "none",
+      }}
+      onMouseEnter={(e) => {
+        if (!isSelected) e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+      }}
+      onMouseLeave={(e) => {
+        if (!isSelected) e.currentTarget.style.background = "transparent";
+      }}
+    >
+      <span style={{ fontSize: 17 }}>
+        {isFiat ? getCurrencyFlag(currency) : "◆"}
+      </span>
+      <span
+        style={{
+          fontWeight: 700,
+          fontSize: 13,
+          color: isSelected ? "#fff" : T.body,
+          minWidth: isFiat ? 36 : 44,
+        }}
+      >
+        {isFiat ? currency.id : currency.symbol}
+      </span>
+      <span
+        style={{
+          color: T.sub,
+          fontSize: 12,
+          flex: 1,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
+        {currency.name}
+      </span>
+      {isSelected && (
+        <span style={{ color: A, fontSize: 12, flexShrink: 0 }}>✓</span>
+      )}
+    </button>
+  );
+
   const renderCurrencyDropdown = () => {
     if (isLoadingCurrencies) {
       return (
-        <div className="px-4 py-3 text-white/60 flex items-center">
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
+        <div
+          style={{
+            padding: "16px 18px",
+            color: T.muted,
+            fontSize: 13,
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <Loader2
+            style={{ width: 16, height: 16, flexShrink: 0 }}
+            className="animate-spin"
+          />
           <span>Loading currencies...</span>
         </div>
       );
     }
 
-    // Use the cached organized currencies from our hook
-    const fiatCurrencies = organizedCurrencies?.fiatCurrencies || [];
-    const chainGroups = organizedCurrencies?.chainGroups || {};
-
-    // Apply filter if provided
-    const filteredFiatCurrencies = filterCurrencies
-      ? fiatCurrencies.filter(filterCurrencies)
-      : fiatCurrencies;
-
-    // Filter chain groups
-    const filteredChainGroups: Record<string, Currency[]> = {};
-    Object.entries(chainGroups).forEach(([chainId, currencies]) => {
-      const filteredCurrencies = filterCurrencies
-        ? currencies.filter(filterCurrencies)
-        : currencies;
-      if (filteredCurrencies.length > 0) {
-        filteredChainGroups[chainId] = filteredCurrencies;
-      }
-    });
+    const fiatList = filteredFiatCurrencies.filter((c) =>
+      matchesSearch(c, searchQuery)
+    );
+    // Per-chain filtered lists for sectioned display
+    const chainLists: { chainId: string; tokens: Currency[] }[] = orderedChainIds
+      .map((chainId) => {
+        const tokens = (chainGroups[chainId] || []).filter(
+          (c) =>
+            (filterCurrencies ? filterCurrencies(c) : true) &&
+            matchesSearch(c, searchQuery)
+        );
+        return { chainId, tokens };
+      })
+      .filter((g) => g.tokens.length > 0);
+    const cryptoList = filteredChainCurrencies.filter((c) =>
+      matchesSearch(c, searchQuery)
+    );
 
     return (
-      <>
-        {showFiatCurrencies && (
-          <>
-            <div className="px-4 py-2 text-sm text-white/50 font-medium">
-              Fiat
-            </div>
-            {filteredFiatCurrencies.map((currency) => (
-              <button
-                key={`fiat-${currency.id}`}
-                type="button"
-                className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-                  selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
-                }`}
-                onClick={() => toggleCurrencySelection(currency.id)}
+      <div
+        style={{
+          display: "flex",
+          flexDirection: "column",
+          maxHeight: 280,
+          overflow: "hidden",
+        }}
+      >
+        <div
+          style={{
+            padding: "10px 14px",
+            borderBottom: "1px solid rgba(255,255,255,0.06)",
+            display: "flex",
+            alignItems: "center",
+            gap: 8,
+          }}
+        >
+          <span style={{ color: T.muted, display: "flex" }}>
+            <Icons.search />
+          </span>
+          <input
+            type="text"
+            autoFocus
+            placeholder="Search currency…"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={(e) => e.stopPropagation()}
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              fontSize: 13,
+              outline: "none",
+              width: "100%",
+              fontFamily: "inherit",
+            }}
+          />
+        </div>
+        <div style={{ overflowY: "auto" }}>
+          {showFiatCurrencies && fiatList.length > 0 && (
+            <>
+              <div
+                style={{
+                  padding: "8px 16px 4px",
+                  color: T.dim,
+                  fontSize: 10,
+                  fontWeight: 700,
+                  letterSpacing: "0.1em",
+                  textTransform: "uppercase",
+                }}
               >
-                <div
-                  className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                    selectedCurrencies.includes(currency.id)
-                      ? "border-white bg-white"
-                      : "border-white/30 bg-transparent"
-                  } mr-3`}
-                >
-                  {selectedCurrencies.includes(currency.id) && (
-                    <Check className="h-3.5 w-3.5 text-black" />
+                Fiat
+              </div>
+              {fiatList.map((currency) =>
+                renderCurrencyRow(
+                  currency,
+                  true,
+                  selectedCurrencies.includes(currency.id)
+                )
+              )}
+            </>
+          )}
+          {showFiatCurrencies && fiatList.length === 0 && searchQuery.trim() && (
+            <div
+              style={{
+                padding: "12px 16px",
+                color: T.sub,
+                fontSize: 12,
+              }}
+            >
+              No matching fiat currencies
+            </div>
+          )}
+          {!disableChainCurrencies &&
+            chainLists.map(({ chainId, tokens }) => {
+              const { name: chainName, icon: chainIcon, color: chainColor } =
+                getChainDisplay(chainId);
+              return (
+                <div key={chainId}>
+                  <div
+                    style={{
+                      padding: "10px 16px 4px",
+                      color: T.dim,
+                      fontSize: 10,
+                      fontWeight: 700,
+                      letterSpacing: "0.1em",
+                      textTransform: "uppercase",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                    }}
+                  >
+                    <span style={{ color: chainColor }}>{chainIcon}</span>
+                    {chainName}
+                  </div>
+                  {tokens.map((currency) =>
+                    renderCurrencyRow(
+                      currency,
+                      false,
+                      selectedCurrencies.includes(currency.id)
+                    )
                   )}
                 </div>
-                <div>
-                  <span className="font-medium">{currency.id}</span>
-                  <span className="text-white/70"> • {currency.name}</span>
-                </div>
-              </button>
-            ))}
-          </>
-        )}
-
-        {/* Chain Currencies */}
-        {!disableChainCurrencies &&
-          Object.entries(filteredChainGroups).map(([chainId, currencies]) => (
-            <div key={`chain-${chainId}`}>
-              <div className="px-4 py-2 text-sm text-white/50 font-medium">
-                {chainId.charAt(0).toUpperCase() + chainId.slice(1).toLowerCase()}
-              </div>
-              {currencies.map((currency) => (
-                <button
-                  key={`chain-${chainId}-${currency.id}`}
-                  type="button"
-                  className={`w-full px-4 py-2 text-left text-white hover:bg-white/5 flex items-center ${
-                    selectedCurrencies.includes(currency.id) ? "bg-white/5" : ""
-                  }`}
-                  onClick={() => toggleCurrencySelection(currency.id)}
-                >
-                  <div
-                    className={`w-5 h-5 flex items-center justify-center rounded-md border ${
-                      selectedCurrencies.includes(currency.id)
-                        ? "border-white bg-white"
-                        : "border-white/30 bg-transparent"
-                    } mr-3`}
-                  >
-                    {selectedCurrencies.includes(currency.id) && (
-                      <Check className="h-3.5 w-3.5 text-black" />
-                    )}
-                  </div>
-                  <div>
-                    <span className="font-medium">{currency.symbol}</span>
-                    <span className="text-white/70"> • {currency.name}</span>
-                  </div>
-                </button>
-              ))}
+              );
+            })}
+          {!disableChainCurrencies && chainLists.length === 0 && searchQuery.trim() && (
+            <div
+              style={{
+                padding: "12px 16px",
+                color: T.sub,
+                fontSize: 12,
+              }}
+            >
+              No matching crypto
             </div>
-          ))}
-      </>
+          )}
+        </div>
+      </div>
     );
   };
 
   const defaultPlaceholder =
     mode === "single" ? "Select currency..." : "Select Payment Token...";
 
+  const isOpen = activeDropdown === "currency";
+  const selected =
+    selectedCurrencies.length > 0
+      ? currencies.find((c) => c.id === selectedCurrencies[0])
+      : null;
+
   return (
-    <div className="relative">
+    <div className="relative" ref={triggerRef}>
       <button
         type="button"
         onClick={() => toggleDropdown("currency")}
-        className="w-full min-h-12 bg-black border border-white/20 text-white rounded-lg px-4 py-2
-          flex items-center justify-between focus:outline-none focus:ring-1 focus:ring-white/40"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          width: "100%",
+          minHeight: 44,
+          background: "rgba(255,255,255,0.04)",
+          border: `1.5px solid ${isOpen ? "rgba(255,255,255,0.14)" : "rgba(255,255,255,0.08)"}`,
+          borderRadius: 14,
+          padding: "12px 16px",
+          cursor: "pointer",
+          transition: "all 0.2s",
+          fontFamily: "inherit",
+        }}
       >
         {mode === "single" ? (
-          // Single select mode - show selected currency inline
-          <span className="truncate text-left">
-            {isLoadingCurrencies ? (
-              "Loading currencies..."
-            ) : selectedCurrencies.length > 0 ? (
-              (() => {
-                const selected = currencies.find(
-                  (c) => c.id === selectedCurrencies[0]
-                );
-                return selected ? (
-                  <span>
-                    <span className="font-medium">
-                      {selected.type === "FIAT" ? selected.id : selected.symbol}
-                    </span>
-                    <span className="text-white/70"> • {selected.name}</span>
-                  </span>
-                ) : (
-                  selectedCurrencies[0]
-                );
-              })()
-            ) : (
-              <span className="text-white/70">
-                {placeholder || defaultPlaceholder}
-              </span>
-            )}
+          <span
+            style={{
+              color: selected ? T.bright : T.muted,
+              fontSize: 14,
+              fontWeight: 600,
+              overflow: "hidden",
+              textOverflow: "ellipsis",
+              whiteSpace: "nowrap",
+              textAlign: "left",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
+            {isLoadingCurrencies
+              ? "Loading currencies..."
+              : selected
+                ? `${selected.type === "FIAT" ? selected.id : selected.symbol} · ${selected.name}`
+                : placeholder || defaultPlaceholder}
           </span>
         ) : (
-          // Multi-select mode - show chips with wrapping
-          <div className="flex flex-wrap gap-2 items-center flex-1 min-w-0">
+          <div
+            style={{
+              display: "flex",
+              flexWrap: "wrap",
+              gap: 8,
+              alignItems: "center",
+              flex: 1,
+              minWidth: 0,
+            }}
+          >
             {isLoadingCurrencies ? (
-              <span className="py-1">Loading currencies...</span>
+              <span style={{ color: T.muted, fontSize: 13 }}>
+                Loading currencies...
+              </span>
             ) : selectedCurrencies.length > 0 ? (
               selectedCurrencies.map((currencyId) => {
-                const selected = currencies.find((c) => c.id === currencyId);
-                if (!selected) return null;
-
+                const c = currencies.find((x) => x.id === currencyId);
+                if (!c) return null;
                 return (
                   <div
                     key={currencyId}
-                    className="bg-white/10 rounded-md px-2 py-1 flex items-center flex-shrink-0"
+                    style={{
+                      background: "rgba(255,255,255,0.1)",
+                      borderRadius: 8,
+                      padding: "4px 8px 4px 8px",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      flexShrink: 0,
+                    }}
                   >
-                    <span className="font-medium mr-1 text-sm">
-                      {selected.type === "FIAT" ? selected.id : selected.symbol}
-                    </span>
-                    <div
-                      onClick={(e) => removeCurrency(currencyId, e)}
-                      className="text-white/70 hover:text-white cursor-pointer"
+                    <span
+                      style={{
+                        fontWeight: 700,
+                        fontSize: 12,
+                        color: "#fff",
+                      }}
                     >
-                      <X className="h-3 w-3" />
-                    </div>
+                      {c.type === "FIAT" ? c.id : c.symbol}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(e) => removeCurrency(currencyId, e)}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "rgba(255,255,255,0.7)",
+                        cursor: "pointer",
+                        padding: 0,
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      <X size={12} />
+                    </button>
                   </div>
                 );
               })
             ) : (
-              <span className="py-1 text-white/70">
+              <span style={{ color: T.muted, fontSize: 13 }}>
                 {placeholder || defaultPlaceholder}
               </span>
             )}
           </div>
         )}
-        <ChevronDown
-          className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
-            activeDropdown === "currency" ? "rotate-180" : ""
-          } ml-2 flex-shrink-0`}
-        />
+        <span
+          style={{
+            color: T.muted,
+            fontSize: 12,
+            transition: "transform 0.2s",
+            display: "inline-block",
+            transform: isOpen ? "rotate(180deg)" : "none",
+            marginLeft: 8,
+            flexShrink: 0,
+          }}
+        >
+          ▾
+        </span>
       </button>
 
-      <AnimatePresence>
-        {activeDropdown === "currency" && (
-          <motion.div
-            variants={dropdownVariants}
-            initial="hidden"
-            animate="visible"
-            exit="exit"
-            className="absolute top-full left-0 right-0 mt-1 bg-[#17171A] rounded-lg py-2 z-[9999] max-h-[320px] overflow-y-auto shadow-xl border border-white/10"
-          >
-            {renderCurrencyDropdown()}
-          </motion.div>
+      {typeof document !== "undefined" &&
+        activeDropdown === "currency" &&
+        dropdownRect &&
+        createPortal(
+          <AnimatePresence>
+            <motion.div
+              data-currency-dropdown-portal
+              variants={dropdownVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{
+                position: "fixed",
+                top: dropdownRect.top,
+                left: dropdownRect.left,
+                width: dropdownRect.width,
+                maxHeight: dropdownRect.maxHeight,
+                zIndex: 99999,
+                background: "#141414",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 18,
+                overflow: "hidden",
+                boxShadow: "0 20px 60px rgba(0,0,0,0.7)",
+              }}
+            >
+              {renderCurrencyDropdown()}
+            </motion.div>
+          </AnimatePresence>,
+          document.body
         )}
-      </AnimatePresence>
     </div>
   );
 }

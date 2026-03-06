@@ -1,21 +1,21 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
-import { useQueries } from "@tanstack/react-query";
+import Image from "next/image";
+import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
+import { ProfileDropdown } from "@/components/profile-dropdown";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
 import { useGetContractsByOrganization } from "@/features/business/hooks/use-contracts";
-import { getStreamsByOrganization } from "@/features/business/api/client";
-import { QueryKeys } from "@/lib/constants";
-import { Loader2, Users2, UserPlus, Building2, FileText, TrendingUp, FileSignature } from "lucide-react";
+import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
+import { Loader2, UserPlus, Building2, FileText, TrendingUp, FileSignature, ChevronsUpDown, Plus } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { OrganizationConnectionError } from "@/components/organization-connection-error";
 import { ContractNotifications } from "@/components/contract-notifications";
-
-const viewAllButtonClass =
-  "inline-flex items-center gap-1.5 sm:gap-2 rounded-full border border-white/80 px-3 sm:px-4 py-1.5 sm:py-2 hover:bg-white/[0.06] transition-colors text-white font-medium text-mobile-sm sm:text-base whitespace-nowrap flex-shrink-0";
+import { Card, SectionLabel, StatBox, T, A, Avatar } from "@/lib/splito-design";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
 
 function getConnectionErrorMessage(error: unknown): string {
   const msg = typeof (error as { message?: string })?.message === "string"
@@ -36,42 +36,56 @@ function isOrgAdmin(
   return membership?.role === "ADMIN";
 }
 
+const dropdownVariants = {
+  hidden: { opacity: 0, y: 4, scale: 0.98 },
+  visible: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: 4, scale: 0.98 },
+};
+
 export default function OrganizationDashboardPage() {
   const { user } = useAuthStore();
+  const [mobileOrgSwitcherOpen, setMobileOrgSwitcherOpen] = useState(false);
+  const mobileOrgSwitcherRef = useRef<HTMLDivElement>(null);
   const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
 
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (mobileOrgSwitcherRef.current && !mobileOrgSwitcherRef.current.contains(e.target as Node)) {
+        setMobileOrgSwitcherOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const orgIds = organizations.map((o) => o.id);
-  const firstOrgId = orgIds[0] ?? "";
-  const adminOrgIds = organizations.filter((o) => o.userId === user?.id).map((o) => o.id);
+  const selectedOrgId = orgIds[0] ?? "";
+  const selectedOrg = organizations.find((o) => o.id === selectedOrgId);
   const hasAdminOrg = organizations.some((o) => isOrgAdmin(o, user?.id ?? ""));
-  const firstOrgIdForAdmin = hasAdminOrg ? firstOrgId : "";
+  const isAdminOfSelectedOrg = selectedOrg ? isOrgAdmin(selectedOrg, user?.id ?? "") : false;
 
-  const { data: invoicesFirstOrg = [] } = useGetInvoicesByOrganization(firstOrgIdForAdmin);
-  const { data: contractsFirstOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(firstOrgIdForAdmin);
+  const { data: invoicesForOrg = [] } = useGetInvoicesByOrganization(isAdminOfSelectedOrg ? selectedOrgId : "");
+  const { data: contractsForOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(selectedOrgId);
 
-  const streamQueries = useQueries({
-    queries: adminOrgIds.map((orgId) => ({
-      queryKey: [QueryKeys.STREAMS, orgId],
-      queryFn: () => getStreamsByOrganization(orgId),
-      enabled: !!orgId,
-    })),
+  const { data: streamsForOrg = [], isLoading: streamsLoading } = useGetStreamsByOrganization(selectedOrgId, {
+    enabled: !!selectedOrgId && isAdminOfSelectedOrg,
   });
-  const allStreams = streamQueries.flatMap((q) => q.data ?? []);
-  const streamsLoading = streamQueries.some((q) => q.isLoading);
-  const totalStreamsCount = allStreams.length;
-  const expectedUsd = allStreams
+
+  const memberCountForOrg = selectedOrg ? (selectedOrg.groupUsers?.length ?? 0) : 0;
+  const totalStreamsCount = streamsForOrg.length;
+  const expectedUsd = streamsForOrg
     .filter((s) => s.currency === "USD" && s.expectedAmount != null)
     .reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
-  const streamsWithAmount = allStreams.filter((s) => s.expectedAmount != null).length;
+  const streamsWithAmount = streamsForOrg.filter((s) => s.expectedAmount != null).length;
 
-  const totalOutstanding = invoicesFirstOrg
+  const totalOutstanding = invoicesForOrg
     .filter((i) => i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED")
     .reduce((sum, i) => sum + i.amount, 0);
-  const currencyFirst = invoicesFirstOrg[0]?.currency ?? "USD";
-  const pendingCount = invoicesFirstOrg.filter(
+  const currencyFirst = invoicesForOrg[0]?.currency ?? "USD";
+  const pendingCount = invoicesForOrg.filter(
     (i) => i.status === "DRAFT" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED"
   ).length;
-  const totalInvoicesFirstOrg = invoicesFirstOrg.length;
+  const totalInvoicesForOrg = invoicesForOrg.length;
 
   const membersMap = new Map<string, { id: string; name: string | null; image: string | null; email: string | null; orgNames: string[] }>();
   organizations.forEach((org) => {
@@ -96,238 +110,205 @@ export default function OrganizationDashboardPage() {
   }
 
   return (
-    <div className="w-full">
-      <div className="py-4 sm:py-6 mb-4 sm:mb-6">
-        <div className="flex items-center justify-between">
-          <h2 className="text-mobile-base sm:text-xl text-white max-w-[60%]">
-            {isOrgsLoading ? (
-              <div className="flex items-center gap-2">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Loading...
-              </div>
-            ) : (
-              "Organization dashboard"
-            )}
-          </h2>
-          <div className="flex items-center gap-2">
-            <ContractNotifications />
-            <Link href="/organization/settings" className="cursor-pointer">
-              <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 hover:opacity-80 transition-opacity">
-                <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
-                  {user?.image ? (
-                    <Image src={user.image} alt="Profile" width={56} height={56} className="h-full w-full object-cover" />
-                  ) : (
-                    <Image
-                      src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user?.id || user?.email || "user"}`}
-                      alt="Profile"
-                      width={56}
-                      height={56}
-                      className="h-full w-full"
-                    />
-                  )}
-                </div>
-              </div>
-            </Link>
-          </div>
-        </div>
-      </div>
-
-      {/* Stats: Team for everyone; Invoices, Streams, Contracts for admin only */}
+    <div className="w-full flex flex-col min-w-0">
       <div
-        className={`grid grid-cols-1 gap-5 sm:gap-6 lg:gap-8 mb-6 sm:mb-8 ${hasAdminOrg ? (adminOrgIds.length > 0 ? "sm:grid-cols-2" : "sm:grid-cols-3") : ""}`}
+        className="border-b border-white/[0.07] flex items-center justify-between gap-3 h-14 sm:h-[70px] px-4 sm:px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
       >
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
-          <div className="flex items-center gap-2 text-white/60 mb-4">
-            <Building2 className="h-5 w-5 sm:h-6 sm:w-6" />
-            <span className="text-sm sm:text-base font-medium">Team</span>
+        {/* Mobile: org switcher; Desktop: "Organization dashboard" */}
+        <div className="my-10 min-w-0 flex-1 flex items-center min-[1025px]:flex-initial">
+          <div className="hidden sm:block">
+            <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
+              {isOrgsLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />
+                  Loading...
+                </span>
+              ) : (
+                "Organization dashboard"
+              )}
+            </h1>
           </div>
-          <div className="flex justify-between gap-4">
-            <div>
-              <p className="text-white/50 text-xs sm:text-sm">Organizations</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {isOrgsLoading ? "—" : organizations.length}
-              </p>
-            </div>
-            <div>
-              <p className="text-white/50 text-xs sm:text-sm">Members</p>
-              <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                {isOrgsLoading ? "—" : members.length}
-              </p>
-            </div>
+          <div className="relative sm:hidden flex-1 min-w-0 max-w-[calc(100%-100px)]" ref={mobileOrgSwitcherRef}>
+            {isOrgsLoading ? (
+              <span className="flex items-center gap-2 text-white">
+                <Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} />
+                Loading...
+              </span>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setMobileOrgSwitcherOpen((v) => !v)}
+                  className={cn(
+                    "flex w-full items-center gap-2 py-2 pr-2.5 pl-2.5 rounded-xl text-left transition-colors",
+                    "bg-white/[0.05] border border-white/[0.07]",
+                    "hover:bg-white/[0.07] hover:border-white/[0.1]",
+                    mobileOrgSwitcherOpen && "bg-white/[0.07] border-white/[0.1]"
+                  )}
+                  style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                >
+                  <Avatar
+                    init={selectedOrg ? selectedOrg.name.charAt(0).toUpperCase() : "?"}
+                    color={A}
+                    size={32}
+                    className="shrink-0"
+                  />
+                  <div className="min-w-0 flex-1 py-0.5">
+                    <p className="text-[13px] font-bold truncate text-white leading-tight">
+                      {selectedOrg?.name ?? "Select organization"}
+                    </p>
+                    <p className="text-[10px] truncate leading-tight mt-0.5" style={{ color: T.muted }}>Organization</p>
+                  </div>
+                  <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60 ml-0.5" style={{ color: T.muted }} strokeWidth={1.5} />
+                </button>
+                <AnimatePresence>
+                  {mobileOrgSwitcherOpen && (
+                    <motion.div
+                      variants={dropdownVariants}
+                      initial="hidden"
+                      animate="visible"
+                      exit="exit"
+                      className="absolute left-0 top-full mt-1 rounded-xl bg-[#17171A] border border-white/10 shadow-xl py-2 z-[1001] max-h-[280px] overflow-y-auto min-w-[200px]"
+                    >
+                      <div className="px-4 py-2 mb-1">
+                        <p className="text-xs text-white/40 uppercase tracking-wider font-medium">Organizations</p>
+                      </div>
+                      {organizations.length === 0 ? (
+                        <div className="px-4 py-3 text-sm text-white/60">No organizations</div>
+                      ) : (
+                        organizations.map((org) => (
+                          <Link
+                            key={org.id}
+                            href={`/organization/${org.id}/invoices`}
+                            onClick={() => setMobileOrgSwitcherOpen(false)}
+                            className={cn(
+                              "flex items-center gap-3 px-4 py-2.5 text-sm transition-colors",
+                              org.id === selectedOrgId
+                                ? "bg-white/10 text-white"
+                                : "text-white/90 hover:bg-white/5 hover:text-white"
+                            )}
+                          >
+                            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-bold shrink-0">
+                              {org.name.charAt(0).toUpperCase()}
+                            </div>
+                            <span className="truncate">{org.name}</span>
+                          </Link>
+                        ))
+                      )}
+                      <Link
+                        href="/organization/create"
+                        onClick={() => setMobileOrgSwitcherOpen(false)}
+                        className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/60 hover:bg-white/5 hover:text-white transition-colors"
+                      >
+                        <Plus className="h-4 w-4" strokeWidth={1.5} />
+                        Create organization
+                      </Link>
+                      <div className="border-t border-white/10 mt-2 pt-2">
+                        <Link
+                          href="/organization/organizations"
+                          onClick={() => setMobileOrgSwitcherOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-sm text-white/80 hover:bg-white/5 hover:text-white transition-colors"
+                        >
+                          Manage all organizations
+                        </Link>
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </>
+            )}
           </div>
         </div>
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-1">
+          <ContractNotifications />
+          {user && (
+            <ProfileDropdown
+              user={user}
+              profileHref="/settings"
+              avatarSizeClass="h-10 w-10 sm:h-14 sm:w-14"
+            />
+          )}
+        </div>
+      </div>
+
+      <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
+      {/* Stats */}
+      <div className="grid gap-4 sm:gap-5 mb-5 sm:mb-7" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
+        <Card className="p-4 sm:p-[22px]">
+          <div className="flex items-center gap-2 mb-4">
+            <Building2 style={{ width: 18, height: 18, color: T.muted }} />
+            <span className="text-sm font-medium" style={{ color: T.muted }}>Team</span>
+          </div>
+          <StatBox label="Members" value={isOrgsLoading || !selectedOrgId ? "—" : String(memberCountForOrg)} color={T.bright} />
+        </Card>
         {hasAdminOrg && (
-          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
-            <div className="flex items-center gap-2 text-white/60 mb-4">
-              <FileText className="h-5 w-5 sm:h-6 sm:w-6" />
-              <span className="text-sm sm:text-base font-medium">Invoices</span>
+          <Card className="p-4 sm:p-[22px]">
+            <div className="flex items-center gap-2 mb-4">
+              <FileText style={{ width: 18, height: 18, color: T.muted }} />
+              <span className="text-sm font-medium" style={{ color: T.muted }}>Invoices</span>
             </div>
-            <div className="flex justify-between gap-4">
-              <div>
-                <p className="text-white/50 text-xs sm:text-sm">Total</p>
-                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {totalInvoicesFirstOrg}
-                </p>
-                {organizations.length > 1 && (
-                  <p className="text-white/50 text-xs mt-0.5">First org</p>
-                )}
-              </div>
-              <div>
-                <p className="text-white/50 text-xs sm:text-sm">Outstanding</p>
-                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {invoicesFirstOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"}
-                </p>
-                {pendingCount > 0 && (
-                  <p className="text-white/50 text-xs mt-0.5">{pendingCount} pending</p>
-                )}
-              </div>
+            <div className="flex justify-between gap-4 flex-wrap">
+              <StatBox label="Total" value={String(totalInvoicesForOrg)} color={T.bright} />
+              <StatBox label="Outstanding" value={invoicesForOrg.length > 0 ? formatCurrency(totalOutstanding, currencyFirst) : "—"} color={T.bright} />
             </div>
-          </div>
+            {pendingCount > 0 && <p className="text-xs mt-2" style={{ color: T.muted }}>{pendingCount} pending</p>}
+          </Card>
         )}
-        {adminOrgIds.length > 0 && (
-          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
-            <div className="flex items-center gap-2 text-white/60 mb-4">
-              <TrendingUp className="h-5 w-5 sm:h-6 sm:w-6" />
-              <span className="text-sm sm:text-base font-medium">Income streams</span>
+        {selectedOrgId && isAdminOfSelectedOrg && (
+          <Card className="p-4 sm:p-[22px]">
+            <div className="flex items-center gap-2 mb-4">
+              <TrendingUp style={{ width: 18, height: 18, color: T.muted }} />
+              <span className="text-sm font-medium" style={{ color: T.muted }}>Income streams</span>
             </div>
-            <div className="flex justify-between gap-4">
-              <div>
-                <p className="text-white/50 text-xs sm:text-sm">Streams</p>
-                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {streamsLoading ? "—" : totalStreamsCount}
-                </p>
-                {!streamsLoading && streamsWithAmount > 0 && (
-                  <p className="text-white/50 text-xs mt-0.5">{streamsWithAmount} with amount</p>
-                )}
-              </div>
-              <div>
-                <p className="text-white/50 text-xs sm:text-sm">Amount (USD)</p>
-                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {streamsLoading ? "—" : expectedUsd > 0 ? formatCurrency(expectedUsd, "USD") : "—"}
-                </p>
-              </div>
+            <div className="flex justify-between gap-4 flex-wrap">
+              <StatBox label="Streams" value={streamsLoading ? "—" : String(totalStreamsCount)} color={T.bright} />
+              <StatBox label="Amount (USD)" value={streamsLoading ? "—" : expectedUsd > 0 ? formatCurrency(expectedUsd, "USD") : "—"} color={T.bright} />
             </div>
-          </div>
+            {!streamsLoading && streamsWithAmount > 0 && <p className="text-xs mt-2" style={{ color: T.muted }}>{streamsWithAmount} with amount</p>}
+          </Card>
         )}
         {hasAdminOrg && (
-          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-5 sm:p-6 lg:p-7 border border-white/5 min-w-0">
-            <div className="flex items-center gap-2 text-white/60 mb-4">
-              <FileSignature className="h-5 w-5 sm:h-6 sm:w-6" />
-              <span className="text-sm sm:text-base font-medium">Contracts</span>
+          <Card className="p-4 sm:p-[22px]">
+            <div className="flex items-center gap-2 mb-4">
+              <FileSignature style={{ width: 18, height: 18, color: T.muted }} />
+              <span className="text-sm font-medium" style={{ color: T.muted }}>Contracts</span>
             </div>
-            <div className="flex flex-col gap-2">
-              <div>
-                <p className="text-white/50 text-xs sm:text-sm">Total (first org)</p>
-                <p className="text-xl sm:text-2xl font-semibold text-white tabular-nums">
-                  {contractsLoading ? "—" : contractsFirstOrg.length}
-                </p>
-              </div>
-              {firstOrgId && (
-                <Link
-                  href={`/organization/${firstOrgId}/contracts`}
-                  className="text-white/70 hover:text-white text-sm font-medium mt-1 inline-flex items-center gap-1"
-                >
-                  View contracts
-                  <span className="text-white/50">→</span>
-                </Link>
-              )}
-            </div>
-          </div>
+            <StatBox label="Total" value={contractsLoading ? "—" : String(contractsForOrg.length)} color={T.bright} />
+            {selectedOrgId && <Link href={`/organization/${selectedOrgId}/contracts`} className="text-sm font-medium mt-2 inline-flex items-center gap-1" style={{ color: A }}>View contracts →</Link>}
+          </Card>
         )}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_420px] gap-4 sm:gap-6">
-        <div className="space-y-4 sm:space-y-6">
-          <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6">
-            <div className="flex items-center justify-between mb-4 sm:mb-8">
-              <h2 className="text-xl sm:text-2xl font-semibold text-white">Your Members</h2>
-              <Link href="/organization/members" className={viewAllButtonClass}>
-                <UserPlus className="h-4 w-4 sm:h-5 sm:w-5" />
-                <span>View All</span>
-              </Link>
-            </div>
-            <div className="space-y-4 sm:space-y-8">
-              {isOrgsLoading ? (
-                <div className="flex items-center justify-center p-8">
-                  <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
-                </div>
-              ) : members.length > 0 ? (
-                members.slice(0, 5).map((member) => (
-                  <div key={member.id} className="flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full">
-                        <Image
-                          src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`}
-                          alt={member.name || "Member"}
-                          width={56}
-                          height={56}
-                          className="h-full w-full object-cover"
-                        />
-                      </div>
-                      <div>
-                        <p className="text-mobile-base sm:text-xl text-white font-medium">{member.name || member.email || "Member"}</p>
-                        <p className="text-mobile-sm sm:text-base text-white/60">{member.orgNames.join(", ")}</p>
-                      </div>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
-                  No members yet. Create an organization and add members to get started.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        <div className="rounded-2xl sm:rounded-3xl bg-[#101012] p-4 sm:p-6 min-w-0">
-          <div className="flex items-center justify-between gap-3 mb-4 sm:mb-8">
-            <h2 className="text-xl sm:text-2xl font-semibold text-white truncate min-w-0">Your Organizations</h2>
-            <Link href="/organization/organizations" className={viewAllButtonClass}>
-              <Users2 className="h-4 w-4 sm:h-5 sm:w-5" />
+        <Card className="p-4 sm:p-[22px]">
+          <div className="flex justify-between items-center mb-4">
+            <SectionLabel>Your Members</SectionLabel>
+            <Link href="/organization/members" className="flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-medium" style={{ borderColor: "rgba(255,255,255,0.2)", color: T.body }}>
+              <UserPlus className="h-4 w-4" />
               <span>View All</span>
             </Link>
           </div>
-          <div className="space-y-4 sm:space-y-6">
-            {isOrgsLoading ? (
-              <div className="flex items-center justify-center p-6 sm:p-8">
-                <Loader2 className="h-5 w-5 sm:h-6 sm:w-6 animate-spin text-white/50" />
+          <div className="space-y-4">
+          {isOrgsLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.muted }} />
+            </div>
+          ) : members.length > 0 ? (
+            members.slice(0, 5).map((member) => (
+              <div key={member.id} className="flex items-center gap-4 py-2.5 border-b border-white/[0.06] last:border-b-0">
+                <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.08]">
+                  <Image src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`} alt={member.name || "Member"} width={48} height={48} className="h-full w-full object-cover" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[15px] font-bold truncate" style={{ color: T.bright }}>{member.name || member.email || "Member"}</p>
+                  <p className="text-[13px] font-medium truncate" style={{ color: T.muted }}>{member.orgNames.join(", ")}</p>
+                </div>
               </div>
-            ) : organizations.length > 0 ? (
-              organizations.slice(0, 4).map((org) => (
-                <Link href={`/organization/${org.id}/invoices`} key={org.id}>
-                  <div className="flex items-center justify-between hover:bg-white/[0.02] p-2 sm:p-3 rounded-lg transition-colors">
-                    <div className="flex items-center gap-3 sm:gap-4">
-                      <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-xl bg-white/[0.03]">
-                        {org.image ? (
-                          <Image src={org.image} alt={org.name} width={56} height={56} className="h-full w-full object-cover" />
-                        ) : (
-                          <Image
-                            src={`https://api.dicebear.com/9.x/identicon/svg?seed=${org.id}`}
-                            alt={org.name}
-                            width={56}
-                            height={56}
-                            className="h-full w-full"
-                          />
-                        )}
-                      </div>
-                      <div>
-                        <p className="text-mobile-base sm:text-xl text-white font-medium">{org.name}</p>
-                        <p className="text-mobile-sm sm:text-base text-white/60">
-                          {(org.groupUsers || []).length} member{(org.groupUsers || []).length !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              ))
-            ) : (
-              <div className="text-white/70 text-center py-6 sm:py-8 text-mobile-sm sm:text-base">
-                No organizations yet. Create one to get started!
-              </div>
-            )}
-          </div>
+            ))
+          ) : (
+            <p className="text-center py-6 text-sm" style={{ color: T.body }}>No members yet. Create an organization and add members to get started.</p>
+          )}
         </div>
+        </Card>
       </div>
     </div>
   );

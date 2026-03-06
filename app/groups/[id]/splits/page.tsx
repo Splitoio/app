@@ -1,306 +1,247 @@
 "use client";
 
-import Image from "next/image";
-import { Clock, ChevronDown, ChevronUp } from "lucide-react";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
-import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+import {
+  Card,
+  SectionLabel,
+  Avatar,
+  Tag,
+  Btn,
+  Icons,
+  G,
+  T,
+} from "@/lib/splito-design";
 
-type BalanceItem = { amount: number; currency: string };
-
-type ExpenseForBreakdown = {
+type ExpenseWithParticipants = {
   id: string;
   name: string;
+  category: string;
   amount: number;
   currency: string;
   paidBy: string;
+  expenseDate: Date | string;
   createdAt: Date | string;
   splitType?: string;
   expenseParticipants?: { userId: string; amount: number }[];
 };
 
-function FriendBalanceRow({
-  friend,
-  owedBalances,
-  oweBalances,
-  defaultCurrency,
-  formatCurrency,
-  onNotify,
-  onSettle,
-  onMarkAsPaid,
-  isSending,
-  isMarkAsPaidPending,
-  expenses,
+const CATEGORY_STYLES: Record<string, { bg: string; icon: string }> = {
+  ACCOMMODATION: { bg: "rgba(255,255,255,0.06)", icon: "🏠" },
+  FOOD: { bg: "rgba(255,255,255,0.06)", icon: "🍽" },
+  TRAVEL: { bg: "rgba(255,255,255,0.06)", icon: "🚗" },
+  TRANSPORT: { bg: "rgba(255,255,255,0.06)", icon: "🚗" },
+};
+
+function getCategoryStyle(category: string) {
+  const key = (category || "").toUpperCase();
+  return (
+    CATEGORY_STYLES[key] ||
+    CATEGORY_STYLES[key.split(/[\s-_]/)[0]] || { bg: "rgba(255,255,255,0.06)", icon: "🧾" }
+  );
+}
+
+function formatDateKey(d: Date | string): string {
+  const date = typeof d === "string" ? new Date(d) : d;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" }).toUpperCase();
+}
+
+function ExpenseRow({
+  expense,
   groupUsers,
   currentUserId,
   currentUserName,
+  formatCurrency,
+  onNotify,
+  onSettle,
+  onDelete,
+  isLast,
 }: {
-  friend: { id: string; name: string | null; image: string | null };
-  owedBalances: BalanceItem[];
-  oweBalances: BalanceItem[];
-  defaultCurrency: string;
-  formatCurrency: (amount: number, currencyId: string) => string;
-  onNotify: () => void;
-  onSettle: () => void;
-  onMarkAsPaid: (payload: {
-    payerId: string;
-    payeeId: string;
-    amount: number;
-    currency: string;
-    currencyType: string;
-  }) => void;
-  isSending: boolean;
-  isMarkAsPaidPending: boolean;
-  expenses: ExpenseForBreakdown[];
+  expense: ExpenseWithParticipants;
   groupUsers: { user: { id: string; name: string | null; image: string | null } }[];
   currentUserId: string;
   currentUserName: string | null;
+  formatCurrency: (amount: number, currency: string) => string;
+  onNotify: () => void;
+  onSettle: () => void;
+  onDelete: () => void;
+  isLast: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
 
-  const { total: totalOwed, isLoading: loadingOwed } = useConvertedBalanceTotal(
-    owedBalances.map((b) => ({ amount: b.amount, currency: b.currency })),
-    defaultCurrency
-  );
-  const { total: totalOwe, isLoading: loadingOwe } = useConvertedBalanceTotal(
-    oweBalances.map((b) => ({ amount: Math.abs(b.amount), currency: b.currency })),
-    defaultCurrency
-  );
+  const paidByUser = groupUsers.find((gu) => gu.user.id === expense.paidBy)?.user;
+  const paidByName =
+    expense.paidBy === currentUserId ? (currentUserName || "You") : (paidByUser?.name ?? "Someone");
 
-  const hasOwedBalances = owedBalances.length > 0;
-  const hasOweBalances = oweBalances.length > 0;
-  const converting = loadingOwed || loadingOwe;
+  const participants = expense.expenseParticipants ?? [];
+  const oweCount = participants.filter((p) => p.amount > 0).length;
+  const settledCount = 0;
+  const settledLabel = `${settledCount}/${oweCount} settled`;
 
-  const expensesWithFriend = useMemo(() => {
-    return expenses.filter((exp) => {
-      if (exp.splitType === "SETTLEMENT") return false;
-      const paidByMe = exp.paidBy === currentUserId;
-      const paidByFriend = exp.paidBy === friend.id;
-      const participants = exp.expenseParticipants ?? [];
-      const myPart = participants.find((p) => p.userId === currentUserId);
-      const friendPart = participants.find((p) => p.userId === friend.id);
-      const involvesMe = paidByMe || (myPart != null && myPart.amount !== 0);
-      const involvesFriend = paidByFriend || (friendPart != null && friendPart.amount !== 0);
-      return involvesMe && involvesFriend;
-    });
-  }, [expenses, currentUserId, friend.id]);
+  const myShare = participants.find((p) => p.userId === currentUserId)?.amount ?? 0;
+  const iAmPayer = expense.paidBy === currentUserId;
+  const owedToMe = iAmPayer ? participants.filter((p) => p.amount > 0).reduce((s, p) => s + p.amount, 0) : 0;
+  const pending = participants.filter((p) => p.amount > 0).reduce((a, p) => a + p.amount, 0);
+
+  const categoryStyle = getCategoryStyle(expense.category);
+
+  const statusLine = (() => {
+    if (myShare > 0 && !iAmPayer) return { text: `you owe ${formatCurrency(myShare, expense.currency)}`, color: "#F87171" };
+    if (iAmPayer && pending > 0) return { text: `owed ${formatCurrency(pending, expense.currency)}`, color: G };
+    if (iAmPayer && pending === 0) return { text: "all settled ✓", color: G };
+    return null;
+  })();
 
   return (
-    <div className="rounded-xl overflow-hidden">
-      <div className="flex items-center justify-between p-3 sm:p-4">
-        <button
-          type="button"
-          onClick={() => setExpanded((e) => !e)}
-          className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 text-left"
+    <div style={{ borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.06)" }}>
+      <button
+        type="button"
+        onClick={() => setExpanded((e) => !e)}
+        className="w-full text-left transition-colors hover:bg-white/[0.02]"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 14,
+          padding: "16px 22px",
+          cursor: "pointer",
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            background: categoryStyle.bg,
+            border: "1px solid rgba(255,255,255,0.09)",
+            borderRadius: 14,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: 24,
+            flexShrink: 0,
+          }}
         >
-          <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full flex-shrink-0">
-            <Image
-              src={
-                friend.image ||
-                `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`
-              }
-              alt={friend.name || "User"}
-              width={48}
-              height={48}
-              className="h-full w-full object-cover"
-              onError={(e) => {
-                const target = e.target as HTMLImageElement;
-                target.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${friend.id}`;
-              }}
-            />
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="text-mobile-base sm:text-lg font-medium text-white">
-              {friend.name}
+          {categoryStyle.icon}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p style={{ fontWeight: 700, fontSize: 14, color: T.bright, marginBottom: 4 }}>
+            {expense.name}
+          </p>
+          <p style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
+            Paid by {paidByName} · {settledLabel}
+          </p>
+        </div>
+        <div style={{ textAlign: "right", flexShrink: 0, marginRight: 8 }}>
+          <p
+            style={{
+              fontWeight: 800,
+              fontSize: 15,
+              color: T.bright,
+              fontFamily: "'DM Mono',monospace",
+            }}
+          >
+            {formatCurrency(expense.amount, expense.currency)}
+          </p>
+          {statusLine && (
+            <p style={{ fontSize: 12, color: statusLine.color, fontWeight: 600, marginTop: 2 }}>
+              {statusLine.text}
             </p>
-            {hasOwedBalances && (
-              <div className="text-mobile-sm sm:text-base text-white/70">
-                <span className="text-red-500">
-                  You owe{" "}
-                  {converting ? "…" : formatCurrency(totalOwed, defaultCurrency)}
-                </span>
-              </div>
-            )}
-            {hasOweBalances && (
-              <div className="text-mobile-sm sm:text-base text-white/70">
-                <span className="text-green-500">
-                  Owes you{" "}
-                  {converting ? "…" : formatCurrency(totalOwe, defaultCurrency)}
-                </span>
-              </div>
-            )}
-          </div>
-          <span className="text-white/50 flex-shrink-0 ml-1">
-            {expanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-          </span>
-        </button>
-
-        <div className="flex items-center gap-2 flex-shrink-0 ml-2">
-          {hasOweBalances && (
-            <button
-              className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-              onClick={(e) => {
-                e.stopPropagation();
-                onNotify();
-              }}
-              disabled={isSending}
-            >
-              <Clock className="h-3 w-3 sm:h-4 sm:w-4" />
-              <span className="hidden sm:inline">
-                {isSending ? "Sending..." : "Notify"}
-              </span>
-            </button>
-          )}
-          {hasOwedBalances && (
-            <>
-              <button
-                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSettle();
-                }}
-              >
-                <Image
-                  src="/coins-dollar.svg"
-                  alt="Settle Debts"
-                  width={16}
-                  height={16}
-                  className="h-3 w-3 sm:h-4 sm:w-4"
-                />
-                <span className="hidden sm:inline">Settle Debts</span>
-              </button>
-              <button
-                className="flex items-center justify-center gap-1 sm:gap-2 rounded-full border border-white/80 text-white h-8 sm:h-10 px-3 sm:px-4 text-mobile-sm sm:text-sm hover:bg-white/5 transition-colors"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const first = owedBalances[0];
-                  if (first) {
-                    onMarkAsPaid({
-                      payerId: currentUserId,
-                      payeeId: friend.id,
-                      amount: Math.abs(first.amount),
-                      currency: first.currency,
-                      currencyType: "FIAT",
-                    });
-                  }
-                }}
-                disabled={isMarkAsPaidPending}
-              >
-                <Image
-                  src="/checkmark-circle.svg"
-                  alt="Mark as Paid"
-                  width={16}
-                  height={16}
-                  className="h-3 w-3 sm:h-4 sm:w-4"
-                />
-                <span className="hidden sm:inline">Mark as Paid</span>
-              </button>
-            </>
           )}
         </div>
-      </div>
-
-      {expanded && (hasOwedBalances || hasOweBalances) && (
+        <span
+          style={{
+            color: T.dim,
+            display: "flex",
+            transition: "transform 0.2s",
+            transform: expanded ? "rotate(180deg)" : "none",
+          }}
+        >
+          {Icons.chevD()}
+        </span>
+      </button>
+      {expanded && (
         <div
-          className="pt-0 pb-3 sm:pb-4 space-y-2"
+          style={{
+            borderTop: "1px solid rgba(255,255,255,0.06)",
+            background: "rgba(0,0,0,0.2)",
+            padding: "18px 22px",
+          }}
           onClick={(e) => e.stopPropagation()}
         >
-          {expensesWithFriend.length > 0 && (
-            <div className="space-y-2">
-              <p className="text-mobile-sm sm:text-base text-white/60 px-3 sm:px-4">
-                Expenses
-              </p>
-              {expensesWithFriend.map((expense) => {
-                const paidByUser = groupUsers.find((gu) => gu.user.id === expense.paidBy)?.user;
-                const paidByName =
-                  expense.paidBy === currentUserId ? (currentUserName || "You") : (paidByUser?.name ?? "Someone");
-                const friendPart = expense.expenseParticipants?.find((p) => p.userId === friend.id);
-                const myPart = expense.expenseParticipants?.find((p) => p.userId === currentUserId);
-                const friendOwesMe = expense.paidBy === currentUserId && friendPart && friendPart.amount > 0;
-                const iOweFriend = expense.paidBy === friend.id && myPart && myPart.amount > 0;
-                const shareAmount = friendOwesMe ? friendPart!.amount : iOweFriend ? myPart!.amount : 0;
-                const shareLabel = friendOwesMe ? "Owes you" : iOweFriend ? "You owe" : null;
-                const showShare = shareLabel && shareAmount > 0;
-
+          <SectionLabel className="!mb-2">Breakdown</SectionLabel>
+          <div style={{ marginBottom: 16 }}>
+            {participants
+              .filter((p) => p.amount > 0)
+              .map((p) => {
+                const u = groupUsers.find((gu) => gu.user.id === p.userId)?.user;
+                const name = p.userId === currentUserId ? (currentUserName || "You") : (u?.name ?? "Someone");
+                const isSettled = false;
                 return (
                   <div
-                    key={expense.id}
-                    className="flex items-center justify-between p-3 sm:p-4 rounded-xl text-left"
+                    key={p.userId}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "space-between",
+                      padding: "10px 0",
+                      borderBottom: "1px solid rgba(255,255,255,0.05)",
+                    }}
                   >
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      <div className="h-8 w-8 sm:h-10 sm:w-10 overflow-hidden rounded-full flex-shrink-0">
-                        <Image
-                          src={
-                            paidByUser?.image ||
-                            `https://api.dicebear.com/9.x/identicon/svg?seed=${expense.paidBy}`
-                          }
-                          alt={paidByName}
-                          width={40}
-                          height={40}
-                          className="h-full w-full object-cover"
-                          onError={(e) => {
-                            const t = e.target as HTMLImageElement;
-                            t.src = `https://api.dicebear.com/9.x/identicon/svg?seed=${expense.paidBy}`;
-                          }}
-                        />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-mobile-base sm:text-base text-white">
-                          <span className="font-medium">{paidByName}</span> paid for &quot;{expense.name}&quot;
-                        </p>
-                        <p className="text-mobile-xs sm:text-sm text-white/60">
-                          {new Date(expense.createdAt).toLocaleString()}
-                          {showShare && (
-                            <span className={friendOwesMe ? " text-green-500/90" : " text-red-500/90"}>
-                              {" · "}{shareLabel}{" "}
-                              <span className="text-white/70">{formatCurrency(shareAmount, expense.currency)}</span>
-                              <span className="text-white/50 text-mobile-xs"> (your share)</span>
-                            </span>
-                          )}
-                        </p>
-                      </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <Avatar
+                        init={u ? (u.name ?? "?")[0].toUpperCase() : "?"}
+                        size={28}
+                        color="#22D3EE"
+                      />
+                      <span style={{ color: T.body, fontSize: 13, fontWeight: 500 }}>{name}</span>
                     </div>
-                    <div className="text-right flex-shrink-0 ml-2">
-                      <p className="text-mobile-xs sm:text-xs text-white/50 mb-0.5">Total</p>
-                      <p className="text-mobile-base sm:text-base text-white font-medium">
-                        {formatCurrency(expense.amount, expense.currency)}
-                      </p>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span
+                        style={{
+                          color: isSettled ? G : "#F87171",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          fontFamily: "'DM Mono',monospace",
+                        }}
+                      >
+                        {formatCurrency(p.amount, expense.currency)}
+                      </span>
+                      <Tag color={isSettled ? G : "#F87171"}>
+                        {isSettled ? "settled" : "pending"}
+                      </Tag>
                     </div>
                   </div>
                 );
               })}
-            </div>
-          )}
-
-          <div className="px-3 sm:px-4 pt-1">
-            <p className="text-mobile-xs sm:text-sm text-white/50 mb-1.5">Balance by currency</p>
-            <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-mobile-sm sm:text-base text-white/70">
-              {hasOwedBalances && (
-                <span>
-                  <span className="text-red-500/90">You owe: </span>
-                  {owedBalances.map((b, i) => (
-                    <span key={i}>
-                      {formatCurrency(Math.abs(b.amount), b.currency)}
-                      {i < owedBalances.length - 1 ? ", " : ""}
-                    </span>
-                  ))}
-                </span>
-              )}
-              {hasOweBalances && (
-                <span>
-                  <span className="text-green-500/90">Owes you: </span>
-                  {oweBalances.map((b, i) => (
-                    <span key={i}>
-                      {formatCurrency(Math.abs(b.amount), b.currency)}
-                      {i < oweBalances.length - 1 ? ", " : ""}
-                    </span>
-                  ))}
-                </span>
-              )}
-            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, paddingTop: 16 }}>
+            <Btn variant="ghost" onClick={onSettle} style={{ padding: "8px 16px", fontSize: 12 }}>
+              <Icons.check /> Settle
+            </Btn>
+            <Btn variant="ghost" onClick={onNotify} style={{ padding: "8px 16px", fontSize: 12 }}>
+              <Icons.bell /> Notify
+            </Btn>
+            <button
+              type="button"
+              onClick={onDelete}
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 5,
+                background: "rgba(248,113,113,0.06)",
+                border: "1px solid rgba(248,113,113,0.15)",
+                borderRadius: 12,
+                padding: "8px 14px",
+                color: "#F87171",
+                fontSize: 12,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                fontWeight: 600,
+              }}
+            >
+              <Icons.trash size={14} /> Delete
+            </button>
           </div>
         </div>
       )}
@@ -312,88 +253,84 @@ export default function GroupSplitsPage() {
   const { user } = useAuthStore();
   const {
     group,
-    groupId,
     formatCurrency,
-    defaultCurrency,
     handleSettleFriendClick,
     handleSendReminder,
-    markAsPaidMutation,
-    isSending,
     openAddExpense,
   } = useGroupLayout();
 
+  const expenses = (group?.expenses ?? []) as ExpenseWithParticipants[];
+  const nonSettlement = useMemo(
+    () => expenses.filter((e) => e.splitType !== "SETTLEMENT"),
+    [expenses]
+  );
+
+  const byDate = useMemo(() => {
+    const map = new Map<string, ExpenseWithParticipants[]>();
+    const sorted = [...nonSettlement].sort(
+      (a, b) =>
+        new Date(b.expenseDate ?? b.createdAt).getTime() -
+        new Date(a.expenseDate ?? a.createdAt).getTime()
+    );
+    for (const e of sorted) {
+      const key = formatDateKey(e.expenseDate ?? e.createdAt);
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(e);
+    }
+    return Array.from(map.entries());
+  }, [nonSettlement]);
+
   if (!group || !user) return null;
 
-  const expenses = group.expenses;
-  const currentUserBalances = group.groupBalances.filter(
-    (balance) => balance.userId === user.id && balance.amount !== 0
-  );
-
-  if (currentUserBalances.length === 0) {
-    return (
-      <div className="p-4 sm:p-6">
-        <div className="text-center py-8 sm:py-12 text-mobile-base sm:text-base text-white/60">
-          Start by adding your first expense
-          <Button onClick={openAddExpense} className="mt-4">
-            Add Expense
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
-  const balancesByFriend = currentUserBalances.reduce(
-    (acc, balance) => {
-      if (!acc[balance.firendId]) acc[balance.firendId] = [];
-      acc[balance.firendId].push(balance);
-      return acc;
-    },
-    {} as Record<string, typeof currentUserBalances>
-  );
-
   return (
-    <div className="p-4 sm:p-6 space-y-3 sm:space-y-4">
-      {Object.entries(balancesByFriend).map(([friendId, balances]) => {
-        const friend = group.groupUsers.find((gu) => gu.user.id === friendId)?.user;
-        if (!friend) return null;
-
-        const owedBalances = balances.filter((b) => b.amount > 0);
-        const oweBalances = balances.filter((b) => b.amount < 0);
-
-        return (
-          <FriendBalanceRow
-            key={friendId}
-            friend={friend}
-            owedBalances={owedBalances.map((b) => ({ amount: b.amount, currency: b.currency }))}
-            oweBalances={oweBalances.map((b) => ({ amount: b.amount, currency: b.currency }))}
-            defaultCurrency={defaultCurrency}
-            formatCurrency={formatCurrency}
-            onNotify={() => {
-              const latestExpense = expenses?.length ? expenses[0] : null;
-              if (latestExpense) handleSendReminder(friend.id, latestExpense.id);
-            }}
-            onSettle={() => handleSettleFriendClick(friend.id)}
-            onMarkAsPaid={(payload) =>
-              markAsPaidMutation.mutate(
-                { groupId, payload },
-                {
-                  onSuccess: () =>
-                    toast.success(`Marked payment to ${friend.name} as paid`, {
-                      description: "This will be recorded in your activity.",
-                    }),
-                  onError: () => toast.error("Failed to mark as paid"),
-                }
-              )
-            }
-            isSending={isSending}
-            isMarkAsPaidPending={markAsPaidMutation.isPending}
-            expenses={group.expenses ?? []}
-            groupUsers={group.groupUsers}
-            currentUserId={user.id}
-            currentUserName={user.name ?? null}
-          />
-        );
-      })}
+    <div className="space-y-6">
+      {byDate.length === 0 ? (
+        <div style={{ textAlign: "center", padding: "80px 20px" }}>
+          <p style={{ fontSize: 48, marginBottom: 18 }}>💸</p>
+          <p style={{ fontSize: 18, fontWeight: 800, color: T.body, marginBottom: 8 }}>
+            No expenses yet
+          </p>
+          <p style={{ fontSize: 14, color: T.sub }}>Add your first expense to get started</p>
+          <button
+            type="button"
+            onClick={openAddExpense}
+            className="mt-4 inline-flex items-center gap-2 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-opacity hover:opacity-90"
+            style={{ background: "#22D3EE", padding: "10px 18px", gap: 6 }}
+          >
+            <Icons.plus /> Add Expense
+          </button>
+        </div>
+      ) : (
+        byDate.map(([dateLabel, dateExpenses]) => (
+          <section key={dateLabel} style={{ marginBottom: 24 }}>
+            <SectionLabel>{dateLabel}</SectionLabel>
+            <Card style={{ padding: 0 }}>
+              {dateExpenses.map((expense, idx) => (
+                <ExpenseRow
+                  key={expense.id}
+                  expense={expense}
+                  groupUsers={group.groupUsers}
+                  currentUserId={user.id}
+                  currentUserName={user.name ?? null}
+                  formatCurrency={formatCurrency}
+                  isLast={idx === dateExpenses.length - 1}
+                  onNotify={() => {
+                    const firstOwer = expense.expenseParticipants?.find((p) => p.amount > 0);
+                    if (firstOwer) handleSendReminder(firstOwer.userId, expense.id);
+                  }}
+                  onSettle={() => {
+                    const firstOwer = expense.expenseParticipants?.find((p) => p.amount > 0);
+                    if (firstOwer) handleSettleFriendClick(firstOwer.userId);
+                  }}
+                  onDelete={() => {
+                    toast.info("Delete expense is not implemented yet.");
+                  }}
+                />
+              ))}
+            </Card>
+          </section>
+        ))
+      )}
     </div>
   );
 }

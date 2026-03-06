@@ -40,6 +40,7 @@ export const DetailGroupSchema = z.object({
   groupUsers: z.array(
     z.object({
       ...GroupUserSchema.shape,
+      createdAt: z.coerce.date().optional(),
       user: UserSchema,
     })
   ),
@@ -136,6 +137,11 @@ export const updateMemberRole = async (
   role: "ADMIN" | "MEMBER"
 ) => {
   const response = await apiClient.put(`/groups/${groupId}/members/${userId}/role`, { role });
+  return response;
+};
+
+export const removeMemberFromGroup = async (groupId: string, userId: string) => {
+  const response = await apiClient.delete(`/groups/${groupId}/members/${userId}`);
   return response;
 };
 

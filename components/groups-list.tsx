@@ -1,43 +1,66 @@
 "use client";
 
-import {
-  Trash2,
-  Loader2,
-  AlertTriangle,
-  X,
-  CheckCircle,
-  Plus,
-} from "lucide-react";
-import { useState, useEffect } from "react";
-import Link from "next/link";
-import Image from "next/image";
-import { motion } from "framer-motion";
-import { staggerContainer, slideUp } from "@/utils/animations";
+import React from "react";
+import { Plus } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { getAllGroupsWithBalances } from "@/features/groups/api/client";
+import { getAllGroups } from "@/features/groups/api/client";
 import { useQuery } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
 import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
-import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
+import { useGetAllCurrencies, useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
+import { G, T } from "@/lib/splito-design";
+import { GroupsListContent } from "@/components/groups-list-content";
 
-export function GroupsList() {
+export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
   const {
     data: groupsData,
     isLoading: isGroupsLoading,
     error,
   } = useQuery({
     queryKey: [QueryKeys.GROUPS, "PERSONAL"],
-    queryFn: () => getAllGroupsWithBalances({ type: "PERSONAL" }),
+    queryFn: () => getAllGroups({ type: "PERSONAL" }),
   });
   const deleteGroupMutation = useDeleteGroup();
   const router = useRouter();
   const { user } = useAuthStore();
   const { data: allCurrencies } = useGetAllCurrencies();
   const defaultCurrency = user?.currency || "USD";
+
+  const filteredGroups = useMemo(() => {
+    if (!groupsData) return [];
+    const q = searchQuery.trim().toLowerCase();
+    if (!q) return groupsData;
+    return groupsData.filter((g) => g.name.toLowerCase().includes(q));
+  }, [groupsData, searchQuery]);
+
+  // Aggregate owe/owed across all groups for net balance
+  const { totalOweItems, totalOwedItems } = useMemo(() => {
+    if (!user || !groupsData) return { totalOweItems: [] as { amount: number; currency: string }[], totalOwedItems: [] as { amount: number; currency: string }[] };
+    const oweItems: { amount: number; currency: string }[] = [];
+    const owedItems: { amount: number; currency: string }[] = [];
+    groupsData.forEach((group) => {
+      const balances = group.groupBalances || [];
+      const userBalances = balances.filter((b) => b.userId === user.id);
+      const byCurrency: Record<string, number> = {};
+      userBalances.forEach((b) => {
+        byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
+      });
+      Object.entries(byCurrency).forEach(([curr, amount]) => {
+        if (amount > 0) oweItems.push({ amount, currency: curr });
+        else if (amount < 0) owedItems.push({ amount: Math.abs(amount), currency: curr });
+      });
+    });
+    return { totalOweItems: oweItems, totalOwedItems: owedItems };
+  }, [groupsData, user]);
+
+  const { total: totalOwe } = useConvertedBalanceTotal(totalOweItems, defaultCurrency);
+  const { total: totalOwed } = useConvertedBalanceTotal(totalOwedItems, defaultCurrency);
+  const netBalance = totalOwed - totalOwe;
 
   // Helper function to get currency symbol from the currencies data
   const getCurrencySymbol = (currencyId: string): string => {
@@ -52,6 +75,19 @@ export function GroupsList() {
     const decimals = currencyId === 'JPY' ? 0 : 2;
     return `${symbol}${amount.toFixed(decimals)}`;
   };
+
+  // Total spent across all groups (sum of all expense amounts, converted to default currency)
+  const totalSpentItems = useMemo(() => {
+    if (!groupsData) return [];
+    return groupsData.flatMap((g) =>
+      (Array.isArray((g as { expenses?: { amount: number; currency: string }[] }).expenses)
+        ? (g as { expenses: { amount: number; currency: string }[] }).expenses
+        : []
+      ).map((e) => ({ amount: e.amount, currency: e.currency }))
+    );
+  }, [groupsData]);
+  const { total: totalSpent } = useConvertedBalanceTotal(totalSpentItems, defaultCurrency);
+  const totalSpentFormatted = formatCurrency(totalSpent, defaultCurrency);
 
   useEffect(() => {
     if (error) {
@@ -94,7 +130,7 @@ export function GroupsList() {
     };
   }, []);
 
-  const handleDeleteGroup = (
+  const _handleDeleteGroup = (
     e: React.MouseEvent,
     groupId: string,
     groupName: string
@@ -181,244 +217,36 @@ export function GroupsList() {
           className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
         >
           <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
-          <span>Create app</span>
+          <span>Create Group</span>
         </button>
       </div>
     );
   }
 
-  return (
-    <div className="bg-[#0f0f10] rounded-2xl sm:rounded-[20px] min-h-[calc(100vh-120px)] mt-2">
-      <motion.div
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-      >
-        {groupsData.map((group) => {
-          const groupUrl = `/groups/${group.id}`;
-          // Calculate the balances by currency for the current user in this group
-          let balanceDisplay = null;
-          if (user && group.groupBalances && Array.isArray(group.groupBalances)) {
-            // Group balances by currency for the user in this group
-            const userBalances = group.groupBalances.filter(
-              (b) => b.userId === user.id
-            );
-            
-            // Group balances by currency
-            const balancesByCurrency = userBalances.reduce((acc, balance) => {
-              if (!acc[balance.currency]) {
-                acc[balance.currency] = 0;
-              }
-              acc[balance.currency] += balance.amount;
-              return acc;
-            }, {} as Record<string, number>);
+  // Summary stats: net balance formatted (use default currency symbol)
+  const netBalanceFormatted = (() => {
+    if (netBalance > 0) return formatCurrency(netBalance, defaultCurrency);
+    if (netBalance < 0) return `-${formatCurrency(Math.abs(netBalance), defaultCurrency)}`;
+    return formatCurrency(0, defaultCurrency);
+  })();
+  const netBalanceColor = netBalance > 0 ? G : netBalance < 0 ? "#FF4444" : T.muted;
 
-            // Separate positive and negative balances by currency
-            const oweBalances: Record<string, number> = {}; // What you owe others (positive amounts)
-            const owedBalances: Record<string, number> = {}; // What others owe you (negative amounts)
-            
-            Object.entries(balancesByCurrency).forEach(([curr, amount]) => {
-              if (amount > 0) {
-                oweBalances[curr] = amount; // You owe others
-              } else if (amount < 0) {
-                owedBalances[curr] = Math.abs(amount); // Others owe you
-              }
-            });
-
-            const hasOwedBalances = Object.keys(owedBalances).length > 0;
-            const hasOweBalances = Object.keys(oweBalances).length > 0;
-
-            // Total owed to you in default currency (for "Owes you" line)
-            const owedInDefault = owedBalances[defaultCurrency] ?? 0;
-            const owedOtherCurrencies = Object.entries(owedBalances).filter(([c]) => c !== defaultCurrency);
-
-            if (hasOwedBalances && hasOweBalances) {
-              // Show both what you owe and what you're owed
-              balanceDisplay = (
-                <div className="text-mobile-xs sm:text-sm">
-                  <div>
-                    You owe{" "}
-                    {Object.entries(oweBalances).map(([curr, amount], index) => (
-                      <span key={curr}>
-                        <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                        {index < Object.entries(oweBalances).length - 1 && ", "}
-                      </span>
-                    ))}
-                  </div>
-                  <div>
-                    Owes you{" "}
-                    <span className="text-[#53e45d]">{formatCurrency(owedInDefault, defaultCurrency)}</span>
-                    {owedOtherCurrencies.length > 0 && (
-                      <>{" "}
-                        {owedOtherCurrencies.map(([curr, amount], index) => (
-                          <span key={curr}>
-                            <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                            {index < owedOtherCurrencies.length - 1 && ", "}
-                          </span>
-                        ))}
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            } else if (hasOweBalances) {
-              balanceDisplay = (
-                <span>
-                  You owe{" "}
-                  {Object.entries(oweBalances).map(([curr, amount], index) => (
-                    <span key={curr}>
-                      <span className="text-[#FF4444]">{formatCurrency(amount, curr)}</span>
-                      {index < Object.entries(oweBalances).length - 1 && ", "}
-                    </span>
-                  ))}
-                </span>
-              );
-            } else if (hasOwedBalances) {
-              balanceDisplay = (
-                <span>
-                  Owes you{" "}
-                  <span className="text-[#53e45d]">{formatCurrency(owedInDefault, defaultCurrency)}</span>
-                  {owedOtherCurrencies.length > 0 && (
-                    <>{" "}
-                      {owedOtherCurrencies.map(([curr, amount], index) => (
-                        <span key={curr}>
-                          <span className="text-[#53e45d]">{formatCurrency(amount, curr)}</span>
-                          {index < owedOtherCurrencies.length - 1 && ", "}
-                        </span>
-                      ))}
-                    </>
-                  )}
-                </span>
-              );
-            } else {
-              balanceDisplay = <span className="text-white/60">Settled</span>;
-            }
-          } else {
-            balanceDisplay = <span className="text-white/60">No balance</span>;
-          }
-          return (
-            <motion.div
-              key={group.id}
-              variants={slideUp}
-              className="relative px-3 sm:px-5 py-4 sm:py-6 border-b border-white/5 last:border-b-0 hover:bg-white/[0.02] transition-colors"
-            >
-              <div className="flex items-center justify-between gap-2">
-                <Link
-                  href={groupUrl}
-                  className="flex flex-1 min-w-0 items-center gap-3 cursor-pointer"
-                >
-                  <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full bg-white/5">
-                    <Image
-                      src={group.image || "/group_icon_placeholder.png"}
-                      alt={group.name}
-                      className="h-full w-full object-cover"
-                      width={48}
-                      height={48}
-                      onError={(e) => {
-                        console.error(
-                          `Error loading image for group ${group.name}:`,
-                          group.image
-                        );
-                        const target = e.target as HTMLImageElement;
-                        target.src = "/group_icon_placeholder.png";
-                      }}
-                    />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-mobile-base sm:text-xl font-medium text-white">
-                      {group.name}
-                    </p>
-                    <p className="text-mobile-sm sm:text-sm text-white/60">
-                      {balanceDisplay}
-                    </p>
-                  </div>
-                </Link>
-                <button
-                  type="button"
-                  onClick={(e) => handleDeleteGroup(e, group.id, group.name)}
-                  className="shrink-0 p-2 rounded-lg text-white/50 hover:text-red-400 hover:bg-red-500/10 transition-colors"
-                  aria-label={`Delete group ${group.name}`}
-                >
-                  <Trash2 className="h-4 w-4 sm:h-5 sm:w-5" />
-                </button>
-              </div>
-            </motion.div>
-          );
-        })}
-      </motion.div>
-
-      {/* Delete Confirmation Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 brightness-50 p-4">
-          <div className="relative z-10 w-full max-w-[360px] sm:max-w-[400px] rounded-xl bg-[#101012] p-4 sm:p-6">
-            <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg sm:text-xl font-medium text-white">
-                Delete Group
-              </h3>
-              <button
-                onClick={() => {
-                  setShowDeleteModal(false);
-                  setGroupToDelete(null);
-                }}
-                className="rounded-full p-1 hover:bg-white/10"
-              >
-                <X className="h-5 w-5 text-white/70" />
-              </button>
-            </div>
-
-            {deleteSuccess ? (
-              <div className="flex flex-col items-center justify-center py-4">
-                <CheckCircle className="mb-3 sm:mb-4 h-8 sm:h-10 w-8 sm:w-10 text-green-500" />
-                <p className="text-center text-mobile-base sm:text-base text-white">
-                  Group "{groupToDelete?.name}" has been deleted.
-                </p>
-              </div>
-            ) : (
-              <>
-                {deleteError ? (
-                  <div className="mb-4 rounded-lg bg-red-500/10 p-3 text-red-400">
-                    <div className="flex items-start gap-2">
-                      <AlertTriangle className="mt-0.5 h-4 sm:h-5 w-4 sm:w-5 flex-shrink-0" />
-                      <p className="text-mobile-sm sm:text-sm">{deleteError}</p>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="mb-4 text-mobile-base sm:text-base text-white/70">
-                    Are you sure you want to delete "{groupToDelete?.name}"?
-                    This action cannot be undone.
-                  </p>
-                )}
-
-                <div className="flex justify-end gap-2">
-                  <button
-                    onClick={() => {
-                      setShowDeleteModal(false);
-                      setGroupToDelete(null);
-                    }}
-                    className="rounded-lg px-3 sm:px-4 py-1.5 sm:py-2 text-mobile-sm sm:text-sm text-white/70 hover:bg-white/5"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={confirmDelete}
-                    disabled={isDeleting}
-                    className="flex items-center gap-1.5 sm:gap-2 rounded-lg bg-red-500/10 px-3 sm:px-4 py-1.5 sm:py-2 text-mobile-sm sm:text-sm text-red-400 hover:bg-red-500/20 disabled:opacity-50"
-                  >
-                    {isDeleting ? (
-                      <>
-                        <Loader2 className="h-3.5 sm:h-4 w-3.5 sm:w-4 animate-spin" />
-                        <span>Deleting...</span>
-                      </>
-                    ) : (
-                      <span>Delete</span>
-                    )}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
+  return React.createElement(GroupsListContent, {
+    filteredGroups,
+    user,
+    defaultCurrency,
+    formatCurrency,
+    getCurrencySymbol,
+    netBalanceFormatted,
+    netBalanceColor,
+    totalSpentFormatted,
+    showDeleteModal,
+    setShowDeleteModal,
+    groupToDelete,
+    setGroupToDelete,
+    deleteSuccess,
+    deleteError,
+    isDeleting,
+    confirmDelete,
+  });
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
-import { ChevronDown, Plus, Check, X } from "lucide-react";
+import { Plus, X } from "lucide-react";
 import {
   useCreateGroup,
   useAddMembersToGroup,
@@ -12,14 +12,23 @@ import { useRouter } from "next/navigation";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { fadeIn } from "@/utils/animations";
 import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
-import Image from "next/image";
 import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
-import CurrencyDropdown from "./currency-dropdown";
-import type { Currency } from "@/features/currencies/api/client";
+import { Card, Avatar, GroupAvatar, A, T, Icons } from "@/lib/splito-design";
+
+const GROUP_COLORS = [
+  "#22D3EE",
+  "#A78BFA",
+  "#34D399",
+  "#FB923C",
+  "#F472B6",
+  "#FBBF24",
+  "#F87171",
+  "#818CF8",
+];
+const MEMBER_COLORS = ["#22D3EE", "#A78BFA", "#34D399", "#FB923C", "#F472B6"];
 
 interface CreateGroupFormProps {
   isOpen: boolean;
@@ -72,6 +81,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const router = useRouter();
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [groupColor, setGroupColor] = useState(GROUP_COLORS[0]);
   const [formData, setFormData] = useState({
     name: "",
     memberEmail: "",
@@ -80,6 +91,10 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
   // State for tracking added members
   const [members, setMembers] = useState<Member[]>([]);
+
+  useEffect(() => {
+    if (isOpen) setStep(1);
+  }, [isOpen]);
 
   const allChainTokenOptions = useAllChainsTokens();
   const [resolver, setResolver] = useState<ResolverOption | undefined>(undefined);
@@ -272,73 +287,370 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
   if (!isOpen) return null;
 
+  const inp = {
+    width: "100%",
+    background: "rgba(255,255,255,0.05)",
+    border: "1.5px solid rgba(255,255,255,0.09)",
+    borderRadius: 14,
+    padding: "12px 16px",
+    color: "#fff",
+    fontSize: 14,
+    outline: "none",
+    boxSizing: "border-box" as const,
+    fontFamily: "inherit",
+  };
+  const lbl = {
+    color: T.label,
+    fontSize: 11,
+    fontWeight: 700,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase" as const,
+    marginBottom: 8,
+    display: "block",
+  };
+
   return (
     <AnimatePresence>
-      <motion.div
-        className="fixed inset-0 z-50 flex items-center justify-center p-4"
-        {...fadeIn}
+      <div
+        onClick={onClose}
+        style={{
+          position: "fixed",
+          inset: 0,
+          background: "rgba(0,0,0,0.88)",
+          backdropFilter: "blur(16px)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 200,
+          padding: 24,
+        }}
       >
-        {/* Backdrop with brightness reduction */}
         <div
-          className="fixed inset-0 bg-black/70 brightness-50"
-          onClick={onClose}
-        />
-
-        {/* Modal content with normal brightness */}
-        <div
-          className="relative z-10 bg-black rounded-3xl w-full max-w-md border border-white/70"
           onClick={(e) => e.stopPropagation()}
-          style={{ overflow: 'visible' }}
+          style={{
+            background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+            border: "1px solid rgba(255,255,255,0.09)",
+            borderRadius: 28,
+            width: "100%",
+            maxWidth: 460,
+            padding: "28px 28px 32px",
+            maxHeight: "90vh",
+            overflowY: "auto",
+            boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+          }}
         >
-          <div className="p-8">
-            <h2 className="text-xl font-semibold text-white mb-6">
-              Create Group
-            </h2>
-
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Group Name */}
-              <div className="space-y-2">
-                <label className="block text-base text-white">Group Name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
-                  className="w-full h-12 bg-transparent rounded-lg px-4 
-                    text-base text-white border border-white/10"
-                  placeholder="New Split Group"
-                />
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              marginBottom: 24,
+            }}
+          >
+            <div>
+              <p
+                style={{
+                  color: "#fff",
+                  fontSize: 20,
+                  fontWeight: 800,
+                  letterSpacing: "-0.02em",
+                }}
+              >
+                Create Group
+              </p>
+              <div
+                style={{
+                  display: "flex",
+                  gap: 5,
+                  marginTop: 12,
+                }}
+              >
+                {[1, 2, 3, 4].map((s) => (
+                  <div
+                    key={s}
+                    style={{
+                      height: 3,
+                      width: 34,
+                      borderRadius: 99,
+                      background: step >= s ? groupColor : "#2a2a2a",
+                      transition: "background 0.3s",
+                      boxShadow:
+                        step >= s ? `0 0 8px ${groupColor}88` : "none",
+                    }}
+                  />
+                ))}
               </div>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                background: "rgba(255,255,255,0.07)",
+                border: "1px solid rgba(255,255,255,0.1)",
+                color: T.soft,
+                width: 34,
+                height: 34,
+                borderRadius: "50%",
+                cursor: "pointer",
+                fontSize: 18,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+              }}
+            >
+              ×
+            </button>
+          </div>
 
-              {/* Choose Payment Token (Resolver) */}
-              <div style={{ overflow: 'visible' }}>
-                <label className="block text-base text-white mb-2">Choose Payment Token</label>
-                <ResolverSelector value={resolver} onChange={handleResolverChange} />
-              </div>
-
-              {/* Currency Dropdown */}
-              {/* <div style={{ overflow: 'visible' }}>
-                <label className="block text-base text-white mb-2">Choose Currency</label>
-                <CurrencyDropdown
-                  selectedCurrencies={formData.currency ? [formData.currency] : []}
-                  setSelectedCurrencies={(currencies) => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      currency: currencies[0] || "",
-                    }));
+          <form
+            onSubmit={handleSubmit}
+            style={{ display: "flex", flexDirection: "column", gap: 18 }}
+          >
+            {/* Step 1: Name + vibe + color */}
+            {step === 1 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                <p
+                  style={{
+                    color: T.muted,
+                    fontSize: 14,
+                    lineHeight: 1.5,
                   }}
-                  showFiatCurrencies={true}
-                  filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}
-                />
-              </div> */}
+                >
+                  Name your group and give it a vibe.
+                </p>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <div
+                    style={{
+                      padding: 3,
+                      borderRadius: 22,
+                      background: `${groupColor}22`,
+                      border: `2px solid ${groupColor}44`,
+                      boxShadow: `0 0 24px ${groupColor}33`,
+                    }}
+                  >
+                    <GroupAvatar
+                      items={[
+                        { init: "Y", color: groupColor },
+                        ...members.slice(0, 3).map((m, i) => ({
+                          init: (m.name || m.email).slice(0, 2).toUpperCase(),
+                          color: MEMBER_COLORS[i % MEMBER_COLORS.length],
+                        })),
+                      ]}
+                      size={80}
+                      radius={18}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Group name</label>
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    placeholder="e.g. Japan Trip, Roommates…"
+                    style={inp}
+                    autoFocus
+                  />
+                </div>
+                <div>
+                  <label style={lbl}>Color</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {GROUP_COLORS.map((c) => (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setGroupColor(c)}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          borderRadius: "50%",
+                          background: c,
+                          border:
+                            groupColor === c
+                              ? "3px solid #fff"
+                              : "3px solid transparent",
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          boxShadow:
+                            groupColor === c ? `0 0 14px ${c}88` : "none",
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => formData.name.trim() && setStep(2)}
+                  disabled={!formData.name.trim()}
+                  style={{
+                    padding: 13,
+                    background: formData.name.trim() ? groupColor : "rgba(255,255,255,0.05)",
+                    color: formData.name.trim() ? "#0a0a0a" : "#555",
+                    border: "none",
+                    borderRadius: 14,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: formData.name.trim() ? "pointer" : "default",
+                    fontFamily: "inherit",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {formData.name.trim() ? "Continue →" : "Enter a group name"}
+                </button>
+              </div>
+            )}
 
-              {/* Invite Members (moved to bottom) */}
-              <div className="space-y-2">
-                <label className="block text-base text-white">Invite members</label>
-                <div className="flex gap-2">
+            {/* Step 2: Default settlement currency */}
+            {step === 2 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <p
+                  style={{
+                    color: T.muted,
+                    fontSize: 14,
+                    lineHeight: 1.6,
+                  }}
+                >
+                  Set the default settlement currency for this group.
+                </p>
+                <div style={{ overflow: "visible" }}>
+                  <label style={lbl}>Default settlement currency</label>
+                  <ResolverSelector
+                    value={resolver}
+                    onChange={handleResolverChange}
+                  />
+                </div>
+                {resolver?.chainId ? (
+                  <div
+                    style={{
+                      background: "rgba(52,211,153,0.06)",
+                      border: "1px solid rgba(52,211,153,0.15)",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: "#34D399",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        marginBottom: 5,
+                      }}
+                    >
+                      On-chain settlement
+                    </p>
+                    <p
+                      style={{
+                        color: "#34D39977",
+                        fontSize: 11,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Members will be prompted to settle via blockchain.
+                    </p>
+                  </div>
+                ) : (
+                  <div
+                    style={{
+                      background: "rgba(255,255,255,0.03)",
+                      border: "1px solid rgba(255,255,255,0.08)",
+                      borderRadius: 14,
+                      padding: "14px 16px",
+                    }}
+                  >
+                    <p
+                      style={{
+                        color: T.body,
+                        fontSize: 12,
+                        fontWeight: 700,
+                        marginBottom: 4,
+                      }}
+                    >
+                      Bank / Fiat settlement
+                    </p>
+                    <p
+                      style={{
+                        color: T.sub,
+                        fontSize: 11,
+                        lineHeight: 1.6,
+                      }}
+                    >
+                      Members will settle outside the app and mark as paid.
+                    </p>
+                  </div>
+                )}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    style={{
+                      flex: 1,
+                      padding: 13,
+                      background: "rgba(255,255,255,0.05)",
+                      color: T.body,
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    style={{
+                      flex: 2,
+                      padding: 13,
+                      background: groupColor,
+                      color: "#0a0a0a",
+                      border: "none",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    Continue →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Step 3: Add friends */}
+            {step === 3 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+                <p style={{ color: T.muted, fontSize: 14 }}>
+                  Add friends to this group.
+                </p>
+                <div
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    background: "rgba(255,255,255,0.05)",
+                    border: "1.5px solid rgba(255,255,255,0.09)",
+                    borderRadius: 14,
+                    padding: "11px 16px",
+                    gap: 8,
+                  }}
+                >
+                  <span style={{ color: T.muted, display: "flex" }}>
+                    <Icons.search />
+                  </span>
                   <input
                     type="email"
+                    placeholder="Invite by email (e.g. friend@email.com)"
                     value={formData.memberEmail}
                     onChange={(e) =>
                       setFormData((prev) => ({
@@ -352,16 +664,49 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                         handleAddMember(e);
                       }
                     }}
-                    className="flex-1 h-12 bg-transparent rounded-lg px-4 
-                      text-base text-white border border-white/10"
-                    placeholder="me@email.com"
                     disabled={isCheckingEmail}
+                    style={{
+                      background: "none",
+                      border: "none",
+                      color: "#fff",
+                      fontSize: 14,
+                      outline: "none",
+                      width: "100%",
+                      fontFamily: "inherit",
+                    }}
                   />
                   <button
                     type="button"
                     onClick={handleAddMember}
-                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center"
-                    disabled={isCheckingEmail || !formData.memberEmail.trim() || !isValidEmail(formData.memberEmail.trim())}
+                    disabled={
+                      isCheckingEmail ||
+                      !formData.memberEmail.trim() ||
+                      !isValidEmail(formData.memberEmail.trim())
+                    }
+                    style={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: 10,
+                      background:
+                        formData.memberEmail.trim() &&
+                        isValidEmail(formData.memberEmail.trim())
+                          ? A
+                          : "rgba(255,255,255,0.05)",
+                      color:
+                        formData.memberEmail.trim() &&
+                        isValidEmail(formData.memberEmail.trim())
+                          ? "#0a0a0a"
+                          : T.sub,
+                      border: "none",
+                      cursor:
+                        formData.memberEmail.trim() &&
+                        isValidEmail(formData.memberEmail.trim())
+                          ? "pointer"
+                          : "default",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                   >
                     {isCheckingEmail ? (
                       <motion.div
@@ -371,109 +716,424 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                           repeat: Infinity,
                           ease: "linear",
                         }}
-                      >
-                        <svg
-                          className="h-5 w-5 text-black"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                      </motion.div>
+                        style={{
+                          width: 14,
+                          height: 14,
+                          border: "2px solid transparent",
+                          borderTopColor: "currentColor",
+                          borderRadius: "50%",
+                        }}
+                      />
                     ) : (
-                      <Plus className="h-5 w-5 text-black" />
+                      <Plus size={16} style={{ color: "inherit" }} />
                     )}
                   </button>
                 </div>
-
-                {/* Display added members list */}
                 {members.length > 0 && (
-                  <div className="mt-4">
-                    <div
-                      className="max-h-[140px] overflow-y-auto pr-1 space-y-2"
-                      style={{
-                        scrollbarWidth: "thin",
-                        scrollbarColor: "rgba(255, 255, 255, 0.1) transparent",
-                      }}
-                    >
-                      <AnimatePresence>
-                        {members.map((member) => (
-                          <motion.div
-                            key={member.id}
-                            initial={{ opacity: 0, y: -10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, x: -10 }}
-                            transition={{ duration: 0.2 }}
-                            className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 8,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    {members.map((member, i) => {
+                      const init = (member.name || member.email)
+                        .slice(0, 2)
+                        .toUpperCase();
+                      const color =
+                        MEMBER_COLORS[i % MEMBER_COLORS.length];
+                      return (
+                        <div
+                          key={member.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: `${color}14`,
+                            border: `1px solid ${color}33`,
+                            borderRadius: 99,
+                            padding: "5px 10px 5px 5px",
+                          }}
+                        >
+                          <Avatar
+                            init={init}
+                            color={color}
+                            size={22}
+                          />
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color,
+                              fontWeight: 700,
+                            }}
                           >
-                            <div className="flex items-center overflow-hidden">
-                              {member.image ? (
-                                <div className="w-8 h-8 rounded-full mr-3 flex-shrink-0 overflow-hidden">
-                                  <Image
-                                    src={member.image}
-                                    alt={member.name || member.email}
-                                    width={32}
-                                    height={32}
-                                    className="h-full w-full object-cover"
-                                  />
-                                </div>
-                              ) : (
-                                <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-3 flex-shrink-0">
-                                  {(member.name || member.email)
-                                    .charAt(0)
-                                    .toUpperCase()}
-                                </div>
-                              )}
-                              <div className="overflow-hidden">
-                                {member.name && (
-                                  <p className="text-white text-sm font-medium truncate">
-                                    {member.name}
-                                  </p>
-                                )}
-                                <p className="text-white/60 text-xs truncate">
-                                  {member.email}
-                                </p>
-                              </div>
-                            </div>
-                            <button
-                              type="button"
-                              onClick={() => removeMember(member.id)}
-                              className="text-white/70 hover:text-white p-1 ml-2 flex-shrink-0"
-                            >
-                              <X className="h-4 w-4" />
-                            </button>
-                          </motion.div>
-                        ))}
-                      </AnimatePresence>
-                    </div>
+                            {(member.name || member.email).split(" ")[0] ||
+                              (member.name || member.email).slice(0, 8)}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeMember(member.id)}
+                            style={{
+                              background: "none",
+                              border: "none",
+                              color: `${color}88`,
+                              cursor: "pointer",
+                              fontSize: 12,
+                              display: "flex",
+                              alignItems: "center",
+                              marginLeft: 2,
+                            }}
+                          >
+                            <Icons.x />
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
+                <Card style={{ maxHeight: 220, overflowY: "auto" }}>
+                  {members.length === 0 ? (
+                    <div
+                      style={{
+                        padding: 24,
+                        textAlign: "center",
+                        color: T.sub,
+                        fontSize: 13,
+                      }}
+                    >
+                      Add members by entering their email above.
+                    </div>
+                  ) : (
+                    members.map((member, idx) => {
+                      const init = (member.name || member.email)
+                        .slice(0, 2)
+                        .toUpperCase();
+                      const color =
+                        MEMBER_COLORS[idx % MEMBER_COLORS.length];
+                      return (
+                        <div
+                          key={member.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            padding: "13px 18px",
+                            borderBottom:
+                              idx < members.length - 1
+                                ? "1px solid rgba(255,255,255,0.05)"
+                                : "none",
+                          }}
+                        >
+                          <Avatar
+                            init={init}
+                            color={color}
+                            size={36}
+                          />
+                          <div style={{ flex: 1, minWidth: 0 }}>
+                            <p
+                              style={{
+                                fontSize: 13,
+                                fontWeight: 700,
+                                color: T.bright,
+                              }}
+                            >
+                              {member.name || member.email}
+                            </p>
+                            <p
+                              style={{
+                                fontSize: 12,
+                                color: T.sub,
+                              }}
+                            >
+                              {member.email}
+                            </p>
+                          </div>
+                          <div
+                            style={{
+                              width: 22,
+                              height: 22,
+                              borderRadius: 8,
+                              border: `1.5px solid ${color}`,
+                              background: color,
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              boxShadow: `0 0 10px ${color}44`,
+                            }}
+                          >
+                            <svg
+                              width="10"
+                              height="10"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="#0a0a0a"
+                              strokeWidth="3"
+                              strokeLinecap="round"
+                            >
+                              <path d="M20 6L9 17l-5-5" />
+                            </svg>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </Card>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setStep(2)}
+                    style={{
+                      flex: 1,
+                      padding: 13,
+                      background: "rgba(255,255,255,0.05)",
+                      color: T.body,
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setStep(4)}
+                    style={{
+                      flex: 2,
+                      padding: 13,
+                      background: groupColor,
+                      color: "#0a0a0a",
+                      border: "none",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    Continue →
+                  </button>
+                </div>
               </div>
+            )}
 
-              {/* Submit Button */}
-              <button
-                type="submit"
-                className="w-full h-12 bg-white text-black rounded-full font-medium hover:bg-white/90 transition-colors mt-8"
-                disabled={createGroupMutation.isPending}
-              >
-                {createGroupMutation.isPending ? "Creating..." : "Create Group"}
-              </button>
-            </form>
-          </div>
+            {/* Step 4: Review */}
+            {step === 4 && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <p style={{ color: T.muted, fontSize: 14 }}>
+                  Review your group before creating.
+                </p>
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    border: "1px solid rgba(255,255,255,0.08)",
+                    borderRadius: 18,
+                    padding: 20,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 16,
+                  }}
+                >
+                  <div
+                    style={{
+                      padding: 3,
+                      borderRadius: 18,
+                      background: `${groupColor}22`,
+                      border: `2px solid ${groupColor}44`,
+                      boxShadow: `0 0 20px ${groupColor}33`,
+                    }}
+                  >
+                    <GroupAvatar
+                      items={[
+                        { init: "Y", color: groupColor },
+                        ...members.slice(0, 3).map((m, i) => ({
+                          init: (m.name || m.email).slice(0, 2).toUpperCase(),
+                          color: MEMBER_COLORS[i % MEMBER_COLORS.length],
+                        })),
+                      ]}
+                      size={58}
+                      radius={14}
+                    />
+                  </div>
+                  <div>
+                    <p
+                      style={{
+                        fontSize: 19,
+                        fontWeight: 800,
+                        color: "#fff",
+                        letterSpacing: "-0.02em",
+                      }}
+                    >
+                      {formData.name || "New Group"}
+                    </p>
+                    <p
+                      style={{
+                        fontSize: 13,
+                        color: T.mid,
+                        marginTop: 4,
+                      }}
+                    >
+                      {members.length + 1} member
+                      {members.length !== 0 ? "s" : ""}
+                    </p>
+                  </div>
+                </div>
+                <div
+                  style={{
+                    background: "rgba(255,255,255,0.04)",
+                    borderRadius: 16,
+                    padding: "15px 18px",
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    border: "1px solid rgba(255,255,255,0.07)",
+                  }}
+                >
+                  <div>
+                    <p
+                      style={{
+                        color: T.sub,
+                        fontSize: 11,
+                        fontWeight: 700,
+                        marginBottom: 4,
+                        letterSpacing: "0.05em",
+                      }}
+                    >
+                      DEFAULT SETTLEMENT
+                    </p>
+                    <p
+                      style={{
+                        color: T.bright,
+                        fontSize: 13,
+                        fontWeight: 700,
+                      }}
+                    >
+                      {resolver
+                        ? `${resolver.symbol}${resolver.chainId ? ` · ${resolver.name}` : ""}`
+                        : "USD (Fiat)"}
+                    </p>
+                  </div>
+                </div>
+                <div>
+                  <label style={lbl}>Members</label>
+                  <div
+                    style={{
+                      display: "flex",
+                      gap: 6,
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                        background: `${groupColor}14`,
+                        border: `1px solid ${groupColor}33`,
+                        borderRadius: 99,
+                        padding: "5px 12px 5px 5px",
+                      }}
+                    >
+                      <Avatar init="Y" color={groupColor} size={24} />
+                      <span
+                        style={{
+                          fontSize: 12,
+                          color: groupColor,
+                          fontWeight: 700,
+                        }}
+                      >
+                        You
+                      </span>
+                    </div>
+                    {members.map((m, i) => {
+                      const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
+                      const init = (m.name || m.email)
+                        .slice(0, 2)
+                        .toUpperCase();
+                      return (
+                        <div
+                          key={m.id}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 6,
+                            background: `${color}14`,
+                            border: `1px solid ${color}33`,
+                            borderRadius: 99,
+                            padding: "5px 12px 5px 5px",
+                          }}
+                        >
+                          <Avatar init={init} color={color} size={24} />
+                          <span
+                            style={{
+                              fontSize: 12,
+                              color,
+                              fontWeight: 700,
+                            }}
+                          >
+                            {(m.name || m.email).split(" ")[0] ||
+                              (m.name || m.email).slice(0, 8)}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => setStep(3)}
+                    style={{
+                      flex: 1,
+                      padding: 13,
+                      background: "rgba(255,255,255,0.05)",
+                      color: T.body,
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    ← Back
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createGroupMutation.isPending}
+                    style={{
+                      flex: 2,
+                      padding: 13,
+                      background: createGroupMutation.isPending
+                        ? "rgba(255,255,255,0.05)"
+                        : groupColor,
+                      color: createGroupMutation.isPending ? "#555" : "#0a0a0a",
+                      border: "none",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 800,
+                      cursor: createGroupMutation.isPending
+                        ? "default"
+                        : "pointer",
+                      fontFamily: "inherit",
+                      boxShadow: `0 0 24px ${groupColor}44`,
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {createGroupMutation.isPending
+                      ? "Creating…"
+                      : "Create Group ✓"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </form>
         </div>
-      </motion.div>
+      </div>
     </AnimatePresence>
   );
 }

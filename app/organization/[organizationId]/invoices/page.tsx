@@ -18,6 +18,7 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { InvoiceReviewModal } from "@/components/invoice-review-modal";
 import type { Invoice } from "@/features/business/api/client";
+import { Card, SectionLabel, Btn, T, Icons, A } from "@/lib/splito-design";
 
 export default function OrganizationInvoicesPage() {
   const params = useParams();
@@ -35,101 +36,104 @@ export default function OrganizationInvoicesPage() {
   const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
 
   return (
-    <div className="space-y-3 sm:space-y-4">
+    <div className="space-y-4 sm:space-y-5">
+      <SectionLabel>Invoices</SectionLabel>
       {isInvoicesLoading ? (
         <div className="flex justify-center py-8">
           <Loader2 className="h-8 w-8 animate-spin text-white/50" />
         </div>
       ) : invoices.length > 0 ? (
-        invoices.map((inv) => (
-          <div key={inv.id} className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 sm:p-4 rounded-xl bg-white/[0.02]">
-            <div className="flex gap-3 flex-1 min-w-0">
-              {inv.imageUrl && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setExpandedImage({
-                      url: inv.imageUrl!,
-                      description: inv.description || `Invoice — ${formatCurrencyLocal(inv.amount, inv.currency)}`,
-                    })
-                  }
-                  className="relative h-20 w-28 flex-shrink-0 rounded-lg overflow-hidden bg-white/5 cursor-pointer hover:ring-2 hover:ring-white/30 transition-shadow"
-                >
-                  <Image src={inv.imageUrl} alt="Invoice" fill className="object-cover" sizes="112px" />
-                </button>
-              )}
-              <div className="min-w-0">
-                <p className="text-white font-medium">
-                  {inv.issuer?.name || inv.issuer?.email || "Member"} — {formatCurrencyLocal(inv.amount, inv.currency)}
-                </p>
-                <p className="text-white/60 text-sm">
-                  Due {new Date(inv.dueDate).toLocaleDateString()} · {inv.status}
-                </p>
-                {inv.description && <p className="text-white/50 text-sm mt-1">{inv.description}</p>}
-              </div>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              {isAdmin && (inv.status === "DRAFT" || inv.status === "SENT") && (
-                <button
-                  type="button"
-                  onClick={() => setInvoiceToReview(inv)}
-                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white hover:bg-white/5 text-sm flex items-center gap-1.5"
-                >
-                  <Eye className="h-3.5 w-3.5" />
-                  View
-                </button>
-              )}
-              {isAdmin && (inv.status === "APPROVED" || inv.status === "DECLINED" || inv.status === "PAID") && (
-                <button
-                  onClick={() =>
-                    clearInvoiceMutation.mutate(inv.id, {
-                      onSuccess: () => toast.success("Invoice cleared"),
-                      onError: () => toast.error("Failed to clear"),
-                    })
-                  }
-                  disabled={clearInvoiceMutation.isPending}
-                  className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm"
-                >
-                  Clear
-                </button>
-              )}
-              {inv.issuerId === user?.id && (inv.status === "DRAFT" || inv.status === "SENT") && (
-                <>
+        <Card className="p-0 overflow-hidden">
+          {invoices.map((inv, idx) => (
+            <div
+              key={inv.id}
+              className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 sm:p-5 border-b border-white/[0.06] last:border-b-0"
+            >
+              <div className="flex gap-3 flex-1 min-w-0">
+                {inv.imageUrl && (
                   <button
                     type="button"
                     onClick={() =>
-                      setInvoiceToEdit({
-                        id: inv.id,
-                        amount: inv.amount,
-                        currency: inv.currency,
-                        dueDate: inv.dueDate,
-                        description: inv.description ?? null,
-                        imageUrl: inv.imageUrl ?? null,
+                      setExpandedImage({
+                        url: inv.imageUrl!,
+                        description: inv.description || `Invoice — ${formatCurrencyLocal(inv.amount, inv.currency)}`,
                       })
                     }
-                    className="rounded-full border border-white/20 px-3 py-1.5 text-white/80 hover:text-white text-sm"
+                    className="relative h-20 w-28 flex-shrink-0 rounded-xl overflow-hidden bg-white/[0.05] border border-white/[0.08] cursor-pointer hover:ring-2 hover:ring-white/20 transition-shadow"
                   >
-                    Edit
+                    <Image src={inv.imageUrl} alt="Invoice" fill className="object-cover" sizes="112px" />
                   </button>
-                  {inv.status === "DRAFT" && (
-                    <button
+                )}
+                <div className="min-w-0">
+                  <p className="font-medium text-[#f5f5f5]">
+                    {inv.issuer?.name || inv.issuer?.email || "Member"} — {formatCurrencyLocal(inv.amount, inv.currency)}
+                  </p>
+                  <p className="text-sm mt-1" style={{ color: T.muted }}>
+                    Due {new Date(inv.dueDate).toLocaleDateString()} · {inv.status}
+                  </p>
+                  {inv.description && <p className="text-sm mt-1" style={{ color: T.sub }}>{inv.description}</p>}
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                {isAdmin && (inv.status === "DRAFT" || inv.status === "SENT") && (
+                  <Btn variant="ghost" onClick={() => setInvoiceToReview(inv)} style={{ padding: "6px 12px", fontSize: 12 }}>
+                    <Eye className="h-3.5 w-3.5" /> View
+                  </Btn>
+                )}
+                {isAdmin && (inv.status === "APPROVED" || inv.status === "DECLINED" || inv.status === "PAID") && (
+                  <Btn
+                    variant="ghost"
+                    onClick={() =>
+                      clearInvoiceMutation.mutate(inv.id, {
+                        onSuccess: () => toast.success("Invoice cleared"),
+                        onError: () => toast.error("Failed to clear"),
+                      })
+                    }
+                    disabled={clearInvoiceMutation.isPending}
+                    style={{ padding: "6px 12px", fontSize: 12 }}
+                  >
+                    Clear
+                  </Btn>
+                )}
+                {inv.issuerId === user?.id && (inv.status === "DRAFT" || inv.status === "SENT") && (
+                  <>
+                    <Btn
+                      variant="ghost"
                       onClick={() =>
-                        deleteInvoiceMutation.mutate(inv.id, {
-                          onSuccess: () => toast.success("Invoice deleted"),
-                          onError: () => toast.error("Failed to delete"),
+                        setInvoiceToEdit({
+                          id: inv.id,
+                          amount: inv.amount,
+                          currency: inv.currency,
+                          dueDate: inv.dueDate,
+                          description: inv.description ?? null,
+                          imageUrl: inv.imageUrl ?? null,
                         })
                       }
-                      disabled={deleteInvoiceMutation.isPending}
-                      className="rounded-full border border-red-500/50 px-3 py-1.5 text-red-400 hover:bg-red-500/10 text-sm"
+                      style={{ padding: "6px 12px", fontSize: 12 }}
                     >
-                      Delete
-                    </button>
-                  )}
-                </>
-              )}
+                      Edit
+                    </Btn>
+                    {inv.status === "DRAFT" && (
+                      <Btn
+                        variant="danger"
+                        onClick={() =>
+                          deleteInvoiceMutation.mutate(inv.id, {
+                            onSuccess: () => toast.success("Invoice deleted"),
+                            onError: () => toast.error("Failed to delete"),
+                          })
+                        }
+                        disabled={deleteInvoiceMutation.isPending}
+                        style={{ padding: "6px 12px", fontSize: 12 }}
+                      >
+                        {Icons.trash({ size: 12 })} Delete
+                      </Btn>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
-        </div>
-      ))
+          ))}
+        </Card>
       ) : null}
 
       <InvoiceReviewModal
@@ -156,17 +160,20 @@ export default function OrganizationInvoicesPage() {
       />
 
       {invoices.length === 0 && !isInvoicesLoading && (
-        <div className="text-center py-12 text-white/60">
-          No invoices yet.
+        <Card className="p-8 sm:p-12 text-center">
+          <p className="text-[15px] font-semibold mb-2" style={{ color: T.muted }}>
+            No invoices yet.
+          </p>
           {!isAdmin && (
-            <>
-              {" "}
-              <button onClick={openAddInvoice} className="text-white hover:underline">
-                Raise an invoice
-              </button>
-            </>
+            <button
+              onClick={openAddInvoice}
+              className="mt-2 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all"
+              style={{ background: A, color: "#0a0a0a" }}
+            >
+              Raise an invoice
+            </button>
           )}
-        </div>
+        </Card>
       )}
     </div>
   );
