@@ -101,6 +101,7 @@ export default function CurrencyDropdown({
 }: Props) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [currencyTab, setCurrencyTab] = useState<"fiat" | "crypto">("fiat");
   const triggerRef = useRef<HTMLDivElement>(null);
   const [dropdownRect, setDropdownRect] = useState<{
     top: number;
@@ -113,6 +114,7 @@ export default function CurrencyDropdown({
     if (activeDropdown !== "currency" || !triggerRef.current) {
       setDropdownRect(null);
       setSearchQuery("");
+      setCurrencyTab("fiat");
       return;
     }
     const el = triggerRef.current;
@@ -264,8 +266,13 @@ export default function CurrencyDropdown({
       >
         {currency.name}
       </span>
+      {currency.symbol && (
+        <span style={{ color: T.sub, fontSize: 12, flexShrink: 0 }}>
+          {currency.symbol}
+        </span>
+      )}
       {isSelected && (
-        <span style={{ color: A, fontSize: 12, flexShrink: 0 }}>✓</span>
+        <span style={{ color: A, fontSize: 14, fontWeight: 700, flexShrink: 0 }}>✓</span>
       )}
     </button>
   );
@@ -334,7 +341,7 @@ export default function CurrencyDropdown({
           <input
             type="text"
             autoFocus
-            placeholder="Search currency…"
+            placeholder="Search..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => e.stopPropagation()}
@@ -349,83 +356,182 @@ export default function CurrencyDropdown({
             }}
           />
         </div>
-        <div style={{ overflowY: "auto" }}>
-          {showFiatCurrencies && fiatList.length > 0 && (
-            <>
-              <div
-                style={{
-                  padding: "8px 16px 4px",
-                  color: T.dim,
-                  fontSize: 10,
-                  fontWeight: 700,
-                  letterSpacing: "0.1em",
-                  textTransform: "uppercase",
-                }}
-              >
-                Fiat
-              </div>
-              {fiatList.map((currency) =>
-                renderCurrencyRow(
-                  currency,
-                  true,
-                  selectedCurrencies.includes(currency.id)
-                )
-              )}
-            </>
-          )}
-          {showFiatCurrencies && fiatList.length === 0 && searchQuery.trim() && (
-            <div
+
+        {/* Tabs: Fiat | Crypto */}
+        {showFiatCurrencies && !disableChainCurrencies && (
+          <div
+            style={{
+              display: "flex",
+              borderBottom: "1px solid rgba(255,255,255,0.06)",
+              padding: "0 4px",
+            }}
+          >
+            <button
+              type="button"
+              onClick={() => setCurrencyTab("fiat")}
               style={{
-                padding: "12px 16px",
-                color: T.sub,
-                fontSize: 12,
+                flex: 1,
+                padding: "10px 12px",
+                background: "none",
+                border: "none",
+                borderBottom: `2px solid ${currencyTab === "fiat" ? A : "transparent"}`,
+                color: currencyTab === "fiat" ? "#fff" : T.muted,
+                fontSize: 13,
+                fontWeight: currencyTab === "fiat" ? 700 : 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                transition: "all 0.2s",
               }}
             >
-              No matching fiat currencies
-            </div>
-          )}
-          {!disableChainCurrencies &&
-            chainLists.map(({ chainId, tokens }) => {
-              const { name: chainName, icon: chainIcon, color: chainColor } =
-                getChainDisplay(chainId);
-              return (
-                <div key={chainId}>
-                  <div
-                    style={{
-                      padding: "10px 16px 4px",
-                      color: T.dim,
-                      fontSize: 10,
-                      fontWeight: 700,
-                      letterSpacing: "0.1em",
-                      textTransform: "uppercase",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 6,
-                    }}
-                  >
-                    <span style={{ color: chainColor }}>{chainIcon}</span>
-                    {chainName}
-                  </div>
-                  {tokens.map((currency) =>
+              <span style={{ fontSize: 14 }}>💵</span>
+              Fiat
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrencyTab("crypto")}
+              style={{
+                flex: 1,
+                padding: "10px 12px",
+                background: "none",
+                border: "none",
+                borderBottom: `2px solid ${currencyTab === "crypto" ? A : "transparent"}`,
+                color: currencyTab === "crypto" ? "#fff" : T.muted,
+                fontSize: 13,
+                fontWeight: currencyTab === "crypto" ? 700 : 500,
+                cursor: "pointer",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 6,
+                transition: "all 0.2s",
+              }}
+            >
+              <span style={{ fontSize: 14 }}>🔗</span>
+              Crypto
+            </button>
+          </div>
+        )}
+
+        <div style={{ overflowY: "auto", flex: 1, minHeight: 0 }}>
+          {showFiatCurrencies && !disableChainCurrencies ? (
+            /* Tabs visible: show content by active tab */
+            currencyTab === "fiat" ? (
+              <>
+                {fiatList.length > 0 ? (
+                  fiatList.map((currency) =>
                     renderCurrencyRow(
                       currency,
-                      false,
+                      true,
                       selectedCurrencies.includes(currency.id)
                     )
-                  )}
-                </div>
-              );
-            })}
-          {!disableChainCurrencies && chainLists.length === 0 && searchQuery.trim() && (
-            <div
-              style={{
-                padding: "12px 16px",
-                color: T.sub,
-                fontSize: 12,
-              }}
-            >
-              No matching crypto
-            </div>
+                  )
+                ) : searchQuery.trim() ? (
+                  <div style={{ padding: "12px 16px", color: T.sub, fontSize: 12 }}>
+                    No matching fiat currencies
+                  </div>
+                ) : (
+                  <div style={{ padding: "12px 16px", color: T.sub, fontSize: 12 }}>
+                    No fiat currencies
+                  </div>
+                )}
+              </>
+            ) : (
+              <>
+                {chainLists.map(({ chainId, tokens }) => {
+                  const { name: chainName, icon: chainIcon, color: chainColor } =
+                    getChainDisplay(chainId);
+                  return (
+                    <div key={chainId}>
+                      <div
+                        style={{
+                          padding: "10px 16px 4px",
+                          color: T.dim,
+                          fontSize: 10,
+                          fontWeight: 700,
+                          letterSpacing: "0.1em",
+                          textTransform: "uppercase",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 6,
+                        }}
+                      >
+                        <span style={{ color: chainColor }}>{chainIcon}</span>
+                        {chainName}
+                      </div>
+                      {tokens.map((currency) =>
+                        renderCurrencyRow(
+                          currency,
+                          false,
+                          selectedCurrencies.includes(currency.id)
+                        )
+                      )}
+                    </div>
+                  );
+                })}
+                {chainLists.length === 0 && searchQuery.trim() && (
+                  <div style={{ padding: "12px 16px", color: T.sub, fontSize: 12 }}>
+                    No matching crypto
+                  </div>
+                )}
+              </>
+            )
+          ) : (
+            /* No tabs: single list (fiat-only or crypto-only) */
+            <>
+              {showFiatCurrencies && (
+                <>
+                  {fiatList.length > 0 ? (
+                    fiatList.map((currency) =>
+                      renderCurrencyRow(
+                        currency,
+                        true,
+                        selectedCurrencies.includes(currency.id)
+                      )
+                    )
+                  ) : searchQuery.trim() ? (
+                    <div style={{ padding: "12px 16px", color: T.sub, fontSize: 12 }}>
+                      No matching fiat currencies
+                    </div>
+                  ) : null}
+                </>
+              )}
+              {!disableChainCurrencies && chainLists.map(({ chainId, tokens }) => {
+                const { name: chainName, icon: chainIcon, color: chainColor } =
+                  getChainDisplay(chainId);
+                return (
+                  <div key={chainId}>
+                    <div
+                      style={{
+                        padding: "10px 16px 4px",
+                        color: T.dim,
+                        fontSize: 10,
+                        fontWeight: 700,
+                        letterSpacing: "0.1em",
+                        textTransform: "uppercase",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 6,
+                      }}
+                    >
+                      <span style={{ color: chainColor }}>{chainIcon}</span>
+                      {chainName}
+                    </div>
+                    {tokens.map((currency) =>
+                      renderCurrencyRow(
+                        currency,
+                        false,
+                        selectedCurrencies.includes(currency.id)
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </>
           )}
         </div>
       </div>

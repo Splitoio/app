@@ -475,7 +475,7 @@ export default function Page() {
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
         {/* Balance hero – design, responsive */}
         <div
-          id="dashboard-overall-balance"
+            id="dashboard-overall-balance"
           className="rounded-2xl sm:rounded-3xl border border-white/[0.09] p-4 sm:p-7 mb-5 sm:mb-7 relative overflow-hidden"
           style={{
             background: "linear-gradient(135deg, #111 0%, #0e0e0e 50%, #0f0f0f 100%)",
@@ -561,8 +561,8 @@ export default function Page() {
                 </p>
               </div>
             ))}
-          </div>
         </div>
+      </div>
 
         {/* Your Groups + Recent Activity – design grid, responsive */}
         <div
@@ -623,14 +623,14 @@ export default function Page() {
                             ? (g as { expenses: unknown[] }).expenses.length
                             : 0)}{" "}
                           expenses
-                        </p>
-                      </div>
+          </p>
+        </div>
                       <GroupBalanceShort
                         group={g}
                         userId={user?.id ?? null}
                         defaultCurrency={defaultCurrency}
                       />
-                    </div>
+          </div>
                   </Link>
                 );
               })
@@ -663,11 +663,11 @@ export default function Page() {
                       </p>
                       <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>
                         {formatRelativeTime(a.date)}
-                      </p>
-                    </div>
+          </p>
+        </div>
                   </div>
                 ))}
-              </div>
+          </div>
             ) : (reminders ?? []).length > 0 ? (
               <div className="flex flex-col">
                 {(reminders ?? []).slice(0, 5).map((r) => (
@@ -702,7 +702,7 @@ export default function Page() {
               </div>
             )}
           </Card>
-        </div>
+      </div>
 
         {/* Friends Balance – design */}
         <div>
@@ -748,10 +748,10 @@ export default function Page() {
                       friendName={friend.name ?? "Friend"}
                       friendInit={friendInit}
                       color={color}
-                      oweItems={oweItems}
-                      owedItems={owedItems}
-                      defaultCurrency={defaultCurrency}
-                    />
+                              oweItems={oweItems}
+                              owedItems={owedItems}
+                              defaultCurrency={defaultCurrency}
+                            />
                   );
                 })
             )}

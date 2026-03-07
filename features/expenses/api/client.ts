@@ -50,3 +50,8 @@ export const getLegacyExpenses = async (groupId: string) => {
   const response = await apiClient.get(`/groups/${groupId}/expenses`);
   return response.data;
 };
+
+export const deleteExpense = async (groupId: string, expenseId: string) => {
+  const response = await apiClient.delete(`/groups/${groupId}/expenses/${expenseId}`);
+  return response.data;
+};

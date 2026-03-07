@@ -356,7 +356,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   letterSpacing: "-0.02em",
                 }}
               >
-                Create Group
+              Create Group
               </p>
               <div
                 style={{
@@ -443,12 +443,12 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 </div>
                 <div>
                   <label style={lbl}>Group name</label>
-                  <input
-                    type="text"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, name: e.target.value }))
-                    }
+                <input
+                  type="text"
+                  value={formData.name}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, name: e.target.value }))
+                  }
                     placeholder="e.g. Japan Trip, Roommates…"
                     style={inp}
                     autoFocus
@@ -813,7 +813,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                         MEMBER_COLORS[idx % MEMBER_COLORS.length];
                       return (
                         <div
-                          key={member.id}
+                            key={member.id}
                           style={{
                             display: "flex",
                             alignItems: "center",
@@ -957,8 +957,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       ]}
                       size={58}
                       radius={14}
-                    />
-                  </div>
+                                  />
+                                </div>
                   <div>
                     <p
                       style={{
@@ -981,7 +981,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       {members.length !== 0 ? "s" : ""}
                     </p>
                   </div>
-                </div>
+                                </div>
                 <div
                   style={{
                     background: "rgba(255,255,255,0.04)",
@@ -1015,9 +1015,9 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       {resolver
                         ? `${resolver.symbol}${resolver.chainId ? ` · ${resolver.name}` : ""}`
                         : "USD (Fiat)"}
-                    </p>
-                  </div>
-                </div>
+                                </p>
+                              </div>
+                            </div>
                 <div>
                   <label style={lbl}>Members</label>
                   <div
@@ -1082,7 +1082,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       );
                     })}
                   </div>
-                </div>
+              </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     type="button"
@@ -1102,9 +1102,9 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   >
                     ← Back
                   </button>
-                  <button
-                    type="submit"
-                    disabled={createGroupMutation.isPending}
+              <button
+                type="submit"
+                disabled={createGroupMutation.isPending}
                     style={{
                       flex: 2,
                       padding: 13,
@@ -1127,13 +1127,13 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     {createGroupMutation.isPending
                       ? "Creating…"
                       : "Create Group ✓"}
-                  </button>
+              </button>
                 </div>
               </div>
             )}
-          </form>
+            </form>
+          </div>
         </div>
-      </div>
     </AnimatePresence>
   );
 }
