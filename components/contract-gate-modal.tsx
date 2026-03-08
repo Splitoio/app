@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, CheckCircle, XCircle, Loader2, FileText, ArrowLeft, Download } from "lucide-react";
+import { X, XCircle, Loader2, FileText, ArrowLeft, Download } from "lucide-react";
 import type { Contract } from "@/features/business/api/client";
 import { useSignContract, useRejectContract } from "@/features/business/hooks/use-contracts";
 import { QueryKeys } from "@/lib/constants";
@@ -11,6 +11,17 @@ import { useRouter } from "next/navigation";
 import { getFileDownloadUrl } from "@/features/files/api/client";
 import { viewPdf } from "@/utils/file";
 import { downloadContract } from "@/utils/contract-download";
+import { ContractSignatureCapture } from "@/components/contract-signature-capture";
+
+function errorMessage(e: unknown): string {
+  if (e == null) return "Something went wrong";
+  if (typeof e === "string") return e;
+  if (typeof (e as { message?: string }).message === "string") return (e as { message: string }).message;
+  const d = (e as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+  if (d?.message) return d.message;
+  if (d?.error) return d.error;
+  return "Something went wrong";
+}
 
 interface ContractGateModalProps {
   isOpen: boolean;
@@ -40,19 +51,22 @@ export function ContractGateModal({
     if (isOpen) setStep("summary");
   }, [isOpen]);
 
-  const handleAccept = () => {
+  const handleSign = (payload: { signatureDataUrl: string; signerName: string }) => {
     if (!contract) return;
-    signMutation.mutate(contract.id, {
-      onSuccess: () => {
-        queryClient.invalidateQueries({ queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS] });
-        queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
-        toast.success("Contract accepted. You now have access to the organization.");
-        onAccept?.();
-        onClose();
-        router.push(`/organization/${contract.organizationId}/invoices`);
-      },
-      onError: (e: Error) => toast.error(e?.message || "Failed to accept contract"),
-    });
+    signMutation.mutate(
+      { contractId: contract.id, ...payload },
+      {
+        onSuccess: () => {
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.BUSINESS_ORGANIZATIONS] });
+          queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
+          toast.success("Contract accepted. You now have access to the organization.");
+          onAccept?.();
+          onClose();
+          router.push(`/organization/${contract.organizationId}/invoices`);
+        },
+        onError: (e: unknown) => toast.error(errorMessage(e)),
+      }
+    );
   };
 
   const handleReject = () => {
@@ -63,7 +77,7 @@ export function ContractGateModal({
         onReject?.();
         onClose();
       },
-      onError: (e: Error) => toast.error(e?.message || "Failed to reject contract"),
+      onError: (e: unknown) => toast.error(errorMessage(e)),
     });
   };
 
@@ -195,25 +209,17 @@ export function ContractGateModal({
                     View PDF
                   </button>
                 )}
-                <div className="flex flex-col sm:flex-row gap-3 pt-2 border-t border-white/10">
-                  <button
-                    type="button"
-                    onClick={handleAccept}
-                    disabled={signMutation.isPending}
-                    className="flex items-center justify-center gap-2 rounded-full bg-white text-black px-5 py-2.5 font-medium hover:bg-white/90 disabled:opacity-50"
-                  >
-                    {signMutation.isPending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <CheckCircle className="h-4 w-4" />
-                    )}
-                    Accept & join organization
-                  </button>
+                <div className="pt-2 border-t border-white/10 space-y-3">
+                  <ContractSignatureCapture
+                    onSign={handleSign}
+                    isPending={signMutation.isPending}
+                    disabled={rejectMutation.isPending}
+                  />
                   <button
                     type="button"
                     onClick={handleReject}
                     disabled={rejectMutation.isPending}
-                    className="flex items-center justify-center gap-2 rounded-full border border-red-400/50 text-red-400 px-5 py-2.5 font-medium hover:bg-red-400/10 disabled:opacity-50"
+                    className="w-full flex items-center justify-center gap-2 rounded-full border border-red-400/50 text-red-400 px-5 py-2.5 font-medium hover:bg-red-400/10 disabled:opacity-50"
                   >
                     {rejectMutation.isPending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />

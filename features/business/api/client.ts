@@ -315,8 +315,11 @@ export const updateContract = async (
   return ContractSchema.parse(response);
 };
 
-export const signContract = async (contractId: string) => {
-  const response = await apiClient.patch(`/contracts/${contractId}/sign`, {});
+export const signContract = async (
+  contractId: string,
+  payload: { signatureDataUrl: string; signerName: string }
+) => {
+  const response = await apiClient.patch(`/contracts/${contractId}/sign`, payload);
   return ContractSchema.parse(response);
 };
 

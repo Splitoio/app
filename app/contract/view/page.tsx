@@ -5,13 +5,23 @@ import Link from "next/link";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetContractByToken, useClaimContractByToken, useSignContract, useRejectContract } from "@/features/business/hooks/use-contracts";
 import { getFileDownloadUrl } from "@/features/files/api/client";
-import { Loader2, FileText, CheckCircle, XCircle } from "lucide-react";
+import { Loader2, FileText, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 
 import { viewPdf } from "@/utils/file";
+import { ContractSignatureCapture } from "@/components/contract-signature-capture";
 
+function errorMessage(e: unknown): string {
+  if (e == null) return "Something went wrong";
+  if (typeof e === "string") return e;
+  if (typeof (e as { message?: string }).message === "string") return (e as { message: string }).message;
+  const d = (e as { response?: { data?: { message?: string; error?: string } } })?.response?.data;
+  if (d?.message) return d.message;
+  if (d?.error) return d.error;
+  return "Something went wrong";
+}
 
 export default function ContractViewPage() {
   const searchParams = useSearchParams();
@@ -116,14 +126,17 @@ export default function ContractViewPage() {
     );
   };
 
-  const handleAccept = () => {
-    signMutation.mutate(contract.id, {
-      onSuccess: () => {
-        toast.success("Contract accepted. You now have access to the organization.");
-        router.push(`/organization/${contract.organizationId}/invoices`);
-      },
-      onError: (e: Error) => toast.error(e?.message || "Failed to accept contract"),
-    });
+  const handleSign = (payload: { signatureDataUrl: string; signerName: string }) => {
+    signMutation.mutate(
+      { contractId: contract.id, ...payload },
+      {
+        onSuccess: () => {
+          toast.success("Contract signed. You’ll receive a copy by email. You now have access to the organization.");
+          router.push(`/organization/${contract.organizationId}/invoices`);
+        },
+        onError: (e: unknown) => toast.error(errorMessage(e) || "Failed to sign contract"),
+      }
+    );
   };
 
   const handleReject = () => {
@@ -132,7 +145,7 @@ export default function ContractViewPage() {
         setRejected(true);
         toast.success("Contract rejected.");
       },
-      onError: (e: Error) => toast.error(e?.message || "Failed to reject contract"),
+      onError: (e: unknown) => toast.error(errorMessage(e) || "Failed to reject contract"),
     });
   };
 
@@ -190,34 +203,26 @@ export default function ContractViewPage() {
         </button>
 
         {pendingAcceptReject && (
-          <div className="flex flex-col sm:flex-row gap-3">
-            <button
-              type="button"
-              onClick={handleAccept}
-              disabled={signMutation.isPending}
-              className="flex items-center justify-center gap-2 rounded-full bg-white text-black px-6 py-3 font-medium hover:bg-white/90 disabled:opacity-50"
-            >
-              {signMutation.isPending ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <CheckCircle className="h-5 w-5" />
-              )}
-              Accept contract
-            </button>
+          <>
+            <ContractSignatureCapture
+              onSign={handleSign}
+              isPending={signMutation.isPending}
+              disabled={rejectMutation.isPending}
+            />
             <button
               type="button"
               onClick={handleReject}
               disabled={rejectMutation.isPending}
-              className="flex items-center justify-center gap-2 rounded-full border border-red-400/50 text-red-400 px-6 py-3 font-medium hover:bg-red-400/10 disabled:opacity-50"
+              className="flex items-center justify-center gap-2 rounded-full border border-red-400/50 text-red-400 px-6 py-3 font-medium hover:bg-red-400/10 disabled:opacity-50 w-full sm:w-auto"
             >
               {rejectMutation.isPending ? (
                 <Loader2 className="h-5 w-5 animate-spin" />
               ) : (
                 <XCircle className="h-5 w-5" />
               )}
-              Reject
+              Reject contract
             </button>
-          </div>
+          </>
         )}
 
         {isAssignee && isSigned && (

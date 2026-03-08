@@ -4,7 +4,6 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
-import { ProfileDropdown } from "@/components/profile-dropdown";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
 import { useGetContractsByOrganization } from "@/features/business/hooks/use-contracts";
@@ -12,7 +11,6 @@ import { useGetStreamsByOrganization } from "@/features/business/hooks/use-strea
 import { Loader2, UserPlus, Building2, FileText, TrendingUp, FileSignature, ChevronsUpDown, Plus } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { OrganizationConnectionError } from "@/components/organization-connection-error";
-import { ContractNotifications } from "@/components/contract-notifications";
 import { Card, SectionLabel, StatBox, T, A, Avatar } from "@/lib/splito-design";
 import { cn } from "@/lib/utils";
 import { motion, AnimatePresence } from "framer-motion";
@@ -220,13 +218,23 @@ export default function OrganizationDashboardPage() {
           </div>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 shrink-0 ml-1">
-          <ContractNotifications />
           {user && (
-            <ProfileDropdown
-              user={user}
-              profileHref="/settings"
-              avatarSizeClass="h-10 w-10 sm:h-14 sm:w-14"
-            />
+            <div className="h-10 w-10 sm:h-14 sm:w-14 overflow-hidden rounded-full bg-gradient-to-br from-purple-500/20 to-blue-500/20 p-0.5 flex-shrink-0">
+              <div className="h-full w-full rounded-full overflow-hidden bg-[#101012]">
+                {user.image ? (
+                  <Image src={user.image} alt="" width={56} height={56} className="h-full w-full object-cover" />
+                ) : (
+                  <Image
+                    src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user.id || user.email || "user"}`}
+                    alt=""
+                    width={56}
+                    height={56}
+                    className="h-full w-full object-cover"
+                    onError={(e) => { (e.target as HTMLImageElement).src = "https://api.dicebear.com/9.x/identicon/svg?seed=user"; }}
+                  />
+                )}
+              </div>
+            </div>
           )}
         </div>
       </div>

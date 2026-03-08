@@ -1,5 +1,5 @@
 const AUTH_ROUTES = new Set(["/login", "/signup"]);
-const PUBLIC_ROUTE_PREFIXES = ["/contract/view"];
+const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign"];
 
 export const SESSION_COOKIE_NAMES = [
   "__Secure-better-auth.session_token",

@@ -12,10 +12,12 @@ import { useRouter } from "next/navigation";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
+import { fadeIn, scaleIn } from "@/utils/animations";
 import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
-import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
+import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
+import CurrencyDropdown from "./currency-dropdown";
 import { Card, Avatar, GroupAvatar, A, T, Icons } from "@/lib/splito-design";
 
 const GROUP_COLORS = [
@@ -43,33 +45,7 @@ interface Member {
   exists: boolean;
 }
 
-type Option = import("./ResolverSelector").Option;
-
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-function useAllChainsTokens() {
-  const [options, setOptions] = useState<Option[]>([]);
-  useEffect(() => {
-    fetch(`${API_URL}/api/multichain/all-chains-tokens`, { credentials: "include" })
-      .then(res => res.json())
-      .then((data: any) => {
-        const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
-        const opts: Option[] = [];
-        chains.forEach((chain: any) => {
-          (chain.tokens || []).forEach((token: any) => {
-            opts.push({
-              chainId: chain.chainId,
-              id: token.id || token.symbol,
-              symbol: token.symbol,
-              name: token.name,
-              type: token.type,
-            });
-          });
-        });
-        setOptions(opts);
-      });
-  }, []);
-  return options;
-}
 
 export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const { address } = useWallet();
@@ -87,17 +63,18 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     name: "",
     memberEmail: "",
     currency: "",
+    currencyType: "FIAT" as "FIAT" | "TOKEN",
+    chainId: undefined as string | undefined,
+    tokenId: undefined as string | undefined,
   });
 
   // State for tracking added members
   const [members, setMembers] = useState<Member[]>([]);
+  const { data: allCurrencies } = useGetAllCurrencies();
 
   useEffect(() => {
     if (isOpen) setStep(1);
   }, [isOpen]);
-
-  const allChainTokenOptions = useAllChainsTokens();
-  const [resolver, setResolver] = useState<ResolverOption | undefined>(undefined);
 
   // Check if user exists by email
   const checkUserExists = async (email: string): Promise<Member | null> => {
@@ -168,49 +145,29 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Debug: Log the selected resolver before any API call
-    console.log("[DEBUG] Selected resolver:", resolver);
-
     if (!formData.name.trim()) {
       toast.error("Please enter a group name");
       return;
     }
-    const payload: any = {
+    const defaultCurrency = formData.currencyType === "FIAT" ? formData.currency || "USD" : "USD";
+    const payload: Record<string, unknown> = {
       name: formData.name,
+      currency: defaultCurrency,
     };
-    if (resolver) {
-      if (resolver.chainId) {
-        payload.tokenId = resolver.id;
-        payload.chainId = resolver.chainId;
-      } else {
-        payload.tokenId = resolver.id;
-      }
-    }
-    // Debug: Log the group creation payload
-    console.log("[DEBUG] Group creation payload:", payload);
     createGroupMutation.mutate(
-      payload,
+      payload as { name: string; currency?: string },
       {
         onSuccess: async (data) => {
-          // Debug: Log the group creation response
-          console.log("[DEBUG] Group created, response:", data);
-          if (resolver && data?.id) {
-            if (!resolver.id || !resolver.chainId) {
-              toast.error("Please select a valid token resolver (not fiat)");
-              return;
-            }
-            const acceptedTokenPayload = {
-              tokenId: resolver.id,
-              chainId: resolver.chainId,
-              isDefault: true,
-            };
-            console.log("[DEBUG] Accepted token payload:", acceptedTokenPayload);
+          if (formData.currencyType === "TOKEN" && formData.tokenId && formData.chainId && data?.id) {
             try {
-              const resp = await apiClient.post(`/groups/${data.id}/accepted-tokens`, acceptedTokenPayload);
-              console.log("[DEBUG] Accepted token API response:", resp);
+              await apiClient.post(`/groups/${data.id}/accepted-tokens`, {
+                tokenId: formData.tokenId,
+                chainId: formData.chainId,
+                isDefault: true,
+              });
             } catch (err) {
               toast.error("Failed to set accepted token for this group");
-              console.error("[DEBUG] Error setting accepted token:", err);
+              console.error(err);
             }
           }
           if (members.length > 0) {
@@ -220,6 +177,9 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
             name: "",
             memberEmail: "",
             currency: "",
+            currencyType: "FIAT",
+            chainId: undefined,
+            tokenId: undefined,
           });
           setMembers([]);
           toast.success("Group created successfully!");
@@ -275,17 +235,24 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     setMembers(members.filter((member) => member.id !== memberId));
   };
 
-  // Only allow tokens (with chainId) as resolver
-  const handleResolverChange = (option: ResolverOption | undefined) => {
-    if (option && !option.chainId) {
-      toast.error("Please select a blockchain token as resolver (not fiat)");
-      setResolver(undefined);
-      return;
-    }
-    setResolver(option);
+  const handleCurrencySelect = (currencies: string[]) => {
+    const currencyId = currencies[0] || "";
+    const currency = allCurrencies?.currencies?.find((c: { id: string; type?: string; chainId?: string | null }) => c.id === currencyId);
+    setFormData((prev) => {
+      const next = { ...prev, currency: currencyId };
+      if (currency) {
+        next.currencyType = currency.type === "FIAT" ? "FIAT" : "TOKEN";
+        if (next.currencyType === "TOKEN") {
+          next.chainId = currency.chainId ?? undefined;
+          next.tokenId = currency.id;
+        } else {
+          next.chainId = undefined;
+          next.tokenId = undefined;
+        }
+      }
+      return next;
+    });
   };
-
-  if (!isOpen) return null;
 
   const inp = {
     width: "100%",
@@ -311,34 +278,24 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
   return (
     <AnimatePresence>
-      <div
-        onClick={onClose}
-        style={{
-          position: "fixed",
-          inset: 0,
-          background: "rgba(0,0,0,0.88)",
-          backdropFilter: "blur(16px)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 200,
-          padding: 24,
-        }}
-      >
-        <div
-          onClick={(e) => e.stopPropagation()}
-          style={{
-            background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
-            border: "1px solid rgba(255,255,255,0.09)",
-            borderRadius: 28,
-            width: "100%",
-            maxWidth: 460,
-            padding: "28px 28px 32px",
-            maxHeight: "90vh",
-            overflowY: "auto",
-            boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
-          }}
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 h-screen w-screen"
+          {...fadeIn}
         >
+          <motion.div
+            className="fixed inset-0 bg-black/70 brightness-50"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+          />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[500px] px-4 sm:px-0">
+            <motion.div
+              className="relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
+              style={{ background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
+              {...scaleIn}
+              onClick={(e) => e.stopPropagation()}
+            >
           <div
             style={{
               display: "flex",
@@ -508,81 +465,95 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               </div>
             )}
 
-            {/* Step 2: Default settlement currency */}
+            {/* Step 2: Default settlement currency — same as add expense modal */}
             {step === 2 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <p
+                <div
                   style={{
-                    color: T.muted,
-                    fontSize: 14,
-                    lineHeight: 1.6,
+                    background: "rgba(255,255,255,0.04)",
+                    borderRadius: 14,
+                    padding: "14px 16px",
+                    border: "1px solid rgba(255,255,255,0.07)",
                   }}
                 >
-                  Set the default settlement currency for this group.
-                </p>
-                <div style={{ overflow: "visible" }}>
+                  <p
+                    style={{
+                      color: T.mid,
+                      fontSize: 12,
+                      marginBottom: 2,
+                      fontWeight: 600,
+                    }}
+                  >
+                    Group default
+                  </p>
+                  <p
+                    style={{
+                      color: T.body,
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {formData.currency || "USD"}{" "}
+                    <span style={{ color: T.sub, fontWeight: 400 }}>
+                      — change below if needed
+                    </span>
+                  </p>
+                </div>
+                <div>
                   <label style={lbl}>Default settlement currency</label>
-                  <ResolverSelector
-                    value={resolver}
-                    onChange={handleResolverChange}
+                  <CurrencyDropdown
+                    selectedCurrencies={formData.currency ? [formData.currency] : []}
+                    setSelectedCurrencies={handleCurrencySelect}
+                    showFiatCurrencies={true}
+                    disableChainCurrencies={false}
+                    mode="single"
+                    placeholder="Select currency..."
                   />
                 </div>
-                {resolver?.chainId ? (
+                {formData.currencyType === "FIAT" && formData.currency && (
                   <div
                     style={{
                       background: "rgba(52,211,153,0.06)",
                       border: "1px solid rgba(52,211,153,0.15)",
                       borderRadius: 14,
-                      padding: "14px 16px",
+                      padding: "12px 16px",
+                      display: "flex",
+                      gap: 10,
                     }}
                   >
+                    <span style={{ color: "#34D399", fontSize: 14 }}>ℹ</span>
                     <p
                       style={{
-                        color: "#34D399",
+                        color: "#34D399aa",
                         fontSize: 12,
-                        fontWeight: 700,
-                        marginBottom: 5,
+                        lineHeight: 1.6,
                       }}
                     >
-                      On-chain settlement
+                      Fiat amounts will be converted to the group&apos;s settlement
+                      currency at time of settling.
                     </p>
+                  </div>
+                )}
+                {formData.currencyType === "TOKEN" && formData.currency && (
+                  <div
+                    style={{
+                      background: "rgba(52,211,153,0.06)",
+                      border: "1px solid rgba(52,211,153,0.15)",
+                      borderRadius: 14,
+                      padding: "12px 16px",
+                      display: "flex",
+                      gap: 10,
+                    }}
+                  >
+                    <span style={{ color: "#34D399", fontSize: 14 }}>ℹ</span>
                     <p
                       style={{
-                        color: "#34D39977",
-                        fontSize: 11,
+                        color: "#34D399aa",
+                        fontSize: 12,
                         lineHeight: 1.6,
                       }}
                     >
                       Members will be prompted to settle via blockchain.
-                    </p>
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      background: "rgba(255,255,255,0.03)",
-                      border: "1px solid rgba(255,255,255,0.08)",
-                      borderRadius: 14,
-                      padding: "14px 16px",
-                    }}
-                  >
-                    <p
-                      style={{
-                        color: T.body,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        marginBottom: 4,
-                      }}
-                    >
-                      Bank / Fiat settlement
-                    </p>
-                    <p
-                      style={{
-                        color: T.sub,
-                        fontSize: 11,
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Members will settle outside the app and mark as paid.
                     </p>
                   </div>
                 )}
@@ -1012,8 +983,11 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                         fontWeight: 700,
                       }}
                     >
-                      {resolver
-                        ? `${resolver.symbol}${resolver.chainId ? ` · ${resolver.name}` : ""}`
+                      {formData.currency
+                        ? (() => {
+                            const c = allCurrencies?.currencies?.find((x: { id: string; symbol?: string; name?: string }) => x.id === formData.currency);
+                            return c ? `${c.symbol || formData.currency}${formData.currencyType === "TOKEN" ? ` · ${c.name || ""}` : ""}` : formData.currency;
+                          })()
                         : "USD (Fiat)"}
                                 </p>
                               </div>
@@ -1132,8 +1106,10 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               </div>
             )}
             </form>
+            </motion.div>
           </div>
-        </div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }
