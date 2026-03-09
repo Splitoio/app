@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createExpense,
+  updateExpense,
   deleteExpense,
   getExpenses,
   getLegacyExpenses,
   EnhancedExpensePayload,
+  UpdateExpensePayload,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 import { toast } from "sonner";
@@ -48,6 +50,31 @@ export const useGetLegacyExpenses = (groupId: string) => {
   return useQuery({
     queryKey: [QueryKeys.LEGACY_EXPENSES, groupId],
     queryFn: () => getLegacyExpenses(groupId),
+  });
+};
+
+export const useUpdateExpense = (groupId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      expenseId,
+      payload,
+    }: {
+      expenseId: string;
+      payload: UpdateExpensePayload;
+    }) => updateExpense(groupId, expenseId, payload),
+    onSuccess: (_, { expenseId }) => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES, groupId] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.ANALYTICS] });
+      toast.success("Expense updated");
+    },
+    onError: (error: Error) => {
+      console.error("Error updating expense:", error);
+      toast.error(error.message || "Failed to update expense");
+    },
   });
 };
 

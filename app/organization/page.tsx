@@ -8,7 +8,7 @@ import { useGetAllOrganizations } from "@/features/business/hooks/use-organizati
 import { useGetInvoicesByOrganization } from "@/features/business/hooks/use-invoices";
 import { useGetContractsByOrganization } from "@/features/business/hooks/use-contracts";
 import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
-import { Loader2, UserPlus, Building2, FileText, TrendingUp, FileSignature, ChevronsUpDown, Plus } from "lucide-react";
+import { Loader2, UserPlus, Building2, FileText, TrendingUp, FileSignature, ChevronsUpDown, Plus, Clock } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { OrganizationConnectionError } from "@/components/organization-connection-error";
 import { Card, SectionLabel, StatBox, T, A, Avatar } from "@/lib/splito-design";
@@ -84,6 +84,9 @@ export default function OrganizationDashboardPage() {
     (i) => i.status === "DRAFT" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED"
   ).length;
   const totalInvoicesForOrg = invoicesForOrg.length;
+  const paymentsOverdue = invoicesForOrg.filter((i) => i.status === "OVERDUE" || i.status === "APPROVED").length;
+  const approvalRequestsCount = invoicesForOrg.filter((i) => i.status === "SENT").length;
+  const approvalPastDueCount = invoicesForOrg.filter((i) => i.status === "SENT" && new Date(i.dueDate) < new Date()).length;
 
   const membersMap = new Map<string, { id: string; name: string | null; image: string | null; email: string | null; orgNames: string[] }>();
   organizations.forEach((org) => {
@@ -240,7 +243,7 @@ export default function OrganizationDashboardPage() {
       </div>
 
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
-      {/* Stats */}
+      {/* Stats (four cards first) */}
       <div className="grid gap-4 sm:gap-5 mb-5 sm:mb-7" style={{ gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))" }}>
         <Card className="p-4 sm:p-[22px]">
           <div className="flex items-center gap-2 mb-4">
@@ -287,6 +290,39 @@ export default function OrganizationDashboardPage() {
         )}
       </div>
 
+      {/* Upcoming actions + Your members (after the four cards) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
+        {hasAdminOrg && selectedOrgId && (
+          <Card className="p-4 sm:p-5">
+            <h2 className="text-base font-semibold text-white mb-4">Upcoming actions</h2>
+            <div className="space-y-3">
+              <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-red-500/20 flex items-center justify-center relative">
+                    <Clock className="h-5 w-5 text-red-400" />
+                    {paymentsOverdue > 0 && <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5 rounded-full bg-red-500" />}
+                  </div>
+                  <div>
+                    <p className="font-medium text-red-400">{paymentsOverdue} Payment{paymentsOverdue !== 1 ? "s" : ""} overdue</p>
+                  </div>
+                </div>
+                <Link href={`/organization/${selectedOrgId}/invoices`} className="rounded-lg px-4 py-2 text-sm font-semibold shrink-0" style={{ background: A, color: "#0a0a0a" }}>Pay</Link>
+              </div>
+              <div className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-amber-500/20 flex items-center justify-center">
+                    <FileText className="h-5 w-5 text-amber-400" />
+                  </div>
+                  <div>
+                    <p className="font-medium text-white">{approvalRequestsCount} Approval request{approvalRequestsCount !== 1 ? "s" : ""}</p>
+                    <p className="text-xs text-red-400 mt-0.5">{approvalPastDueCount} Past due item{approvalPastDueCount !== 1 ? "s" : ""}</p>
+                  </div>
+                </div>
+                <Link href={`/organization/${selectedOrgId}/invoices`} className="rounded-lg px-4 py-2 text-sm font-medium shrink-0 border border-white/20 text-white/90 hover:bg-white/5 bg-white/[0.04]">Review</Link>
+              </div>
+            </div>
+          </Card>
+        )}
         <Card className="p-4 sm:p-[22px]">
           <div className="flex justify-between items-center mb-4">
             <SectionLabel>Your Members</SectionLabel>
@@ -295,20 +331,25 @@ export default function OrganizationDashboardPage() {
               <span>View All</span>
             </Link>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
           {isOrgsLoading ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.muted }} />
             </div>
           ) : members.length > 0 ? (
             members.slice(0, 5).map((member) => (
-              <div key={member.id} className="flex items-center gap-4 py-2.5 border-b border-white/[0.06] last:border-b-0">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.08]">
-                  <Image src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`} alt={member.name || "Member"} width={48} height={48} className="h-full w-full object-cover" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[15px] font-bold truncate" style={{ color: T.bright }}>{member.name || member.email || "Member"}</p>
-                  <p className="text-[13px] font-medium truncate" style={{ color: T.muted }}>{member.orgNames.join(", ")}</p>
+              <div
+                key={member.id}
+                className="flex items-center justify-between gap-4 p-3 rounded-xl bg-white/[0.04] border border-white/[0.06]"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="h-10 w-10 sm:h-11 sm:w-11 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.08]">
+                    <Image src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`} alt={member.name || "Member"} width={44} height={44} className="h-full w-full object-cover" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-medium text-white truncate">{member.name || member.email || "Member"}</p>
+                    <p className="text-xs mt-0.5 truncate" style={{ color: T.muted }}>{member.orgNames.join(", ")}</p>
+                  </div>
                 </div>
               </div>
             ))
@@ -318,6 +359,7 @@ export default function OrganizationDashboardPage() {
         </div>
         </Card>
       </div>
+    </div>
     </div>
   );
 }

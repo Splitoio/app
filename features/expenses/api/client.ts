@@ -31,6 +31,7 @@ export interface EnhancedExpensePayload {
   paidBy: string;
   description?: string;
   groupId?: string;
+  expenseDate?: string;
 }
 
 export const createExpense = async (
@@ -43,11 +44,33 @@ export const createExpense = async (
 
 export const getExpenses = async (groupId: string) => {
   const response = await apiClient.get(`/groups/${groupId}/expenses`);
-  return response.data;
+  return (response as unknown as { expenses?: unknown[] }) ?? { expenses: [] };
 };
 
 export const getLegacyExpenses = async (groupId: string) => {
   const response = await apiClient.get(`/groups/${groupId}/expenses`);
+  return response.data;
+};
+
+export interface UpdateExpensePayload {
+  name: string;
+  category: string;
+  amount: number;
+  splitType: string;
+  currency: string;
+  participants: Array<{ userId: string; amount: number }>;
+  expenseDate?: string;
+}
+
+export const updateExpense = async (
+  groupId: string,
+  expenseId: string,
+  payload: UpdateExpensePayload
+) => {
+  const response = await apiClient.put(
+    `/groups/${groupId}/expenses/${expenseId}`,
+    payload
+  );
   return response.data;
 };
 

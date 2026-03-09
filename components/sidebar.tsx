@@ -16,6 +16,7 @@ import {
   Activity,
   FileSignature,
   FileText,
+  Receipt,
   UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -181,6 +182,23 @@ export function Sidebar() {
                   <span className={pathname === `/organization/${linkOrgId}/invoices` ? "text-[#22D3EE]" : "inherit"}><FileText className="h-4 w-4" strokeWidth={1.5} /></span>
                   Invoices
                 </Link>
+
+                {isAdminOfLinkOrg && (
+                  <Link
+                    id="sidebar-org-expenses-link"
+                    href={`/organization/${linkOrgId}/expenses`}
+                    onClick={close}
+                    className={cn(
+                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                      pathname === `/organization/${linkOrgId}/expenses`
+                        ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        : "text-white/60"
+                    )}
+                  >
+                    <span className={pathname === `/organization/${linkOrgId}/expenses` ? "text-[#22D3EE]" : "inherit"}><Receipt className="h-4 w-4" strokeWidth={1.5} /></span>
+                    Expenses
+                  </Link>
+                )}
 
                 {isAdminOfLinkOrg && (
                   <Link
