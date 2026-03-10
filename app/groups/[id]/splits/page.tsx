@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
+import { useDeleteExpense } from "@/features/expenses/hooks/use-create-expense";
 import {
   Card,
   SectionLabel,
@@ -82,7 +83,6 @@ function ExpenseRow({
 
   const myShare = participants.find((p) => p.userId === currentUserId)?.amount ?? 0;
   const iAmPayer = expense.paidBy === currentUserId;
-  const owedToMe = iAmPayer ? participants.filter((p) => p.amount > 0).reduce((s, p) => s + p.amount, 0) : 0;
   const pending = participants.filter((p) => p.amount > 0).reduce((a, p) => a + p.amount, 0);
 
   const categoryStyle = getCategoryStyle(expense.category);
@@ -96,9 +96,9 @@ function ExpenseRow({
 
   return (
     <div style={{ borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.06)" }}>
-      <button
-        type="button"
-        onClick={() => setExpanded((e) => !e)}
+        <button
+          type="button"
+          onClick={() => setExpanded((e) => !e)}
         className="w-full text-left transition-colors hover:bg-white/[0.02]"
         style={{
           display: "flex",
@@ -123,15 +123,15 @@ function ExpenseRow({
           }}
         >
           {categoryStyle.icon}
-        </div>
-        <div className="min-w-0 flex-1">
+          </div>
+          <div className="min-w-0 flex-1">
           <p style={{ fontWeight: 700, fontSize: 14, color: T.bright, marginBottom: 4 }}>
             {expense.name}
           </p>
           <p style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
             Paid by {paidByName} · {settledLabel}
           </p>
-        </div>
+              </div>
         <div style={{ textAlign: "right", flexShrink: 0, marginRight: 8 }}>
           <p
             style={{
@@ -214,7 +214,7 @@ function ExpenseRow({
                   </div>
                 );
               })}
-          </div>
+            </div>
           <div style={{ display: "flex", gap: 8, paddingTop: 16 }}>
             <Btn variant="ghost" onClick={onSettle} style={{ padding: "8px 16px", fontSize: 12 }}>
               <Icons.check /> Settle
@@ -251,6 +251,7 @@ function ExpenseRow({
 
 export default function GroupSplitsPage() {
   const { user } = useAuthStore();
+  const [expenseToDelete, setExpenseToDelete] = useState<{ id: string; name: string } | null>(null);
   const {
     group,
     formatCurrency,
@@ -258,6 +259,7 @@ export default function GroupSplitsPage() {
     handleSendReminder,
     openAddExpense,
   } = useGroupLayout();
+  const deleteExpenseMutation = useDeleteExpense(group?.id ?? "");
 
   const expenses = (group?.expenses ?? []) as ExpenseWithParticipants[];
   const nonSettlement = useMemo(
@@ -309,9 +311,9 @@ export default function GroupSplitsPage() {
                 <ExpenseRow
                   key={expense.id}
                   expense={expense}
-                  groupUsers={group.groupUsers}
-                  currentUserId={user.id}
-                  currentUserName={user.name ?? null}
+            groupUsers={group.groupUsers}
+            currentUserId={user.id}
+            currentUserName={user.name ?? null}
                   formatCurrency={formatCurrency}
                   isLast={idx === dateExpenses.length - 1}
                   onNotify={() => {
@@ -323,13 +325,59 @@ export default function GroupSplitsPage() {
                     if (firstOwer) handleSettleFriendClick(firstOwer.userId);
                   }}
                   onDelete={() => {
-                    toast.info("Delete expense is not implemented yet.");
+                    if (!group?.id) {
+                      toast.error("Group not found");
+                      return;
+                    }
+                    if (deleteExpenseMutation.isPending) return;
+                    setExpenseToDelete({ id: expense.id, name: expense.name });
                   }}
                 />
               ))}
             </Card>
           </section>
         ))
+      )}
+
+      {expenseToDelete && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => {
+            if (!deleteExpenseMutation.isPending) setExpenseToDelete(null);
+          }}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-white/10 bg-[#0f0f10] p-5 sm:p-6 shadow-[0_20px_80px_rgba(0,0,0,0.7)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-lg sm:text-xl font-semibold text-white">Delete Expense</h3>
+            <p className="mt-3 text-sm sm:text-base text-white/70">
+              Delete &quot;{expenseToDelete.name}&quot;? This action cannot be undone.
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setExpenseToDelete(null)}
+                disabled={deleteExpenseMutation.isPending}
+                className="rounded-lg px-4 py-2 text-sm text-white/70 hover:bg-white/5 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteExpenseMutation.mutate(expenseToDelete.id, {
+                    onSuccess: () => setExpenseToDelete(null),
+                  });
+                }}
+                disabled={deleteExpenseMutation.isPending}
+                className="rounded-lg border border-red-400/20 bg-red-500/10 px-4 py-2 text-sm font-medium text-red-400 hover:bg-red-500/20 disabled:opacity-50"
+              >
+                {deleteExpenseMutation.isPending ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

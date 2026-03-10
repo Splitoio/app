@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Loader2, ChevronDown } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Landmark, Link2 } from "lucide-react";
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
@@ -68,6 +68,7 @@ export function SettleDebtsModal({
   const [tokenAmount, setTokenAmount] = useState("0"); // Converted token amount
   const [multiCurrencyDebts, setMultiCurrencyDebts] = useState<Array<{currency: string, amount: number, tokenAmount: number}>>([]);
   const [totalTokenAmount, setTotalTokenAmount] = useState("0"); // Total token amount for all currencies
+  const [expandedRowMemberId, setExpandedRowMemberId] = useState<string | null>(null);
 
   const settleDebtMutation = useSettleDebt(groupId);
   const _queryClient = useQueryClient();
@@ -766,6 +767,43 @@ export function SettleDebtsModal({
 
   // Calculate the remaining total after exclusions
   const remainingTotal = calculateRemainingTotal();
+  const displayGroupName = useMemo(() => {
+    if (!groupId) return "Group";
+    const groupMatch = _groups?.find((g: { id: string; name: string }) => g.id === groupId);
+    return groupMatch?.name || "Group";
+  }, [_groups, groupId]);
+
+  const memberDebtRows = useMemo(() => {
+    const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
+    const sourceBalances = Array.isArray(balances) ? balances : [];
+    const rows = sourceBalances
+      .filter((b) => b.userId !== user?.id && b.amount < 0)
+      .reduce((acc, b) => {
+        const current = acc.get(b.userId) || 0;
+        acc.set(b.userId, current + Math.abs(b.amount));
+        return acc;
+      }, new Map<string, number>());
+
+    return Array.from(rows.entries())
+      .map(([memberId, amount], index) => {
+        const member = _members.find((m) => m.id === memberId);
+        const initials = (member?.name || member?.email || "?")
+          .split(" ")
+          .map((part) => part[0])
+          .join("")
+          .slice(0, 2)
+          .toUpperCase();
+        const color = palette[index % palette.length];
+        return {
+          memberId,
+          name: member?.name || member?.email || "Member",
+          initials,
+          color,
+          amount,
+        };
+      })
+      .sort((a, b) => b.amount - a.amount);
+  }, [balances, user?.id, _members]);
 
   return (
     <AnimatePresence>
@@ -780,222 +818,235 @@ export function SettleDebtsModal({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[600px] px-4 sm:px-0">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[500px] px-4 sm:px-0">
             {/* Settle All Debts Section - Only shown when header button is clicked */}
             {!showIndividualView && (
               <motion.div
-                className="relative z-10 rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
+                className="relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
+                style={{ background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
                 {...scaleIn}
               >
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-5">
                   <div>
-                    <div className="mb-1 text-xs sm:text-sm text-white/60">
-                      Settle All Debt
-                    </div>
-                    <h2 className="text-xl sm:text-3xl font-semibold text-white">
-                      Settle All Debts
+                    <h2 className="text-xl font-extrabold text-white tracking-tight">
+                      Settle Debts
                     </h2>
+                    <p className="mt-1.5 text-xs text-white/55">{displayGroupName}</p>
                   </div>
                   <button
                     onClick={onClose}
-                    className="p-2 rounded-full hover:bg-white/[0.03] transition-colors"
+                    className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.07] grid place-items-center hover:bg-white/[0.12] transition-colors flex-shrink-0"
                   >
-                    <X className="h-5 w-5 text-white/60" />
+                    <X className="h-4 w-4 text-white/70" />
                   </button>
                 </div>
 
-                <div className="space-y-4 sm:space-y-6">
-                  {/* Show user's stored Stellar address */}
-                  {userStellarAddress ? (
-                    <div className="text-sm text-white/70">
-                      Using address: {userStellarAddress.slice(0, 25)}...
-                    </div>
-                  ) : (
-                    <div className="text-sm text-red-400">
-                      Please add your Stellar wallet address in settings first.
-                    </div>
-                  )}
-
-                  <div>
-                    <div className="text-base sm:text-lg font-medium text-white mb-3 sm:mb-4">
-                      Choose Payment Token
-                    </div>
-
-                    <div className="relative mb-3 sm:mb-4">
-                      <button className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
-                        <span className="text-base sm:text-lg">
-                          {selectedToken?.symbol || "Token"}
-                        </span>
-                        <ChevronDown className="h-4 w-4 sm:h-5 sm:w-5 text-white/50" />
-                      </button>
-                    </div>
-
-                    {availableChainsForToken.length > 1 && (
-                      <div className="mb-3 sm:mb-4">
-                        <label className="block text-white mb-1">Select Chain</label>
-                        <select
-                          value={selectedChain || ''}
-                          onChange={e => setSelectedChain(e.target.value)}
-                          className="w-full rounded px-3 py-2 bg-black border border-white/10 text-white"
-                        >
-                          {availableChainsForToken.map(chain => (
-                            <option key={chain} value={chain}>
-                              {chain.charAt(0).toUpperCase() + chain.slice(1)}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    )}
-
-                    <div className="relative">
-                      <div className="w-full flex items-center justify-between rounded-full h-12 sm:h-14 px-4 sm:px-6 bg-transparent border border-white/10 text-white">
-                        <input
-                          type="text"
-                          value={multiCurrencyDebts.length > 0 ? totalTokenAmount : remainingTotal.toFixed(2)}
-                          onChange={(e) => setTotalAmount(e.target.value)}
-                          className="bg-transparent outline-none text-base sm:text-lg w-full"
-                          readOnly={multiCurrencyDebts.length > 0}
-                        />
-                        <span className="text-base sm:text-lg text-white/50">
-                          {selectedToken?.symbol || "Token"}
-                        </span>
-                      </div>
-                      
-                      {/* Multi-currency breakdown display - show for both group and individual view */}
-                      {multiCurrencyDebts.length > 0 && (
-                        <div className="mt-3 p-3 bg-white/5 rounded-lg">
-                          <div className="text-sm text-white/70 mb-2">Settlement Breakdown:</div>
-                          {multiCurrencyDebts.map((debt, index) => (
-                            <div key={index} className="flex justify-between items-center text-sm">
-                              <span className="text-white/80">
-                                {formatCurrency(debt.amount, debt.currency)} worth {selectedToken?.symbol}
-                              </span>
-                              <span className="text-white/60">
-                                {debt.tokenAmount.toFixed(6)} {selectedToken?.symbol}
-                              </span>
-                            </div>
-                          ))}
-                          <div className="border-t border-white/10 mt-2 pt-2">
-                            <div className="flex justify-between items-center text-sm font-medium">
-                              <span className="text-white">Total:</span>
-                              <span className="text-white">
-                                {totalTokenAmount} {selectedToken?.symbol}
-                              </span>
-                            </div>
-                          </div>
-                          {isLoadingMultiCurrency && (
-                            <div className="text-xs text-yellow-400 mt-1">
-                              Calculating conversion rates...
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 sm:space-y-5 max-h-[200px] sm:max-h-[300px] overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
-                    {/* Group debt breakdown - show when in group context */}
-                    {groupDebtBreakdown.length > 0 ? (
-                      <>
-                        <div className="text-white/70 text-sm mb-3">Debts to settle:</div>
-                        {groupDebtBreakdown.map((debt, index) => (
-                          <div key={index} className="flex items-center justify-between">
-                            <div className="flex items-center gap-3 sm:gap-4">
-                              <div className="h-8 w-8 sm:h-10 sm:w-10 bg-white/10 rounded-full flex items-center justify-center">
-                                <span className="text-white text-xs sm:text-sm font-medium">
-                                  {getCurrencySymbol(debt.currency)}
-                                </span>
-                              </div>
-                              <div>
-                                <p className="text-mobile-base sm:text-lg text-white font-medium">
-                                  {debt.currency}
-                                </p>
-                                <p className="text-mobile-sm sm:text-base text-white/60">
-                                  You owe{" "}
-                                  <span className="text-[#FF4444]">
-                                    {formatCurrency(debt.amount, debt.currency)}
-                                  </span>
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
-                      </>
-                    ) : (
-                      /* COMMENTED OUT: Friend-based debt list - focusing only on group balances */
-                      <div className="text-center text-white/60 py-4 text-mobile-sm sm:text-base">
-                        Individual friend debt settlement has been disabled. Please use group-specific debt settlement.
-                      </div>
-                    )}
-                  </div>
+                {/* Progress bar — one-third filled (step 1) */}
+                <div className="flex gap-1.5 mb-6">
+                  {[1, 2, 3].map((s) => (
+                    <div
+                      key={s}
+                      className="flex-1 h-1 rounded-full transition-all duration-300"
+                      style={{
+                        background: s === 1 ? "#22D3EE" : "#2a2a2a",
+                        boxShadow: s === 1 ? "0 0 8px rgba(34,211,238,0.5)" : "none",
+                      }}
+                    />
+                  ))}
                 </div>
 
-                {/* Show wallet connection component for any chain if not connected */}
+                <div className="space-y-4">
+                  {/* Currency block — Group default + Per-member override */}
+                  <div
+                    className="rounded-[14px] border border-[#22D3EE]/15 bg-[#22D3EE]/[0.06] px-4 py-3 flex items-center justify-between gap-2"
+                  >
+                    <span className="text-white/60 text-xs font-semibold">
+                      Group default:{" "}
+                      <span className="text-[#22D3EE] font-extrabold">
+                        {defaultCurrency || "USD"}
+                      </span>
+                    </span>
+                    <span className="text-white/45 text-[11px] font-medium">
+                      Per-member override below
+                    </span>
+                  </div>
+
+                  {/* Debtor list — expandable card-like rows */}
+                  <div className="space-y-2.5 max-h-[320px] overflow-y-auto pr-0.5">
+                    {memberDebtRows.length > 0 ? (
+                      memberDebtRows.map((row) => {
+                        const isExpanded = expandedRowMemberId === row.memberId;
+                        return (
+                          <div
+                            key={row.memberId}
+                            className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] overflow-hidden"
+                          >
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedRowMemberId((id) =>
+                                  id === row.memberId ? null : row.memberId
+                                )
+                              }
+                              className="w-full px-4 py-3.5 flex items-center gap-3 text-left hover:bg-white/[0.02] transition-colors"
+                            >
+                              <div
+                                className="h-9 w-9 rounded-full border-2 grid place-items-center text-xs font-extrabold flex-shrink-0"
+                                style={{
+                                  color: row.color,
+                                  borderColor: `${row.color}40`,
+                                  background: `${row.color}1a`,
+                                }}
+                              >
+                                {row.initials}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white text-[13px] font-bold truncate">
+                                  {row.name}
+                                </p>
+                                <p className="text-white/55 text-[11px] mt-0.5">
+                                  {defaultCurrency || "USD"} (Fiat)
+                                </p>
+                              </div>
+                              <p className="text-[#34D399] text-sm font-extrabold tabular-nums flex-shrink-0">
+                                +{formatCurrency(row.amount, defaultCurrency || "USD")}
+                              </p>
+                              <span className="flex-shrink-0 text-white/40">
+                                {isExpanded ? (
+                                  <ChevronUp className="h-4 w-4" />
+                                ) : (
+                                  <ChevronDown className="h-4 w-4" />
+                                )}
+                              </span>
+                            </button>
+                            {isExpanded && (
+                              <div
+                                className="border-t border-white/[0.06] bg-black/20 px-4 py-4"
+                                onClick={(e) => e.stopPropagation()}
+                              >
+                                <div className="grid grid-cols-2 gap-2">
+                                  <button
+                                    type="button"
+                                    className="flex items-center justify-center gap-2 py-3 px-3 rounded-[14px] border border-[#22D3EE]/50 bg-[#22D3EE]/10 text-[#22D3EE] text-xs font-bold transition-colors hover:bg-[#22D3EE]/15"
+                                  >
+                                    <Link2 className="h-3.5 w-3.5 flex-shrink-0" />
+                                    Crypto on-chain
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="flex items-center justify-center gap-2 py-3 px-3 rounded-[14px] border border-white/10 bg-white/[0.04] text-white/80 text-xs font-bold transition-colors hover:bg-white/[0.06]"
+                                  >
+                                    <Landmark className="h-3.5 w-3.5 flex-shrink-0" />
+                                    Bank / Mark paid
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    ) : groupDebtBreakdown.length > 0 ? (
+                      groupDebtBreakdown.map((debt) => (
+                        <div
+                          key={debt.currency}
+                          className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 flex items-center justify-between"
+                        >
+                          <div>
+                            <p className="text-white text-[13px] font-bold">{debt.currency}</p>
+                            <p className="text-white/55 text-[11px] mt-0.5">Unattributed member debt</p>
+                          </div>
+                          <p className="text-[#34D399] text-sm font-extrabold tabular-nums">
+                            +{formatCurrency(debt.amount, debt.currency)}
+                          </p>
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center text-white/55 py-8 text-sm">
+                        No outstanding debts found for this group.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Total to collect */}
+                  <div className="flex items-center justify-between pt-1 pb-1 px-0.5">
+                    <span className="text-white/90 text-[13px] font-semibold">Total to collect</span>
+                    <span className="text-[#34D399] text-[15px] font-extrabold tabular-nums">
+                      +{formatCurrency(remainingTotal, defaultCurrency || "USD")}
+                    </span>
+                  </div>
+
+                  {multiCurrencyDebts.length > 0 && (
+                    <div className="rounded-xl p-3 bg-white/[0.05] border border-white/10">
+                      <div className="text-xs text-white/70 mb-2 font-medium">Conversion breakdown</div>
+                      {multiCurrencyDebts.map((debt, index) => (
+                        <div key={index} className="flex justify-between items-center text-xs py-0.5">
+                          <span className="text-white/80">
+                            {formatCurrency(debt.amount, debt.currency)}
+                          </span>
+                          <span className="text-white/55">
+                            {debt.tokenAmount.toFixed(6)} {selectedToken?.symbol}
+                          </span>
+                        </div>
+                      ))}
+                      <div className="border-t border-white/10 mt-2 pt-2 flex justify-between text-xs font-semibold">
+                        <span className="text-white">Total token</span>
+                        <span className="text-white">{totalTokenAmount} {selectedToken?.symbol}</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Wallet connection when not connected */}
                 {!canProceedWithSettlement() && (
-                  <div className="mb-6">
-                    {selectedChain === 'aptos' && <ShadcnWalletSelector />}
+                  <div className="mt-4">
+                    {selectedChain === "aptos" && <ShadcnWalletSelector />}
                   </div>
                 )}
 
                 {canProceedWithSettlement() ? (
                   <button
-                    className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-mobile-base sm:text-lg font-medium h-10 sm:h-14 bg-white text-black rounded-full hover:bg-white/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="w-full mt-5 h-12 rounded-[14px] bg-[#22D3EE] text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                     onClick={() => {
-                      console.log("[SettleDebtsModal] Settle All button clicked", { 
-                        isPending, 
-                        remainingTotal, 
-                        // COMMENTED OUT: friendsWithDebtsLength: friendsWithDebts.length - focus only on group debts
-                        multiCurrencyDebts: multiCurrencyDebts.length > 0 ? multiCurrencyDebts : 'empty',
-                        totalTokenAmount,
-                        groupDebtBreakdown: groupDebtBreakdown.length > 0 ? groupDebtBreakdown : 'empty'
-                      });
                       handleSettleAll();
                     }}
                     disabled={
                       isPending ||
                       remainingTotal <= 0 ||
-                      (groupDebtBreakdown.length === 0) // COMMENTED OUT: && friendsWithDebts.length === 0 - focus only on group debts
+                      groupDebtBreakdown.length === 0
                     }
                   >
                     {isPending ? (
                       <>
-                        <Loader2 className="h-4 w-4 sm:h-5 sm:w-5 animate-spin" />
-                        <span>Settling payment...</span>
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Sending…</span>
                       </>
                     ) : (
                       <>
-                        <Image
-                          src="/coins-dollar.svg"
-                          alt="Settle Payment"
-                          width={24}
-                          height={24}
-                          className="invert h-4 w-4 sm:h-5 sm:w-5"
-                        />
-                        <span>Settle Payment</span>
+                        <span>Review &amp; Confirm</span>
+                        <ChevronRight className="h-4 w-4" />
                       </>
                     )}
                   </button>
                 ) : (
-                  selectedChain === 'stellar' && (
+                  selectedChain === "stellar" && (
                     <button
-                      className="w-full mt-8 sm:mt-12 flex items-center justify-center gap-2 text-sm font-medium h-10 sm:h-12 px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-md transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none"
+                      className="w-full mt-5 h-11 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/[0.1] transition-colors"
                       onClick={connectWallet}
                     >
                       <span>Connect Stellar Wallet</span>
                     </button>
                   )
                 )}
-                
-                {/* Show appropriate wallet connection message */}
-                {selectedChain === 'aptos' && !isWalletConnectedForChain() && (
-                  <div className="text-sm text-amber-400 mt-2 text-center">
+
+                {selectedChain === "aptos" && !isWalletConnectedForChain() && (
+                  <p className="text-xs text-amber-400 mt-2 text-center">
                     Please connect your Aptos wallet to continue
-                  </div>
+                  </p>
                 )}
-                {selectedChain === 'stellar' && !getUserWalletAddress() && (
-                  <div className="text-sm text-red-400 mt-2 text-center">
+                {selectedChain === "stellar" && !getUserWalletAddress() && (
+                  <p className="text-xs text-red-400 mt-2 text-center">
                     Please connect your Stellar wallet or add your Stellar wallet address in settings first.
-                  </div>
+                  </p>
                 )}
               </motion.div>
             )}

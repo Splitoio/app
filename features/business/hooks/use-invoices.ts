@@ -7,8 +7,10 @@ import {
   deleteInvoice,
   approveInvoice,
   declineInvoice,
+  markInvoiceAsPaid,
   clearInvoice,
   getOrganizationActivity,
+  getOrganizationAnalytics,
 } from "../api/client";
 import { QueryKeys } from "@/lib/constants";
 
@@ -81,6 +83,17 @@ export const useDeclineInvoice = () => {
   });
 };
 
+export const useMarkInvoiceAsPaid = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: markInvoiceAsPaid,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.INVOICES] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.ORGANIZATION_ACTIVITY] });
+    },
+  });
+};
+
 export const useClearInvoice = () => {
   const queryClient = useQueryClient();
   return useMutation({
@@ -96,6 +109,14 @@ export const useGetOrganizationActivity = (organizationId: string) => {
   return useQuery({
     queryKey: [QueryKeys.ORGANIZATION_ACTIVITY, organizationId],
     queryFn: () => getOrganizationActivity(organizationId),
+    enabled: !!organizationId,
+  });
+};
+
+export const useGetOrganizationAnalytics = (organizationId: string) => {
+  return useQuery({
+    queryKey: [QueryKeys.INVOICES, organizationId, "analytics"],
+    queryFn: () => getOrganizationAnalytics(organizationId),
     enabled: !!organizationId,
   });
 };

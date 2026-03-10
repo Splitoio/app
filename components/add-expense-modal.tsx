@@ -19,7 +19,9 @@ import ResolverSelector from "./ResolverSelector";
 import axios from "axios";
 import CurrencyDropdown from "./currency-dropdown";
 import TimeLockToggle from "./ui/TimeLockToggle";
-import { Card, Avatar, A, T } from "@/lib/splito-design";
+import { motion, AnimatePresence } from "framer-motion";
+import { fadeIn, scaleIn } from "@/utils/animations";
+import { Card, A, T } from "@/lib/splito-design";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 
 const CATEGORY_OPTIONS: { emoji: string; api: string }[] = [
@@ -54,6 +56,8 @@ interface ExpenseFormData {
   timeLockIn: boolean;
   paidBy: string;
   category: string;
+  /** Emoji of the selected category (so only one icon is highlighted when multiple share the same api) */
+  categoryEmoji: string;
 }
 
 // Define an interface for the expense payload (matches CreateExpenseParams)
@@ -150,6 +154,7 @@ export function AddExpenseModal({
     timeLockIn: false,
     paidBy: user?.id || "",
     category: "OTHER",
+    categoryEmoji: CATEGORY_OPTIONS[4].emoji, // 🛒 first "OTHER" option
   });
 
   const [lockPrice, setLockPrice] = useState(true);
@@ -385,8 +390,6 @@ export function AddExpenseModal({
     };
   }, [isOpen, onClose]);
 
-  if (!isOpen) return null;
-
   // Find user details for the paid by dropdown
   const getPaidByUserName = (userId: string) => {
     const member = members.find((m) => m.id === userId);
@@ -454,7 +457,7 @@ export function AddExpenseModal({
     display: "block",
   };
   const StepBackBtn = ({ onClick }: { onClick: () => void }) => {
-    return (
+  return (
       <button
         type="button"
         onClick={onClick}
@@ -511,34 +514,36 @@ export function AddExpenseModal({
     );
   };
 
-  const overlayStyle = {
-    position: "fixed" as const,
-    inset: 0,
-    background: "rgba(0,0,0,0.88)",
-    backdropFilter: "blur(16px)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    zIndex: 200,
-    padding: 24,
-  };
-
   return (
-    <div onClick={onClose} style={overlayStyle}>
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
-          border: "1px solid rgba(255,255,255,0.09)",
-          borderRadius: 28,
-          width: "100%",
-          maxWidth: 460,
-          padding: "28px 28px 32px",
-          maxHeight: "90vh",
-          overflowY: "auto",
-          boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
-        }}
-      >
+    <AnimatePresence>
+      {isOpen && (
+        <motion.div
+          className="fixed inset-0 z-50 h-screen w-screen"
+          {...fadeIn}
+        >
+          <motion.div
+            className="fixed inset-0 bg-black/70 brightness-50"
+            onClick={onClose}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          />
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] px-6">
+            <motion.div
+              onClick={(e) => e.stopPropagation()}
+              {...scaleIn}
+              style={{
+                background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 28,
+                width: "100%",
+                maxWidth: 460,
+                padding: "28px 28px 32px",
+                maxHeight: "90vh",
+                overflowY: "auto",
+                boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+              }}
+            >
         <div
           style={{
             display: "flex",
@@ -561,8 +566,8 @@ export function AddExpenseModal({
             <p style={{ color: T.mid, fontSize: 12, marginTop: 3 }}>{groupName}</p>
             <div style={{ display: "flex", gap: 5, marginTop: 12 }}>
               {[1, 2, 3, 4].map((s) => (
-                <div
-                  key={s}
+              <div
+                key={s}
                   style={{
                     height: 3,
                     width: 26,
@@ -571,9 +576,9 @@ export function AddExpenseModal({
                     transition: "background 0.3s",
                     boxShadow: step >= s ? `0 0 8px ${A}88` : "none",
                   }}
-                />
-              ))}
-            </div>
+              />
+            ))}
+          </div>
           </div>
           <button
             type="button"
@@ -598,21 +603,21 @@ export function AddExpenseModal({
 
         <form onSubmit={handleSubmit}>
           {/* Step 1: Description + Category */}
-          {step === 1 && (
+            {step === 1 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
+                <div>
                 <label style={lbl}>Description</label>
-                <input
+                  <input
                   placeholder="e.g. Dinner, Hotel, Taxi…"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
                   style={inp}
                   autoFocus
-                />
-              </div>
-              <div>
+                  />
+                </div>
+                <div>
                 <label style={lbl}>Category</label>
                 <div
                   style={{
@@ -622,13 +627,17 @@ export function AddExpenseModal({
                   }}
                 >
                   {CATEGORY_OPTIONS.map(({ emoji, api }) => {
-                    const sel = formData.category === api;
+                    const sel = formData.categoryEmoji === emoji;
                     return (
                       <button
                         key={emoji + api}
                         type="button"
                         onClick={() =>
-                          setFormData((prev) => ({ ...prev, category: api }))
+                          setFormData((prev) => ({
+                            ...prev,
+                            category: api,
+                            categoryEmoji: emoji,
+                          }))
                         }
                         style={{
                           background: sel ? `${A}15` : "rgba(255,255,255,0.04)",
@@ -693,17 +702,17 @@ export function AddExpenseModal({
               </div>
               <div>
                 <label style={lbl}>Spent in</label>
-                <CurrencyDropdown
-                  selectedCurrencies={
-                    formData.currency ? [formData.currency] : []
-                  }
-                  setSelectedCurrencies={handleCurrencySelect}
-                  showFiatCurrencies={true}
-                  disableChainCurrencies={false}
-                  mode="single"
-                  placeholder="Select currency..."
-                />
-              </div>
+                  <CurrencyDropdown
+                    selectedCurrencies={
+                      formData.currency ? [formData.currency] : []
+                    }
+                    setSelectedCurrencies={handleCurrencySelect}
+                    showFiatCurrencies={true}
+                    disableChainCurrencies={false}
+                    mode="single"
+                    placeholder="Select currency..."
+                  />
+                </div>
               {formData.currencyType === "FIAT" && formData.currency && (
                 <div
                   style={{
@@ -738,7 +747,7 @@ export function AddExpenseModal({
           {/* Step 3: Amount + Paid by */}
           {step === 3 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div>
+                <div>
                 <label style={lbl}>
                   Amount{" "}
                   <span style={{ color: A }}>({formData.currency || "USD"})</span>
@@ -763,17 +772,17 @@ export function AddExpenseModal({
                     }}
                   >
                     {getCurrencySymbol(formData.currency)}
-                  </span>
-                  <input
-                    type="number"
+                    </span>
+                    <input
+                      type="number"
                     placeholder="0.00"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        amount: e.target.value,
-                      }))
-                    }
+                      value={formData.amount}
+                      onChange={(e) =>
+                        setFormData((prev) => ({
+                          ...prev,
+                          amount: e.target.value,
+                        }))
+                      }
                     style={{
                       background: "none",
                       border: "none",
@@ -785,11 +794,11 @@ export function AddExpenseModal({
                       fontFamily: "inherit",
                     }}
                     autoFocus
-                  />
+                    />
+                  </div>
                 </div>
-              </div>
-              <div>
-                <label style={lbl}>Paid by</label>
+                <div>
+                <label style={lbl}>PAID BY</label>
                 <div
                   style={{
                     display: "grid",
@@ -797,7 +806,7 @@ export function AddExpenseModal({
                     gap: 8,
                   }}
                 >
-                  {members.map((member) => {
+                  {members.map((member, index) => {
                     const init =
                       member.id === user?.id
                         ? "Y"
@@ -808,6 +817,8 @@ export function AddExpenseModal({
                             .slice(0, 2)
                             .toUpperCase();
                     const isSelected = formData.paidBy === member.id;
+                    const memberColors = ["#A78BFA", "#34D399", "#FB923C", "#F472B6", "#FBBF24", "#22D3EE"];
+                    const memberColor = memberColors[index % memberColors.length];
                     return (
                       <button
                         key={member.id}
@@ -817,8 +828,10 @@ export function AddExpenseModal({
                         }
                         style={{
                           padding: "10px 4px",
-                          background: isSelected ? `${A}18` : "rgba(255,255,255,0.04)",
-                          border: `1.5px solid ${isSelected ? A + "55" : "rgba(255,255,255,0.08)"}`,
+                          background: "rgba(255,255,255,0.04)",
+                          border: isSelected
+                            ? `2px solid ${A}`
+                            : "1px solid rgba(255,255,255,0.08)",
                           borderRadius: 14,
                           cursor: "pointer",
                           display: "flex",
@@ -826,21 +839,22 @@ export function AddExpenseModal({
                           alignItems: "center",
                           gap: 6,
                           transition: "all 0.2s",
-                          boxShadow: isSelected ? `0 0 14px ${A}22` : "none",
+                          boxShadow: isSelected ? `0 0 14px ${A}44` : "none",
                         }}
                       >
                         <div
                           style={{
-                            width: 34,
-                            height: 34,
+                            width: 38,
+                            height: 38,
                             borderRadius: "50%",
-                            background: isSelected ? A : "rgba(255,255,255,0.08)",
+                            background: isSelected ? A : `${memberColor}1a`,
+                            border: isSelected ? "none" : `2px solid ${memberColor}40`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 800,
-                            color: isSelected ? "#0a0a0a" : T.body,
+                            color: isSelected ? "#fff" : memberColor,
                           }}
                         >
                           {init}
@@ -860,16 +874,16 @@ export function AddExpenseModal({
                     );
                   })}
                 </div>
-              </div>
+                </div>
               <div style={{ display: "flex", gap: 8 }}>
                 <StepBackBtn onClick={() => setStep(2)} />
                 <PrimaryBtn
                   onClick={() => setStep(4)}
                   disabled={!canProceedStep3}
-                >
-                  Continue →
+                  >
+                    Continue →
                 </PrimaryBtn>
-              </div>
+                </div>
             </div>
           )}
 
@@ -877,7 +891,7 @@ export function AddExpenseModal({
           {step === 4 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
-                <label style={lbl}>Split method</label>
+                <label style={lbl}>SPLIT METHOD</label>
                 <div style={{ display: "flex", gap: 8 }}>
                   {(["equal", "custom", "percentage"] as const).map((type) => {
                     const sel = formData.splitType === type;
@@ -896,15 +910,16 @@ export function AddExpenseModal({
                         }
                         style={{
                           flex: 1,
-                          padding: "12px 14px",
-                          background: sel ? `${A}18` : "rgba(255,255,255,0.04)",
+                          padding: "10px 4px",
+                          background: sel ? `${A}14` : "rgba(255,255,255,0.04)",
                           border: `1.5px solid ${sel ? A + "44" : "rgba(255,255,255,0.08)"}`,
                           borderRadius: 14,
-                          color: sel ? A : T.body,
-                          fontSize: 13,
+                          color: sel ? A : T.muted,
+                          fontSize: 12,
                           fontWeight: 700,
                           cursor: "pointer",
                           transition: "all 0.2s",
+                          fontFamily: "inherit",
                         }}
                       >
                         {label}
@@ -919,20 +934,20 @@ export function AddExpenseModal({
                   style={{
                     padding: 0,
                     overflow: "hidden",
-                    background: "rgba(255,255,255,0.03)",
+                    background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)",
                     border: "1px solid rgba(255,255,255,0.08)",
+                    boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)",
                   }}
                 >
                   <div
                     style={{
-                      maxHeight: 200,
+                      maxHeight: 240,
                       overflowY: "auto",
-                      padding: "8px 0",
                     }}
                   >
                     {members
                       .filter((m) => m.id !== formData.paidBy)
-                      .map((member) => {
+                      .map((member, index) => {
                         const split = splits.find((s) => s.address === member.id);
                         const amount = split?.amount || 0;
                         const percentage = percentages[member.id] ?? 0;
@@ -946,6 +961,18 @@ export function AddExpenseModal({
                                 .join("")
                                 .slice(0, 2)
                                 .toUpperCase();
+                        const participantColors = ["#A78BFA", "#34D399", "#FB923C", "#F472B6", "#FBBF24", "#22D3EE"];
+                        const memberColor = participantColors[index % participantColors.length];
+                        const displayName =
+                          member.id === user?.id
+                            ? "You"
+                            : (() => {
+                                const parts = (member.name || "?").trim().split(/\s+/);
+                                if (parts.length >= 2) {
+                                  return `${parts[0]} ${parts[1][0]}.`;
+                                }
+                                return parts[0] || "?";
+                              })();
                         return (
                           <div
                             key={member.id}
@@ -953,9 +980,8 @@ export function AddExpenseModal({
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "space-between",
-                              padding: "12px 18px",
-                              borderBottom:
-                                "1px solid rgba(255,255,255,0.06)",
+                              padding: "14px 18px",
+                              borderBottom: "1px solid rgba(255,255,255,0.06)",
                               gap: 12,
                             }}
                           >
@@ -963,26 +989,40 @@ export function AddExpenseModal({
                               style={{
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 10,
+                                gap: 12,
                                 minWidth: 0,
+                                flex: 1,
                               }}
                             >
-                              <Avatar
-                                size={28}
-                                init={init}
-                                color={T.body}
-                              />
+                              <div
+                                style={{
+                                  width: 36,
+                                  height: 36,
+                                  borderRadius: "50%",
+                                  background: `${memberColor}1a`,
+                                  border: `2px solid ${memberColor}33`,
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  color: memberColor,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                {init}
+                              </div>
                               <span
                                 style={{
-                                  color: T.body,
-                                  fontSize: 14,
+                                  color: T.bright,
+                                  fontSize: 13,
                                   fontWeight: 600,
                                   overflow: "hidden",
                                   textOverflow: "ellipsis",
                                   whiteSpace: "nowrap",
                                 }}
                               >
-                                {member.id === user?.id ? "You" : member.name}
+                                {displayName}
                               </span>
                             </div>
                             <div
@@ -990,79 +1030,85 @@ export function AddExpenseModal({
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 6,
+                                flexShrink: 0,
                               }}
                             >
                               {isEqual ? (
                                 <span
                                   style={{
-                                    color: T.sub,
-                                    fontSize: 12,
-                                    fontWeight: 600,
+                                    color: T.body,
+                                    fontSize: 14,
+                                    fontWeight: 700,
+                                    fontFamily: "monospace",
                                   }}
                                 >
-                                  Equal
+                                  {formatCurrency(amount, formData.currency)}
                                 </span>
                               ) : formData.splitType === "percentage" ? (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  max={100}
-                                  value={percentage || ""}
-                                  onChange={(e) => {
-                                    const value = Number(e.target.value);
-                                    if (value >= 0 && value <= 100) {
-                                      updatePercentage(member.id, value);
-                                    }
-                                  }}
-                                  style={{
-                                    width: 56,
-                                    padding: "6px 8px",
-                                    background: "rgba(255,255,255,0.06)",
-                                    border: "1px solid rgba(255,255,255,0.08)",
-                                    borderRadius: 8,
-                                    color: "#fff",
-                                    fontSize: 12,
-                                    textAlign: "right",
-                                    outline: "none",
-                                  }}
-                                />
+                                <>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    max={100}
+                                    value={percentage || ""}
+                                    onChange={(e) => {
+                                      const value = Number(e.target.value);
+                                      if (value >= 0 && value <= 100) {
+                                        updatePercentage(member.id, value);
+                                      }
+                                    }}
+                                    style={{
+                                      width: 52,
+                                      padding: "6px 8px",
+                                      background: "rgba(255,255,255,0.06)",
+                                      border: "1px solid rgba(255,255,255,0.08)",
+                                      borderRadius: 8,
+                                      color: "#fff",
+                                      fontSize: 12,
+                                      textAlign: "right",
+                                      outline: "none",
+                                      fontFamily: "inherit",
+                                    }}
+                                  />
+                                  <span style={{ color: T.sub, fontSize: 12, width: 16 }}>%</span>
+                                </>
                               ) : (
-                                <input
-                                  type="number"
-                                  min={0}
-                                  step={0.01}
-                                  value={amount || ""}
-                                  onChange={(e) =>
-                                    updateCustomSplit(
-                                      member.id,
-                                      Number(e.target.value)
-                                    )
-                                  }
-                                  style={{
-                                    width: 72,
-                                    padding: "6px 8px",
-                                    background: "rgba(255,255,255,0.06)",
-                                    border: "1px solid rgba(255,255,255,0.08)",
-                                    borderRadius: 8,
-                                    color: "#fff",
-                                    fontSize: 12,
-                                    textAlign: "right",
-                                    outline: "none",
-                                  }}
-                                />
-                              )}
-                              {!isEqual && (
-                                <span
-                                  style={{
-                                    color: T.sub,
-                                    fontSize: 11,
-                                    width: 18,
-                                  }}
-                                >
-                                  {formData.splitType === "percentage"
-                                    ? "%"
-                                    : getCurrencySymbol(formData.currency)}
-                                </span>
+                                <>
+                                  <span
+                                    style={{
+                                      color: T.sub,
+                                      fontSize: 12,
+                                      marginRight: 2,
+                                    }}
+                                  >
+                                    {getCurrencySymbol(formData.currency)}
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    step={0.01}
+                                    value={amount || ""}
+                                    onChange={(e) =>
+                                      updateCustomSplit(
+                                        member.id,
+                                        Number(e.target.value)
+                                      )
+                                    }
+                                    style={{
+                                      width: 68,
+                                      padding: "6px 8px",
+                                      background: "rgba(255,255,255,0.06)",
+                                      border: "1px solid rgba(255,255,255,0.08)",
+                                      borderRadius: 8,
+                                      color: "#fff",
+                                      fontSize: 13,
+                                      fontWeight: 600,
+                                      textAlign: "right",
+                                      outline: "none",
+                                      fontFamily: "inherit",
+                                    }}
+                                  />
+                                </>
                               )}
                             </div>
                           </div>
@@ -1126,7 +1172,7 @@ export function AddExpenseModal({
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
                 <StepBackBtn onClick={() => setStep(3)} />
                 <button
-                  type="submit"
+                    type="submit"
                   disabled={!canSubmit || expenseMutation.isPending}
                   style={{
                     flex: 2,
@@ -1151,11 +1197,14 @@ export function AddExpenseModal({
                 >
                   {expenseMutation.isPending ? "Adding…" : "Add Expense ✓"}
                 </button>
-              </div>
+                </div>
             </div>
-          )}
-        </form>
-      </div>
-    </div>
+            )}
+          </form>
+            </motion.div>
+          </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }

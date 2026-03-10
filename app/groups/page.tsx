@@ -2,10 +2,12 @@
 
 import { GroupsList } from "@/components/groups-list";
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { CreateGroupForm } from "@/components/create-group-form";
 import { Icons } from "@/lib/splito-design";
 
 export default function GroupsPage() {
+  const searchParams = useSearchParams();
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -14,6 +16,13 @@ export default function GroupsPage() {
     document.addEventListener("open-create-group-modal", handleOpenModal);
     return () => document.removeEventListener("open-create-group-modal", handleOpenModal);
   }, []);
+
+  useEffect(() => {
+    if (searchParams.get("openCreate") === "1") {
+      setIsCreateModalOpen(true);
+      window.history.replaceState(null, "", "/groups");
+    }
+  }, [searchParams]);
 
   return (
     <div className="flex-1 flex flex-col min-w-0">

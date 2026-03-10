@@ -112,9 +112,8 @@ export function GroupInfoHeader({
 
   return (
     <div
-      className="flex flex-col sticky top-0 z-10 border-b"
+      className="flex flex-col sticky top-0 z-10"
       style={{
-        borderBottom: "1px solid rgba(255,255,255,0.07)",
         background: "rgba(11,11,11,0.95)",
         backdropFilter: "blur(20px)",
       }}
@@ -189,8 +188,13 @@ export function GroupInfoHeader({
         </button>
       </div>
 
+      <div
+        className="mx-4 sm:mx-7"
+        style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+      />
+
       {/* Tabs: Splits, Members, Activity */}
-      <div className="flex items-center px-4 sm:px-7 pb-4 sm:pb-6">
+      <div className="flex items-center px-4 sm:px-7 py-4 sm:py-6">
         <div
           className="flex rounded-[14px] transition-all w-full sm:w-auto"
           style={{

@@ -4,17 +4,39 @@ import { FriendsList } from "@/components/friends-list";
 import { useState, useEffect } from "react";
 import { AddFriendsModal } from "@/components/add-friends-modal";
 import { Card, Icons } from "@/lib/splito-design";
+import { toast } from "sonner";
+import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
+import { createGroupInviteLink } from "@/features/groups/api/client";
 
 export default function FriendsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [inviteLinkModalOpen, setInviteLinkModalOpen] = useState(false);
   const [inviteEmail, setInviteEmail] = useState("");
   const [search, setSearch] = useState("");
+  const { data: groups = [], isLoading: groupsLoading } = useGetAllGroups({ type: "PERSONAL" });
 
   useEffect(() => {
     const handleOpenModal = () => setIsModalOpen(true);
     document.addEventListener("open-add-friend-modal", handleOpenModal);
     return () => document.removeEventListener("open-add-friend-modal", handleOpenModal);
   }, []);
+
+  const handleCopyInviteLinkClick = () => {
+    setInviteLinkModalOpen(true);
+  };
+
+  const handleSelectGroupForInvite = async (groupId: string) => {
+    try {
+      const res = await createGroupInviteLink(groupId);
+      const link = res?.inviteLink;
+      if (!link) throw new Error("No link returned");
+      await navigator.clipboard.writeText(link);
+      toast.success("Invite link copied. Anyone who opens it will join the group.");
+      setInviteLinkModalOpen(false);
+    } catch {
+      toast.error("Could not create or copy invite link");
+    }
+  };
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
@@ -59,7 +81,7 @@ export default function FriendsPage() {
             </div>
             <button
               type="button"
-              onClick={() => setIsModalOpen(true)}
+              onClick={handleCopyInviteLinkClick}
               className="splito-abtn w-full mt-3.5 py-2.5 rounded-xl text-[13px] font-semibold flex items-center justify-center gap-1.5 border border-white/[0.09] bg-white/[0.05] text-[#d4d4d4] transition-all"
             >
               <Icons.link /> Copy invite link
@@ -80,6 +102,50 @@ export default function FriendsPage() {
         <FriendsList search={search} />
       </div>
       <AddFriendsModal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} />
+
+      {/* Modal: pick group for invite link */}
+      {inviteLinkModalOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+          onClick={() => setInviteLinkModalOpen(false)}
+        >
+          <div
+            className="rounded-2xl border border-white/[0.09] bg-[#141416] p-5 w-full max-w-sm shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[15px] font-extrabold text-white mb-1">Copy invite link</p>
+            <p className="text-[12px] font-medium mb-4" style={{ color: "#999" }}>
+              Choose a group. The link will add people to that group when they open it.
+            </p>
+            {groupsLoading ? (
+              <p className="text-white/60 text-sm py-4">Loading groups…</p>
+            ) : groups.length === 0 ? (
+              <p className="text-white/60 text-sm py-4">Create a group first to share an invite link.</p>
+            ) : (
+              <ul className="space-y-1.5 max-h-56 overflow-y-auto">
+                {groups.map((g: { id: string; name: string }) => (
+                  <li key={g.id}>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectGroupForInvite(g.id)}
+                      className="w-full text-left py-2.5 px-3 rounded-xl text-[13px] font-medium text-white border border-white/[0.09] bg-white/[0.05] hover:bg-white/[0.08] transition-colors"
+                    >
+                      {g.name}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <button
+              type="button"
+              onClick={() => setInviteLinkModalOpen(false)}
+              className="mt-4 w-full py-2 rounded-xl text-[13px] font-semibold text-white/70 hover:text-white border border-white/[0.09]"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

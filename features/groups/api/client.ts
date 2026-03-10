@@ -90,6 +90,24 @@ export const joinGroup = async (groupId: string) => {
   return GroupSchema.parse(response);
 };
 
+export const createGroupInviteLink = async (
+  groupId: string
+): Promise<{ inviteLink: string; expiresAt: string }> => {
+  const response = await apiClient.post<{ inviteLink: string; expiresAt: string }>(
+    `/groups/${groupId}/invite-link`
+  );
+  return response as unknown as { inviteLink: string; expiresAt: string };
+};
+
+export const joinGroupByToken = async (
+  token: string
+): Promise<{ groupId: string; message?: string }> => {
+  const response = await apiClient.post<{ groupId: string; message?: string }>("/groups/join", {
+    token,
+  });
+  return response as unknown as { groupId: string; message?: string };
+};
+
 export const addMembersToGroup = async (
   groupId: string,
   memberIdentifier: string

@@ -2,11 +2,12 @@
 
 import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import { Loader2, TrendingUp, ArrowDownRight, ArrowUpRight } from "lucide-react";
 import {
   useGetStreamsByOrganization,
   useDeleteStream,
 } from "@/features/business/hooks/use-streams";
+import { useGetOrganizationAnalytics } from "@/features/business/hooks/use-invoices";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
@@ -18,7 +19,14 @@ export default function OrganizationStreamsPage() {
   const organizationId = params?.organizationId as string;
   const { isAdmin, openStreamModal, openEditStream } = useOrganizationOrg();
   const { data: streams = [], isLoading: isStreamsLoading } = useGetStreamsByOrganization(organizationId, { enabled: !!isAdmin });
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetOrganizationAnalytics(organizationId);
   const deleteStreamMutation = useDeleteStream();
+
+  const expenseThisMonth = analyticsData?.expenseThisMonth ?? 0;
+  const totalPaid = analyticsData?.totalPaid ?? 0;
+  const totalInflow = analyticsData?.totalInflow ?? 0;
+  const byMonth = analyticsData?.inflowOutflowByMonth ?? [];
+  const maxVal = Math.max(...byMonth.flatMap((m) => [m.inflow, m.outflow]), 1);
 
   useEffect(() => {
     if (isAdmin === false && organizationId) {
@@ -105,6 +113,69 @@ export default function OrganizationStreamsPage() {
             {Icons.plus({ size: 16 })} Add stream
           </button>
         </Card>
+      )}
+
+      {/* Statistics */}
+      <SectionLabel className="mt-8">Statistics</SectionLabel>
+      {isAnalyticsLoading ? (
+        <div className="flex justify-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+        </div>
+      ) : (
+        <>
+          <div className="grid gap-4 sm:grid-cols-3 mb-6">
+            <Card className="p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <ArrowDownRight className="h-5 w-5 text-red-400/90" />
+                <span className="text-sm font-medium" style={{ color: T.muted }}>Expense this month</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{formatCurrency(expenseThisMonth, "USD")}</p>
+              <p className="text-xs mt-1" style={{ color: T.sub }}>Based on approved/paid invoices</p>
+            </Card>
+            <Card className="p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <TrendingUp className="h-5 w-5 text-white/70" />
+                <span className="text-sm font-medium" style={{ color: T.muted }}>Total amount paid</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{formatCurrency(totalPaid, "USD")}</p>
+              <p className="text-xs mt-1" style={{ color: T.sub }}>All time (invoices)</p>
+            </Card>
+            <Card className="p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <ArrowUpRight className="h-5 w-5 text-emerald-400/90" />
+                <span className="text-sm font-medium" style={{ color: T.muted }}>Expected inflow</span>
+              </div>
+              <p className="text-2xl font-bold text-white">{formatCurrency(totalInflow, "USD")}</p>
+              <p className="text-xs mt-1" style={{ color: T.sub }}>From income streams</p>
+            </Card>
+          </div>
+          <Card className="p-4 sm:p-5">
+            <h3 className="text-base font-semibold text-white mb-4">Inflow vs outflow (last 6 months)</h3>
+            <div className="space-y-4">
+              {byMonth.length === 0 ? (
+                <p className="text-sm py-6 text-center" style={{ color: T.muted }}>No data yet.</p>
+              ) : (
+                byMonth.map((m) => (
+                  <div key={m.month} className="flex items-center gap-3">
+                    <span className="w-16 text-xs font-medium shrink-0" style={{ color: T.muted }}>{m.month}</span>
+                    <div className="flex-1 flex gap-2 items-end h-8">
+                      <div className="rounded-md bg-emerald-500/30 min-w-[4px] transition-all" style={{ width: `${Math.max(4, (m.inflow / maxVal) * 100)}%`, height: 24 }} title={`Inflow: ${formatCurrency(m.inflow, "USD")}`} />
+                      <div className="rounded-md bg-red-500/30 min-w-[4px] transition-all" style={{ width: `${Math.max(4, (m.outflow / maxVal) * 100)}%`, height: 24 }} title={`Outflow: ${formatCurrency(m.outflow, "USD")}`} />
+                    </div>
+                    <div className="w-32 shrink-0 flex gap-2 text-xs" style={{ color: T.sub }}>
+                      <span title={formatCurrency(m.inflow, "USD")}>↑ {formatCurrency(m.inflow, "USD")}</span>
+                      <span title={formatCurrency(m.outflow, "USD")}>↓ {formatCurrency(m.outflow, "USD")}</span>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+            <div className="flex gap-6 mt-4 pt-4 border-t border-white/[0.06] text-xs" style={{ color: T.muted }}>
+              <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-emerald-500/30" /> Inflow</span>
+              <span className="flex items-center gap-2"><span className="w-3 h-3 rounded bg-red-500/30" /> Outflow</span>
+            </div>
+          </Card>
+        </>
       )}
     </div>
   );

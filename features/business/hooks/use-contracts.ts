@@ -100,7 +100,15 @@ export const useClaimContractByToken = () => {
 export const useSignContract = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: signContract,
+    mutationFn: ({
+      contractId,
+      signatureDataUrl,
+      signerName,
+    }: {
+      contractId: string;
+      signatureDataUrl: string;
+      signerName: string;
+    }) => signContract(contractId, { signatureDataUrl, signerName }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: [QueryKeys.CONTRACTS] });
     },

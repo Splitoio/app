@@ -16,6 +16,7 @@ import {
   Activity,
   FileSignature,
   FileText,
+  Receipt,
   UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -184,6 +185,23 @@ export function Sidebar() {
 
                 {isAdminOfLinkOrg && (
                   <Link
+                    id="sidebar-org-expenses-link"
+                    href={`/organization/${linkOrgId}/expenses`}
+                    onClick={close}
+                    className={cn(
+                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                      pathname === `/organization/${linkOrgId}/expenses`
+                        ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                        : "text-white/60"
+                    )}
+                  >
+                    <span className={pathname === `/organization/${linkOrgId}/expenses` ? "text-[#22D3EE]" : "inherit"}><Receipt className="h-4 w-4" strokeWidth={1.5} /></span>
+                    Expenses
+                  </Link>
+                )}
+
+                {isAdminOfLinkOrg && (
+                  <Link
                     id="sidebar-org-streams-link"
                     href={`/organization/${linkOrgId}/streams`}
                     onClick={close}
@@ -247,6 +265,21 @@ export function Sidebar() {
                     Members
                   </Link>
                 )}
+
+                <Link
+                  id="sidebar-org-settings-link"
+                  href={`/organization/${linkOrgId}/settings`}
+                  onClick={close}
+                  className={cn(
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    pathname === `/organization/${linkOrgId}/settings`
+                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
+                      : "text-white/60"
+                  )}
+                >
+                  <span className={pathname === `/organization/${linkOrgId}/settings` ? "text-[#22D3EE]" : "inherit"}>{Icons.settings({})}</span>
+                  Settings
+                </Link>
               </>
             )}
 
@@ -328,7 +361,14 @@ export function Sidebar() {
                   })}
                   <button
                     type="button"
-                    onClick={() => { close(); document.dispatchEvent(new CustomEvent("open-create-group-modal")); }}
+                    onClick={() => {
+                      close();
+                      if (pathname === "/groups" || pathname.startsWith("/groups/")) {
+                        document.dispatchEvent(new CustomEvent("open-create-group-modal"));
+                      } else {
+                        router.push("/groups?openCreate=1");
+                      }
+                    }}
                     className="w-full flex items-center gap-[9px] rounded-xl py-[9px] px-[13px] bg-transparent my-1.5 transition-all hover:bg-white/[0.04] cursor-pointer"
                     style={{ border: "1.5px dashed rgba(255,255,255,0.1)" }}
                   >

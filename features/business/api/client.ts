@@ -184,6 +184,11 @@ export const declineInvoice = async (invoiceId: string, note?: string) => {
   return InvoiceSchema.parse(response);
 };
 
+export const markInvoiceAsPaid = async (invoiceId: string) => {
+  const response = await apiClient.patch(`/invoices/${invoiceId}/paid`, {});
+  return InvoiceSchema.parse(response);
+};
+
 export const clearInvoice = async (invoiceId: string) => {
   const response = await apiClient.patch(`/invoices/${invoiceId}/clear`, {});
   return InvoiceSchema.parse(response);
@@ -192,6 +197,16 @@ export const clearInvoice = async (invoiceId: string) => {
 export const getOrganizationActivity = async (organizationId: string) => {
   const response = await apiClient.get(`/invoices/organization/${organizationId}/activity`);
   return OrganizationActivitySchema.array().parse(response);
+};
+
+export const getOrganizationAnalytics = async (organizationId: string) => {
+  const response = await apiClient.get(`/invoices/organization/${organizationId}/analytics`);
+  return response as unknown as {
+    expenseThisMonth: number;
+    totalPaid: number;
+    totalInflow: number;
+    inflowOutflowByMonth: { month: string; inflow: number; outflow: number }[];
+  };
 };
 
 export const deleteInvoice = async (invoiceId: string) => {
@@ -315,8 +330,11 @@ export const updateContract = async (
   return ContractSchema.parse(response);
 };
 
-export const signContract = async (contractId: string) => {
-  const response = await apiClient.patch(`/contracts/${contractId}/sign`, {});
+export const signContract = async (
+  contractId: string,
+  payload: { signatureDataUrl: string; signerName: string }
+) => {
+  const response = await apiClient.patch(`/contracts/${contractId}/sign`, payload);
   return ContractSchema.parse(response);
 };
 
