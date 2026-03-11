@@ -11,28 +11,11 @@ import {
   Btn,
   Avatar,
   T,
-  A,
   G,
   Icons,
+  getUserColor,
 } from "@/lib/splito-design";
 
-const MEMBER_COLORS = [
-  A,
-  "#A78BFA",
-  G,
-  "#FB923C",
-  "#F472B6",
-  "#FBBF24",
-  "#F87171",
-  "#818CF8",
-];
-
-function memberColor(userId: string): string {
-  let h = 0;
-  for (let i = 0; i < userId.length; i++)
-    h = (h << 5) - h + userId.charCodeAt(i);
-  return MEMBER_COLORS[Math.abs(h) % MEMBER_COLORS.length];
-}
 
 function getInit(name: string | null): string {
   if (!name || !name.trim()) return "?";
@@ -47,9 +30,8 @@ export default function GroupMembersPage() {
   const {
     group,
     isAdmin,
-    openAddMember,
     handleRemoveMember,
-    handleSettleFriendClick,
+    openSettle,
     handleSendReminder,
     formatCurrency,
     defaultCurrency,
@@ -80,24 +62,10 @@ export default function GroupMembersPage() {
 
   return (
     <div className="pb-6">
-      <div className="flex items-center justify-between gap-3 mb-5 sm:mb-6">
-        <SectionLabel>Your Members</SectionLabel>
-        {isAdmin && (
-          <Btn
-            onClick={openAddMember}
-            variant="ghost"
-            className="shrink-0"
-            style={{ padding: "8px 14px", fontSize: 12 }}
-          >
-            <Icons.userPlus /> Add Member
-          </Btn>
-        )}
-      </div>
-
       <Card className="mb-5 sm:mb-[22px] overflow-hidden">
         {group.groupUsers.map((member, idx) => {
           const isCurrentUser = member.user.id === user.id;
-          const color = memberColor(member.user.id);
+          const color = getUserColor(member.user.name);
           const paid = (group.expenses ?? [])
             .filter(
               (e: { paidBy: string; splitType?: string }) =>
@@ -116,46 +84,51 @@ export default function GroupMembersPage() {
               className={idx < group.groupUsers.length - 1 ? "border-b border-white/[0.06]" : ""}
               style={{ transition: "background 0.15s" }}
             >
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-[14px] p-4 sm:p-5">
-                <div className="flex items-center min-w-0 flex-1">
-                  <Avatar
-                    init={getInit(member.user.name)}
-                    color={color}
-                    size={42}
-                  />
-                  <div className="ml-3 sm:flex-1 min-w-0">
-                    <p
-                      className="font-bold text-sm sm:text-[14px] text-white leading-tight"
-                      style={{ color: T.bright }}
-                    >
-                      {isCurrentUser
-                        ? `${member.user.name ?? "You"} (you)`
-                        : member.user.name ?? "Member"}
-                    </p>
-                    <p
-                      className="text-xs sm:text-[12px] mt-1 font-medium"
-                      style={{ color: T.muted }}
-                    >
-                      Paid {formatAmount(paid)} ·{" "}
-                      <span style={{ color: owesDisplay.color, fontWeight: 600 }}>
-                        {owesDisplay.text}
-                      </span>
-                    </p>
-                  </div>
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 14,
+                  padding: "15px 22px",
+                }}
+              >
+                <Avatar
+                  init={getInit(member.user.name)}
+                  color={color}
+                  size={42}
+                />
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontWeight: 700, fontSize: 14, color: T.bright }}>
+                    {isCurrentUser
+                      ? `${member.user.name ?? "You"} (you)`
+                      : member.user.name ?? "Member"}
+                  </p>
+                  <p
+                    style={{
+                      fontSize: 12,
+                      color: T.muted,
+                      marginTop: 3,
+                      fontWeight: 500,
+                    }}
+                  >
+                    Paid {formatAmount(paid)} ·{" "}
+                    <span style={{ color: owesDisplay.color, fontWeight: 600 }}>
+                      {owesDisplay.text}
+                    </span>
+                  </p>
                 </div>
                 {!isCurrentUser && (
-                  <div className="flex items-center gap-2 sm:gap-2 flex-wrap sm:flex-nowrap sm:shrink-0 pl-[54px] sm:pl-0">
+                  <div style={{ display: "flex", gap: 7 }}>
                     <Btn
-                      onClick={() => handleSettleFriendClick(member.user.id)}
+                      onClick={() => openSettle(member.user.id)}
                       variant="ghost"
-                      className="flex-1 sm:flex-initial min-w-0"
                       style={{
-                        padding: "8px 12px",
+                        padding: "8px 14px",
                         fontSize: 12,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
                         gap: 5,
+                        fontWeight: 700,
                       }}
                     >
                       <Icons.wallet /> Settle
@@ -168,14 +141,13 @@ export default function GroupMembersPage() {
                         )
                       }
                       variant="ghost"
-                      className="flex-1 sm:flex-initial min-w-0"
                       style={{
-                        padding: "8px 12px",
+                        padding: "8px 14px",
                         fontSize: 12,
                         display: "flex",
                         alignItems: "center",
-                        justifyContent: "center",
                         gap: 5,
+                        fontWeight: 600,
                       }}
                     >
                       <Icons.bell /> Notify
@@ -204,9 +176,9 @@ export default function GroupMembersPage() {
         })}
       </Card>
 
-      <Card className="p-4 sm:p-[22px]">
+      <Card style={{ padding: "22px" }}>
         <SectionLabel>Group spend breakdown</SectionLabel>
-        <div className="flex gap-4 sm:gap-8 flex-wrap mb-4 sm:mb-[18px]">
+        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 18 }}>
           <StatBox
             label="Total spent"
             value={formatAmount(totalSpent)}
@@ -238,7 +210,7 @@ export default function GroupMembersPage() {
               key={m.user.id}
               style={{
                 width: `${100 / group.groupUsers.length}%`,
-                background: memberColor(m.user.id),
+                background: getUserColor(m.user.name),
                 opacity: 0.75,
                 borderRadius: 99,
               }}

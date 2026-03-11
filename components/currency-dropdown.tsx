@@ -2,14 +2,14 @@
 
 import { useState, useRef, useLayoutEffect } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X } from "lucide-react";
+import { Loader2, X, Map } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useOrganizedCurrencies } from "@/features/currencies/hooks/use-currencies";
 import type { Currency } from "@/features/currencies/api/client";
 import { A, T } from "@/lib/splito-design";
 import { Icons } from "@/lib/splito-design";
 
-// Flag emoji for common fiat currencies (id/code -> emoji)
+// Flag emoji for fiat currencies: explicit map for codes that don't match country (e.g. EUR, CHF)
 const FIAT_FLAGS: Record<string, string> = {
   USD: "🇺🇸",
   EUR: "🇪🇺",
@@ -25,11 +25,53 @@ const FIAT_FLAGS: Record<string, string> = {
   KRW: "🇰🇷",
   MXN: "🇲🇽",
   BRL: "🇧🇷",
+  VND: "🇻🇳",
+  HKD: "🇭🇰",
+  NZD: "🇳🇿",
+  ZAR: "🇿🇦",
+  PHP: "🇵🇭",
+  IDR: "🇮🇩",
+  MYR: "🇲🇾",
+  AED: "🇦🇪",
+  SAR: "🇸🇦",
+  EGP: "🇪🇬",
+  NGN: "🇳🇬",
+  PKR: "🇵🇰",
+  BDT: "🇧🇩",
+  TRY: "🇹🇷",
+  RUB: "🇷🇺",
+  PLN: "🇵🇱",
+  CZK: "🇨🇿",
+  HUF: "🇭🇺",
+  RON: "🇷🇴",
+  SEK: "🇸🇪",
+  NOK: "🇳🇴",
+  DKK: "🇩🇰",
+  ILS: "🇮🇱",
+  CLP: "🇨🇱",
+  COP: "🇨🇴",
+  PEN: "🇵🇪",
+  ARS: "🇦🇷",
+  UAH: "🇺🇦",
 };
+
+/** Convert ISO 3166-1 alpha-2 country code to flag emoji (e.g. VN -> 🇻🇳) */
+function countryCodeToFlag(cc: string): string {
+  if (!cc || cc.length !== 2) return "";
+  const a = cc.toUpperCase().charCodeAt(0) - 65;
+  const b = cc.toUpperCase().charCodeAt(1) - 65;
+  if (a < 0 || a > 25 || b < 0 || b > 25) return "";
+  return String.fromCodePoint(0x1f1e6 + a, 0x1f1e6 + b);
+}
 
 const getCurrencyFlag = (c: Currency): string => {
   if (c.type !== "FIAT") return "";
-  return FIAT_FLAGS[c.id] || FIAT_FLAGS[c.symbol] || "💱";
+  const byId = FIAT_FLAGS[c.id] || FIAT_FLAGS[c.symbol];
+  if (byId) return byId;
+  // ISO 4217: many currency codes use first 2 letters as country code (e.g. VND -> VN)
+  const id = (c.id || c.symbol || "").toUpperCase();
+  if (id.length >= 2) return countryCodeToFlag(id.slice(0, 2)) || "💱";
+  return "💱";
 };
 
 // Chain ID → display name and icon for section headers (Fiat, Aptos, Solana, Stellar, Base, etc.)
@@ -111,25 +153,33 @@ export default function CurrencyDropdown({
   } | null>(null);
 
   useLayoutEffect(() => {
-    if (activeDropdown !== "currency" || !triggerRef.current) {
+    if (activeDropdown !== "currency") {
       setDropdownRect(null);
       setSearchQuery("");
       setCurrencyTab("fiat");
       return;
     }
-    const el = triggerRef.current;
-    const rect = el.getBoundingClientRect();
-    const padding = 8;
-    const spaceBelow = window.innerHeight - rect.bottom - padding;
-    const spaceAbove = rect.top - padding;
-    const maxH = 320;
-    const maxHeight = Math.min(maxH, spaceBelow > spaceAbove ? spaceBelow : spaceAbove, window.innerHeight - padding * 2);
-    setDropdownRect({
-      top: spaceBelow >= maxH ? rect.bottom + 4 : rect.top - maxHeight - 4,
-      left: rect.left,
-      width: rect.width,
-      maxHeight: Math.max(120, maxHeight),
-    });
+
+    const updateRect = () => {
+      if (!triggerRef.current) return;
+      const el = triggerRef.current;
+      const rect = el.getBoundingClientRect();
+      const maxHeight = 320;
+      setDropdownRect({
+        top: rect.bottom + 4,
+        left: rect.left,
+        width: rect.width,
+        maxHeight: maxHeight,
+      });
+    };
+
+    updateRect();
+    window.addEventListener("scroll", updateRect, true);
+    window.addEventListener("resize", updateRect);
+    return () => {
+      window.removeEventListener("scroll", updateRect, true);
+      window.removeEventListener("resize", updateRect);
+    };
   }, [activeDropdown]);
 
   // Close on click outside
@@ -241,7 +291,7 @@ export default function CurrencyDropdown({
         if (!isSelected) e.currentTarget.style.background = "transparent";
       }}
     >
-      <span style={{ fontSize: 17 }}>
+      <span style={{ fontSize: 17, color: "#fff" }}>
         {isFiat ? getCurrencyFlag(currency) : "◆"}
       </span>
       <span
@@ -460,7 +510,7 @@ export default function CurrencyDropdown({
                           gap: 6,
                         }}
                       >
-                        <span style={{ color: chainColor }}>{chainIcon}</span>
+                        <span style={{ color: "#fff" }}>{chainIcon}</span>
                         {chainName}
                       </div>
                       {tokens.map((currency) =>
@@ -518,7 +568,7 @@ export default function CurrencyDropdown({
                         gap: 6,
                       }}
                     >
-                      <span style={{ color: chainColor }}>{chainIcon}</span>
+                      <span style={{ color: "#fff" }}>{chainIcon}</span>
                       {chainName}
                     </div>
                     {tokens.map((currency) =>
@@ -568,25 +618,67 @@ export default function CurrencyDropdown({
         }}
       >
         {mode === "single" ? (
-          <span
+          <div
             style={{
-              color: selected ? T.bright : T.muted,
-              fontSize: 14,
-              fontWeight: 600,
-              overflow: "hidden",
-              textOverflow: "ellipsis",
-              whiteSpace: "nowrap",
-              textAlign: "left",
+              display: "flex",
+              alignItems: "center",
+              gap: 10,
               flex: 1,
               minWidth: 0,
             }}
           >
-            {isLoadingCurrencies
-              ? "Loading currencies..."
-              : selected
-                ? `${selected.type === "FIAT" ? selected.id : selected.symbol} · ${selected.name}`
-                : placeholder || defaultPlaceholder}
-          </span>
+            <span
+              style={{
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                fontSize:
+                  selected &&
+                  selected.type === "FIAT" &&
+                  getCurrencyFlag(selected)
+                    ? 18
+                    : undefined,
+              }}
+              aria-hidden
+            >
+              {selected &&
+              selected.type === "FIAT" &&
+              getCurrencyFlag(selected) ? (
+                getCurrencyFlag(selected)
+              ) : (
+                <Map size={18} strokeWidth={1.8} style={{ color: T.muted }} />
+              )}
+            </span>
+            <span
+              style={{
+                fontSize: 14,
+                fontWeight: 600,
+                overflow: "hidden",
+                textOverflow: "ellipsis",
+                whiteSpace: "nowrap",
+                textAlign: "left",
+                flex: 1,
+                minWidth: 0,
+              }}
+            >
+              {isLoadingCurrencies ? (
+                <span style={{ color: T.muted }}>Loading currencies...</span>
+              ) : selected ? (
+                <span style={{ display: "flex", alignItems: "center" }}>
+                  <span style={{ color: T.bright }}>
+                    {selected.type === "FIAT" ? selected.id : selected.symbol}
+                  </span>
+                  <span style={{ color: T.muted, margin: "0 6px" }}>·</span>
+                  <span style={{ color: T.muted }}>{selected.name}</span>
+                </span>
+              ) : (
+                <span style={{ color: T.muted }}>
+                  {placeholder || defaultPlaceholder}
+                </span>
+              )}
+            </span>
+          </div>
         ) : (
           <div
             style={{
@@ -686,7 +778,7 @@ export default function CurrencyDropdown({
                 left: dropdownRect.left,
                 width: dropdownRect.width,
                 maxHeight: dropdownRect.maxHeight,
-                zIndex: 99999,
+                zIndex: 200,
                 background: "#141414",
                 border: "1px solid rgba(255,255,255,0.09)",
                 borderRadius: 18,

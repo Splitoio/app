@@ -202,7 +202,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
         />
 
         <div
-          className="rounded-xl sm:rounded-3xl min-h-[calc(100vh-200px)] overflow-y-auto p-4 sm:p-7"
+          className="p-4 pt-0 sm:pt-0 sm:p-7"
         >
           {children}
         </div>
@@ -217,12 +217,8 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           groupId={groupId}
           members={group.groupUsers.map((u) => u.user)}
           defaultCurrency={user?.currency || group.defaultCurrency}
-          showIndividualView={settleFriendId !== null}
-          selectedFriendId={settleFriendId}
-          specificAmount={settleFriendId ? getSpecificDebtAmount(settleFriendId) : undefined}
-          specificDebtByCurrency={
-            settleFriendId ? getSpecificDebtByCurrency(settleFriendId) : undefined
-          }
+          showIndividualView={false}
+          defaultExpandedMemberId={settleFriendId}
         />
 
         <AddMemberModal

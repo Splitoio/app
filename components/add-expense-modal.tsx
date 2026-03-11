@@ -21,7 +21,7 @@ import CurrencyDropdown from "./currency-dropdown";
 import TimeLockToggle from "./ui/TimeLockToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
-import { Card, A, T } from "@/lib/splito-design";
+import { Card, A, T, getUserColor } from "@/lib/splito-design";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 
 const CATEGORY_OPTIONS: { emoji: string; api: string }[] = [
@@ -296,7 +296,7 @@ export function AddExpenseModal({
     }
 
     const payload: ExpensePayload = {
-      category: formData.category || "OTHER",
+      category: formData.categoryEmoji || formData.category || "OTHER",
       name: formData.name || "Expense",
       description: formData.description || "",
       amount: parseFloat(formData.amount),
@@ -806,7 +806,7 @@ export function AddExpenseModal({
                     gap: 8,
                   }}
                 >
-                  {members.map((member, index) => {
+                  {members.map((member) => {
                     const init =
                       member.id === user?.id
                         ? "Y"
@@ -817,8 +817,7 @@ export function AddExpenseModal({
                             .slice(0, 2)
                             .toUpperCase();
                     const isSelected = formData.paidBy === member.id;
-                    const memberColors = ["#A78BFA", "#34D399", "#FB923C", "#F472B6", "#FBBF24", "#22D3EE"];
-                    const memberColor = memberColors[index % memberColors.length];
+                    const memberColor = getUserColor(member.id === user?.id ? (user?.name || member.name) : member.name);
                     return (
                       <button
                         key={member.id}
@@ -828,9 +827,9 @@ export function AddExpenseModal({
                         }
                         style={{
                           padding: "10px 4px",
-                          background: "rgba(255,255,255,0.04)",
+                          background: isSelected ? `${memberColor}12` : "rgba(255,255,255,0.04)",
                           border: isSelected
-                            ? `2px solid ${A}`
+                            ? `2px solid ${memberColor}`
                             : "1px solid rgba(255,255,255,0.08)",
                           borderRadius: 14,
                           cursor: "pointer",
@@ -839,7 +838,7 @@ export function AddExpenseModal({
                           alignItems: "center",
                           gap: 6,
                           transition: "all 0.2s",
-                          boxShadow: isSelected ? `0 0 14px ${A}44` : "none",
+                          boxShadow: isSelected ? `0 0 14px ${memberColor}44` : "none",
                         }}
                       >
                         <div
@@ -847,21 +846,21 @@ export function AddExpenseModal({
                             width: 38,
                             height: 38,
                             borderRadius: "50%",
-                            background: isSelected ? A : `${memberColor}1a`,
+                            background: isSelected ? memberColor : `${memberColor}1a`,
                             border: isSelected ? "none" : `2px solid ${memberColor}40`,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
                             fontSize: 11,
                             fontWeight: 800,
-                            color: isSelected ? "#fff" : memberColor,
+                            color: isSelected ? "#0a0a0a" : memberColor,
                           }}
                         >
                           {init}
                         </div>
                         <span
                           style={{
-                            color: isSelected ? A : T.sub,
+                            color: isSelected ? memberColor : T.sub,
                             fontSize: 10,
                             fontWeight: 700,
                           }}

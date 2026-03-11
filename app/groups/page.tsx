@@ -4,7 +4,7 @@ import { GroupsList } from "@/components/groups-list";
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { CreateGroupForm } from "@/components/create-group-form";
-import { Icons } from "@/lib/splito-design";
+import { Icons, T } from "@/lib/splito-design";
 
 export default function GroupsPage() {
   const searchParams = useSearchParams();
@@ -42,15 +42,32 @@ export default function GroupsPage() {
       </div>
       <div className="flex-1 overflow-y-auto p-4 sm:p-7">
         <div
-          className="flex items-center rounded-[14px] mb-5 sm:mb-6 py-2.5 px-4 gap-2 bg-white/[0.04] border border-white/[0.08]"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.08)",
+            borderRadius: 14,
+            padding: "11px 16px",
+            marginBottom: 24,
+            gap: 8
+          }}
         >
-          <span className="text-[#999] shrink-0">{Icons.search({ size: 18 })}</span>
+          <span style={{ color: T.muted, display: "flex" }}>{Icons.search()}</span>
           <input
-            type="text"
             placeholder="Search groups…"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="flex-1 min-w-0 bg-transparent text-[14px] text-white placeholder:text-white/50 focus:outline-none font-medium"
+            style={{
+              background: "none",
+              border: "none",
+              color: "#fff",
+              fontSize: 14,
+              outline: "none",
+              width: "100%",
+              fontFamily: "inherit",
+              fontWeight: 500
+            }}
           />
         </div>
         <GroupsList searchQuery={searchQuery} />

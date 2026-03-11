@@ -59,6 +59,9 @@ export default function SettingsPage() {
   const { mutate: removeWallet, isPending: isRemovingWallet } =
     useRemoveWallet();
 
+  // Guard against infinite loop if API fails
+  const autoSetPrimaryAttempted = React.useRef<string | null>(null);
+
   // Process wallet data for UI
   const wallets = walletData?.accounts || [];
 
@@ -187,6 +190,18 @@ export default function SettingsPage() {
       address: walletToUpdate.address,
     });
   };
+
+  // Auto-set single wallet as primary
+  useEffect(() => {
+    if (wallets.length === 1 && !wallets[0].isDefault) {
+      if (autoSetPrimaryAttempted.current !== wallets[0].id) {
+        autoSetPrimaryAttempted.current = wallets[0].id;
+        handleSetAsPrimary(wallets[0].id);
+      }
+    } else if (wallets.length > 1 || wallets.length === 0) {
+      autoSetPrimaryAttempted.current = null;
+    }
+  }, [wallets, handleSetAsPrimary]);
 
   // Remove a wallet using the mutation hook
   const handleRemoveWallet = (walletId: string) => {

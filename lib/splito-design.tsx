@@ -17,6 +17,17 @@ export const T = {
   bright: "#f5f5f5",
 };
 
+export const FRIEND_COLORS = [A, "#A78BFA", G, "#FB923C", "#F472B6", "#FBBF24", "#818CF8"];
+
+export function getUserColor(name: string | null) {
+  if (!name) return A;
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return FRIEND_COLORS[Math.abs(hash) % FRIEND_COLORS.length];
+}
+
 export const fmt = (n: number): string =>
   `$${+n % 1 === 0 ? Math.abs(+n) : Math.abs(+n).toFixed(2)}`;
 

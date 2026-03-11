@@ -1,14 +1,10 @@
 "use client";
 
-import { X, ChevronDown, Check, Loader2 } from "lucide-react";
+import { ChevronDown, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
-// import {
-//   getAvailableChains,
-//   addMultichainAccount,
-// } from "@/services/walletService";
 import {
   StellarWalletsKit,
   WalletNetwork,
@@ -21,20 +17,8 @@ import {
   useUserWallets,
   useSetWalletAsPrimary,
 } from "@/features/wallets/hooks/use-wallets";
-// import {
-//   Wallet as WalletType,
-//   ChainResponse as ChainResponseType,
-// } from "@/features/wallets/api/client";
-import { AptosWalletAdapterProvider, useWallet } from "@aptos-labs/wallet-adapter-react";
-import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
+import { useWallet } from "@aptos-labs/wallet-adapter-react";
 import { AccountAddress } from "@aptos-labs/ts-sdk";
-// Define wallet interface
-interface Wallet {
-  id: string;
-  address: string;
-  chain: string;
-  isPrimary: boolean;
-}
 
 interface Chain {
   id: string;
@@ -42,35 +26,38 @@ interface Chain {
   enabled: boolean;
 }
 
-interface ChainResponse {
-  chains: Chain[];
-}
-
 interface AddWalletModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-// Fallback chains in case API fails
+// Fallback chains in case API fails (matching design artifact)
 const FALLBACK_CHAINS = [
-  { id: "ethereum", name: "Ethereum", enabled: true },
-  { id: "stellar", name: "Stellar", enabled: true },
   { id: "aptos", name: "Aptos", enabled: true },
+  { id: "ethereum", name: "Ethereum", enabled: true },
+  { id: "base", name: "Base", enabled: true },
   { id: "solana", name: "Solana", enabled: true },
+  { id: "stellar", name: "Stellar", enabled: true },
   { id: "polygon", name: "Polygon", enabled: true },
-  { id: "binance", name: "Binance", enabled: true },
 ];
 
-// API URL for access to backend
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+// Chain metadata for styling (matching design artifact)
+const getChainMeta = (chainId: string) => {
+  const metaMap: Record<string, { color: string; icon: string }> = {
+    aptos: { color: "#22D3EE", icon: "⬡" },
+    ethereum: { color: "#818CF8", icon: "◆" },
+    base: { color: "#3B82F6", icon: "🔵" },
+    solana: { color: "#A78BFA", icon: "◎" },
+    stellar: { color: "#34D399", icon: "✦" },
+    polygon: { color: "#A855F7", icon: "⬟" },
+  };
+  return metaMap[chainId] || { color: "#666", icon: "◆" };
+};
 
 export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   const [walletAddress, setWalletAddress] = useState<string>("");
   const [selectedChain, setSelectedChain] = useState<Chain | null>(null);
-  const [step, setStep] = useState<"address" | "connecting">("address");
-  const [primaryWalletExists, setPrimaryWalletExists] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [tab, setTab] = useState<"manual" | "connect">("manual");
   const [isConnectingWallet, setIsConnectingWallet] = useState(false);
   const walletKitRef = useRef<StellarWalletsKit | null>(null);
   const [aptosAddress, setAptosAddress] = useState<string>("");
@@ -84,7 +71,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   // Add wallet mutation
   const { mutate: addWalletMutation, isPending: isAddingWallet } =
     useAddWallet();
-  const { mutate: setPrimaryWallet, isPending: isSettingPrimary } =
+  const { mutate: _setPrimaryWallet, isPending: isSettingPrimary } =
     useSetWalletAsPrimary();
 
   // Process chains data
@@ -163,7 +150,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
       if (!/^0x[a-fA-F0-9]{64}$/.test(parsed.toString())) {
         throw new Error("Not 64 hex chars");
       }
-    } catch (err) {
+    } catch {
       toast.error("Invalid Aptos address. Must be a valid 0x-prefixed 64-character hex string.");
       return;
     }
@@ -178,7 +165,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
       {
         chainId,
         address: walletAddress,
-        isPrimary: false,
+        isPrimary: userWallets.length === 0,
       },
       {
         onSuccess: () => {
@@ -195,7 +182,6 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   // Function to handle chain selection
   const handleChainSelect = (chain: Chain) => {
     setSelectedChain(chain);
-    setIsDropdownOpen(false);
   };
 
   // Get placeholder with the selected chain name
@@ -204,9 +190,6 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
       chains.find((c) => c.id === selectedChain?.id)?.name || "blockchain";
     return `Enter ${chainName} wallet address`;
   };
-
-  // Find the currently selected chain
-  const selectedChainObject = chains.find((c) => c.id === selectedChain?.id);
 
   // Handle connect wallet with Stellar Wallets Kit
   const handleConnectWallet = async () => {
@@ -260,7 +243,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                 {
                   chainId: "stellar", // Use 'stellar' for Stellar chain ID
                   address: publicKey,
-                  isPrimary: false,
+                  isPrimary: userWallets.length === 0,
                 },
                 {
                   onSuccess: () => {
@@ -317,7 +300,7 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
         {
           chainId: "aptos",
           address: address,
-          isPrimary: false,
+          isPrimary: userWallets.length === 0,
         },
         {
           onSuccess: () => {
@@ -333,54 +316,9 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
     }
 
     
-    
-
   }
 
-  // Handler for Aptos wallet connect using Wallet Adapter SDK
-  // const handleAptosWalletConnect = async () => {
-  //   console.log("Aptos handleAptosWalletConnect called 111111111111111111111111");
-  //   try {
-  //     console.log("Aptos handleAptosWalletConnect called 222222222222222222222222");
-  //     if (isConnectingWallet) return;
-  //     setIsConnectingWallet(true);
-  //     if (!connect) return;
-  //     if (!wallets || wallets.length === 0) {
-  //       toast.error("No Aptos wallets available to connect.");
-  //       return;
-  //     }
-  //     const walletName = wallets[0].name;
-  //     if (!walletName) {
-  //       toast.error("Could not determine Aptos wallet name.");
-  //       return;
-  //     }
-  //     await connect(walletName);
-  //     if (!account?.address) {
-  //       toast.error("No Aptos wallet connected.");
-  //       return;
-  //     }
-  //     setAptosAddress(account.address.toString());
-  //     addWalletMutation(
-  //       {
-  //         chainId: "aptos",
-  //         address: account.address.toString(),
-  //         isPrimary: true,
-  //       },
-  //       {
-  //         onSuccess: () => {
-  //           toast.success("Aptos wallet connected successfully!");
-  //           setAptosAddress("");
-  //           onClose();
-  //         },
-  //       }
-  //     );
-  //   } catch (error) {
-  //     console.error("Aptos Wallet Connect Error:", error);
-  //     toast.error("Failed to connect Aptos wallet.");
-  //   }
-  // };
-
-  const { account, connected, connect, wallets } = useWallet();
+  const { account, connected, wallets, connect } = useWallet();
 
   useEffect(() => {
     console.log("Aptos useEffect triggered", { connected, account });
@@ -407,34 +345,94 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[500px]">
+          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[460px]">
             <motion.div
-              className="relative z-10 rounded-3xl overflow-hidden"
+              className="relative z-10"
+              style={{
+                background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 28,
+                padding: 28,
+                boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+              }}
               {...scaleIn}
             >
-              <div className="flex flex-col bg-black rounded-3xl p-6 border border-white/80">
-                {/* Modal Header */}
-                <div className="w-full mb-4">
-                  <div className="flex items-center justify-between">
-                    <h2 className="text-2xl font-semibold text-white">
-                      Wallet
-                    </h2>
-                    <button
-                      onClick={onClose}
-                      className="rounded-full p-1.5 hover:bg-white/10 transition-colors"
-                    >
-                      <X className="h-5 w-5 text-white/70" />
-                    </button>
-                  </div>
-                </div>
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <p style={{ fontSize: 20, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
+                  Wallet
+                </p>
+                <button
+                  onClick={onClose}
+                  style={{
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.1)",
+                    color: "#bbb",
+                    width: 34,
+                    height: 34,
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  ×
+                </button>
+              </div>
 
-                {/* Modal Content */}
-                <div className="space-y-6 mb-8">
-                  {/* Wallet Address Input */}
-                  <div className="space-y-2">
+              {/* Tab Switcher */}
+              <div
+                className="flex gap-1 mb-6"
+                style={{
+                  background: "rgba(255,255,255,0.04)",
+                  borderRadius: 14,
+                  padding: 4,
+                  border: "1px solid rgba(255,255,255,0.08)",
+                }}
+              >
+                {[
+                  ["manual", "Manual Address"],
+                  ["connect", "Connect Wallet"],
+                ].map(([k, l]) => (
+                  <button
+                    key={k}
+                    onClick={() => setTab(k as "manual" | "connect")}
+                    style={{
+                      flex: 1,
+                      padding: "10px",
+                      background: tab === k ? "rgba(255,255,255,0.1)" : "none",
+                      color: tab === k ? "#fff" : "#999",
+                      border: "none",
+                      borderRadius: 10,
+                      fontSize: 13,
+                      fontWeight: tab === k ? 700 : 500,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+
+              {/* Manual Tab */}
+              {tab === "manual" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
+                  <div>
                     <label
                       htmlFor="wallet-address"
-                      className="block text-white text-base"
+                      style={{
+                        color: "#ccc",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        marginBottom: 10,
+                        display: "block",
+                      }}
                     >
                       Wallet Address
                     </label>
@@ -443,164 +441,446 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
                       type="text"
                       value={walletAddress}
                       onChange={(e) => setWalletAddress(e.target.value)}
-                      className="w-full bg-black border border-white/20 text-white p-3 rounded-xl focus:outline-none focus:ring-1 focus:ring-white/30"
+                      style={{
+                        width: "100%",
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1.5px solid rgba(255,255,255,0.09)",
+                        borderRadius: 14,
+                        padding: "14px 16px",
+                        color: "#fff",
+                        fontSize: 14,
+                        outline: "none",
+                        fontFamily: "inherit",
+                      }}
                       placeholder={getPlaceholder()}
                       disabled={isAddingWallet || isSettingPrimary}
+                      autoFocus
                     />
-
                   </div>
 
-                  {/* Wallet Chain Dropdown */}
-                  <div className="space-y-2">
-                    <label className="block text-white text-base">
-                      Wallet Chain
+                  <div>
+                    <label
+                      style={{
+                        color: "#ccc",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        marginBottom: 10,
+                        display: "block",
+                      }}
+                    >
+                      Blockchain
                     </label>
 
                     {chainsLoading ? (
                       <div className="flex items-center p-3 text-white/70">
                         <Loader2 className="h-5 w-5 animate-spin mr-2" />
-                        <span>Loading blockchains...</span>
+                        <span>Loading...</span>
                       </div>
                     ) : (
                       <div className="relative">
-                        <button
+                        <select
                           id="wallet-chain-dropdown"
-                          type="button"
-                          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-                          className="w-full bg-black border border-[#2e2e31] text-white p-3 rounded-lg focus:outline-none focus:ring-1 focus:ring-white/30 flex items-center justify-between"
+                          value={selectedChain?.id || ""}
+                          onChange={(e) =>
+                            handleChainSelect(
+                              chains.find((c) => c.id === e.target.value)!
+                            )
+                          }
                           disabled={isAddingWallet || isSettingPrimary}
+                          style={{
+                            width: "100%",
+                            background: "rgba(255,255,255,0.05)",
+                            border: "1.5px solid rgba(255,255,255,0.09)",
+                            borderRadius: 14,
+                            padding: "14px 44px 14px 16px",
+                            color: "#fff",
+                            fontSize: 14,
+                            outline: "none",
+                            fontFamily: "inherit",
+                            cursor: "pointer",
+                            appearance: "none",
+                          }}
                         >
-                          <span>
-                            {selectedChain?.name || "Select blockchain"}
-                          </span>
-                          <ChevronDown
-                            className={`h-5 w-5 text-white/70 transition-transform duration-200 ${
-                              isDropdownOpen ? "rotate-180" : ""
-                            }`}
-                          />
-                        </button>
-
-
-                        {/* Dropdown */}
-                        <AnimatePresence>
-                          {isDropdownOpen && (
-                            <motion.div
-                              initial={{ opacity: 0, y: -10 }}
-                              animate={{ opacity: 1, y: 0 }}
-                              exit={{ opacity: 0, y: -10 }}
-                              transition={{ duration: 0.15 }}
-                              className="absolute left-0 right-0 mt-1 bg-black border border-[#2e2e31] rounded-lg overflow-hidden z-10 max-h-[250px] overflow-y-auto"
+                          {chains.map((chain) => (
+                            <option
+                              key={chain.id}
+                              value={chain.id}
+                              style={{ background: "#1a1a1a" }}
                             >
-                              {chains.map((chain) => (
-                                <button
-                                  key={chain.id}
-                                  type="button"
-                                  onClick={() => handleChainSelect(chain)}
-                                  className="w-full text-left px-4 py-3 text-white hover:bg-white/5 transition-colors flex items-center"
-                                >
-                                  <div className="w-5 h-5 flex items-center justify-center border border-white/30 rounded mr-3">
-                                    {selectedChain?.id === chain.id && (
-                                      <Check className="h-3.5 w-3.5 text-white" />
-                                    )}
-                                  </div>
-                                  {chain.name}
-                                </button>
-                              ))}
-                            </motion.div>
-                          )}
-                        </AnimatePresence>
+                              {chain.name}
+                            </option>
+                          ))}
+                        </select>
+                        <div
+                          style={{
+                            position: "absolute",
+                            right: 14,
+                            top: "50%",
+                            transform: "translateY(-50%)",
+                            color: "#999",
+                            pointerEvents: "none",
+                          }}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </div>
                       </div>
                     )}
                   </div>
+
+                  <button
+                    id="wallet-submit-button"
+                    onClick={handleSubmit}
+                    disabled={isAddingWallet || isSettingPrimary || chainsLoading || !walletAddress}
+                    style={{
+                      width: "100%",
+                      padding: "15px",
+                      background: walletAddress && !isAddingWallet && !isSettingPrimary ? "#22D3EE" : "rgba(255,255,255,0.05)",
+                      color: walletAddress && !isAddingWallet && !isSettingPrimary ? "#0a0a0a" : "#555",
+                      border: "none",
+                      borderRadius: 14,
+                      fontSize: 15,
+                      fontWeight: 800,
+                      cursor: walletAddress && !isAddingWallet && !isSettingPrimary ? "pointer" : "default",
+                      fontFamily: "inherit",
+                      transition: "all 0.2s",
+                      marginTop: 4,
+                    }}
+                  >
+                    {isAddingWallet || isSettingPrimary ? "Adding..." : "Add Wallet"}
+                  </button>
                 </div>
+              )}
 
-                {/* Add Wallet Button */}
-                <motion.button
-                  id="wallet-submit-button"
-                  onClick={handleSubmit}
-                  disabled={isAddingWallet || isSettingPrimary || chainsLoading}
-                  whileHover={{
-                    scale: isAddingWallet || isSettingPrimary ? 1 : 1.02,
-                  }}
-                  whileTap={{
-                    scale: isAddingWallet || isSettingPrimary ? 1 : 0.98,
-                  }}
-                  className="w-full h-[58px] flex items-center justify-center
-                  bg-white rounded-full
-                  text-lg font-semibold text-black
-                  transition-all duration-200 hover:bg-white/90 disabled:opacity-70 disabled:cursor-not-allowed"
-                >
-
-                  {isAddingWallet || isSettingPrimary ? (
-                    <div className="flex items-center gap-2">
-                      <div className="h-5 w-5 border-2 border-black/20 border-t-black rounded-full animate-spin"></div>
-                      <span>Adding...</span>
-                    </div>
-                  ) : (
-                    "Add Wallet"
-                  )}
-                </motion.button>
-
-                {/* Connect Wallet Link */}
-                <div className="mt-4 text-center">
-                  <div className="flex items-center gap-2 my-2">
-                    <div className="h-px bg-white/20 flex-grow"></div>
-                    <span className="text-white/50 text-sm">OR</span>
-                    <div className="h-px bg-white/20 flex-grow"></div>
-                  </div>
-                  {selectedChain?.id === "stellar" && (
-                    <button
-                      type="button"
-                      className={`text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 ${
-                        selectedChain?.id === "stellar"
-                          ? "border-white/40 hover:bg-white/10"
-                          : "border-white/10 cursor-not-allowed opacity-50"
-                      }`}
-                      onClick={handleConnectWallet}
-                      disabled={isConnectingWallet}
-                    >
-                      {isConnectingWallet ? (
-                        <>
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                          <span>Connecting...</span>
-                        </>
-                      ) : (
-                        <span>Connect Stellar Wallet</span>
-                      )}
-                    </button>
-                  )}
-                  {selectedChain?.id === "aptos" && (
-                    <div className="w-full flex flex-col items-center mt-2">
-                      <ShadcnWalletSelector />
-                      {connected && account?.address && (
-                        <>
-                          <div className="text-xs text-white/60 mt-1">
-                            Connected Aptos address: {aptosAddress || (account.address.toString ? account.address.toString() : String(account.address))}
-                          </div>
-                          <button
-                            className="text-white transition-colors text-base flex items-center justify-center gap-2 w-full bg-transparent border py-3 rounded-full mt-2 border-white/40 hover:bg-white/10"
-                            onClick={()=>{//handleAptosWalletConnect() //added mutate functin as this one was giving error of connected address saying already connected might be right can change on further debugging
-                              console.log("Aptos handleAptosWalletConnectMutate called");
-                              handleAptosWalletConnectMutate(aptosAddress || (account.address.toString ? account.address.toString() : String(account.address)))
-
+              {/* Connect Tab */}
+              {tab === "connect" && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <p
+                    style={{
+                      color: "#999",
+                      fontSize: 13,
+                      marginBottom: 6,
+                      fontWeight: 500,
+                      lineHeight: 1.5,
+                    }}
+                  >
+                    Choose a chain and connect your wallet extension.
+                  </p>
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "repeat(3, 1fr)",
+                      gap: 8,
+                      marginBottom: 8,
+                    }}
+                  >
+                    {chains.map((chain) => {
+                      const meta = getChainMeta(chain.id);
+                      const isSelected = selectedChain?.id === chain.id;
+                      return (
+                        <button
+                          key={chain.id}
+                          onClick={() => handleChainSelect(chain)}
+                          style={{
+                            padding: "12px 6px",
+                            background: isSelected
+                              ? `${meta.color}18`
+                              : "rgba(255,255,255,0.04)",
+                            border: `1.5px solid ${
+                              isSelected
+                                ? `${meta.color}55`
+                                : "rgba(255,255,255,0.08)"
+                            }`,
+                            borderRadius: 16,
+                            cursor: "pointer",
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 6,
+                            transition: "all 0.2s",
+                            fontFamily: "inherit",
+                            boxShadow: isSelected
+                              ? `0 0 16px ${meta.color}22`
+                              : "none",
+                          }}
+                        >
+                          <span
+                            style={{
+                              fontSize: 20,
+                              color: "#fff",
                             }}
                           >
-                            {userWallets.some(w => w.chainId === "aptos" && w.address === (account.address.toString ? account.address.toString() : String(account.address))) ? 'Update Wallet' : 'Save Wallet'}
+                            {meta.icon}
+                          </span>
+                          <span
+                            style={{
+                              fontSize: 11,
+                              fontWeight: 700,
+                              color: isSelected ? meta.color : "#999",
+                            }}
+                          >
+                            {chain.name}
+                          </span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Connect Button for Stellar */}
+                  {selectedChain?.id === "stellar" && (
+                    <>
+                      <button
+                        type="button"
+                        onClick={handleConnectWallet}
+                        disabled={isConnectingWallet}
+                        style={{
+                          width: "100%",
+                          padding: "15px",
+                          background: "#22D3EE",
+                          color: "#0a0a0a",
+                          border: "none",
+                          borderRadius: 14,
+                          fontSize: 15,
+                          fontWeight: 800,
+                          cursor: isConnectingWallet ? "default" : "pointer",
+                          fontFamily: "inherit",
+                          marginTop: 4,
+                        }}
+                      >
+                        {isConnectingWallet ? (
+                          <div
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "center",
+                              gap: 8,
+                            }}
+                          >
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                            <span>Connecting...</span>
+                          </div>
+                        ) : (
+                          `Connect ${selectedChain.name} Wallet`
+                        )}
+                      </button>
+                      <p
+                        style={{
+                          color: "#999",
+                          fontSize: 11,
+                          textAlign: "center",
+                          marginTop: 2,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Connect with Petra, Martian, and other {selectedChain.name} wallets
+                      </p>
+                    </>
+                  )}
+
+                  {/* Connect Button for Aptos */}
+                  {selectedChain?.id === "aptos" && (
+                    <>
+                      {connected && account?.address ? (
+                        <>
+                          <div
+                            style={{
+                              padding: "12px 14px",
+                              background: "rgba(34,211,238,0.08)",
+                              border: "1px solid rgba(34,211,238,0.2)",
+                              borderRadius: 12,
+                            }}
+                          >
+                            <p
+                              style={{
+                                fontSize: 11,
+                                color: "#999",
+                                marginBottom: 4,
+                                fontWeight: 600,
+                              }}
+                            >
+                              Connected Address
+                            </p>
+                            <p
+                              style={{
+                                fontSize: 12,
+                                color: "#22D3EE",
+                                fontFamily: "monospace",
+                                wordBreak: "break-all",
+                              }}
+                            >
+                              {aptosAddress ||
+                                (account.address.toString
+                                  ? account.address.toString()
+                                  : String(account.address))}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => {
+                              handleAptosWalletConnectMutate(
+                                aptosAddress ||
+                                  (account.address.toString
+                                    ? account.address.toString()
+                                    : String(account.address))
+                              );
+                            }}
+                            style={{
+                              width: "100%",
+                              padding: "15px",
+                              background: "#22D3EE",
+                              color: "#0a0a0a",
+                              border: "none",
+                              borderRadius: 14,
+                              fontSize: 15,
+                              fontWeight: 800,
+                              cursor: "pointer",
+                              fontFamily: "inherit",
+                              transition: "all 0.2s",
+                              marginTop: 4,
+                            }}
+                          >
+                            {userWallets.some(
+                              (w) =>
+                                w.chainId === "aptos" &&
+                                w.address ===
+                                  (account.address.toString
+                                    ? account.address.toString()
+                                    : String(account.address))
+                            )
+                              ? "Update Wallet"
+                              : "Save Wallet"}
                           </button>
                         </>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (wallets && wallets.length > 0) {
+                              try {
+                                connect(wallets[0].name);
+                              } catch (error) {
+                                console.error("Failed to connect wallet:", error);
+                                toast.error("Failed to connect wallet");
+                              }
+                            } else {
+                              toast.error("No Aptos wallets found. Please install Petra or Martian wallet.");
+                            }
+                          }}
+                          style={{
+                            width: "100%",
+                            padding: "15px",
+                            background: "#22D3EE",
+                            color: "#0a0a0a",
+                            border: "none",
+                            borderRadius: 14,
+                            fontSize: 15,
+                            fontWeight: 800,
+                            cursor: "pointer",
+                            fontFamily: "inherit",
+                            marginTop: 4,
+                          }}
+                        >
+                          Connect {selectedChain.name} Wallet
+                        </button>
                       )}
-                      <p className="text-white/70 text-xs mt-2">
-                        Connect with Petra, Martian, and other Aptos wallets
+                      <p
+                        style={{
+                          color: "#999",
+                          fontSize: 11,
+                          textAlign: "center",
+                          marginTop: 2,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Connect with Petra, Martian, and other {selectedChain.name} wallets
                       </p>
-                    </div>
+                    </>
                   )}
+
+                  {/* Other chains */}
                   {selectedChain?.id !== "stellar" && selectedChain?.id !== "aptos" && (
-                    <p className="text-white/50 text-xs mt-2">
-                      Web wallet connection only works with Stellar or Aptos blockchain
-                    </p>
+                    <>
+                      <button
+                        type="button"
+                        disabled
+                        style={{
+                          width: "100%",
+                          padding: "15px",
+                          background: "rgba(255,255,255,0.05)",
+                          color: "#555",
+                          border: "none",
+                          borderRadius: 14,
+                          fontSize: 15,
+                          fontWeight: 800,
+                          cursor: "default",
+                          fontFamily: "inherit",
+                          marginTop: 4,
+                        }}
+                      >
+                        Connect {selectedChain?.name} Wallet
+                      </button>
+                      <p
+                        style={{
+                          color: "#999",
+                          fontSize: 11,
+                          textAlign: "center",
+                          marginTop: 2,
+                          fontWeight: 600,
+                        }}
+                      >
+                        Connect with Petra, Martian, and other {selectedChain?.name} wallets
+                      </p>
+                    </>
                   )}
+
+                  {/* Divider */}
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 8,
+                      margin: "4px 0",
+                    }}
+                  >
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        background: "rgba(255,255,255,0.07)",
+                      }}
+                    />
+                    <span style={{ color: "#999", fontSize: 11, fontWeight: 600 }}>
+                      OR
+                    </span>
+                    <div
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        background: "rgba(255,255,255,0.07)",
+                      }}
+                    />
+                  </div>
+
+                  {/* Manual Entry Button */}
+                  <button
+                    onClick={() => setTab("manual")}
+                    style={{
+                      width: "100%",
+                      padding: "13px",
+                      background: "rgba(255,255,255,0.05)",
+                      color: "#e8e8e8",
+                      border: "1.5px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14,
+                      fontSize: 14,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                    }}
+                  >
+                    Enter address manually
+                  </button>
                 </div>
-              </div>
+              )}
             </motion.div>
           </div>
         </motion.div>
