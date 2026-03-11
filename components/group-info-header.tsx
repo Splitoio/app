@@ -19,7 +19,7 @@ export function GroupInfoHeader({
   onSettleClick,
   group,
   onAddExpenseClick,
-  onSettingsClick,
+  onSettingsClick: _onSettingsClick,
 }: {
   groupId: string;
   onSettleClick: () => void;
@@ -29,8 +29,8 @@ export function GroupInfoHeader({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAddingExpense, setIsAddingExpense] = useState(false);
-  const [isSettling, setIsSettling] = useState(false);
+  const [isAddingExpense, _setIsAddingExpense] = useState(false);
+  const [_isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   const { defaultCurrency, openAddMember, isAdmin } = useGroupLayout();

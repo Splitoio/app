@@ -622,7 +622,7 @@ export function SettleDebtsModal({
   };
 
   // Helper to check if wallet is connected for the selected chain
-  const isWalletConnectedForChain = () => {
+  const _isWalletConnectedForChain = () => {
     if (selectedChain === 'aptos') {
       return aptosWallet.connected && aptosWallet.account?.address;
     } else if (selectedChain === 'stellar') {

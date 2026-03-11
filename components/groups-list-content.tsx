@@ -46,7 +46,7 @@ function GroupCard({
     .slice(0, 4)
     .map((gu) => ({
       init: gu.user.name?.charAt(0)?.toUpperCase() || "?",
-      color: getUserColor(gu.user.name),
+      color: getUserColor(gu.user.name ?? null),
     }));
 
   // Get member count from groupUsers
