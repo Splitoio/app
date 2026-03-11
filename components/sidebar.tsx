@@ -5,27 +5,23 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import {
-  Users2,
   UserPlus,
   LayoutDashboard,
   ChevronLeft,
   ChevronsUpDown,
   Plus,
-  LogOut,
   TrendingUp,
   Activity,
   FileSignature,
   FileText,
   Receipt,
-  UserCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Icons, A, Avatar, T } from "@/lib/splito-design";
+import { Icons, getUserColor } from "@/lib/splito-design";
 import { useMobileMenu } from "@/contexts/mobile-menu";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
-import { signOut } from "@/lib/auth";
 import { APP_MODE } from "@/lib/app-mode";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -77,13 +73,6 @@ export function Sidebar() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleLogout = async () => {
-    close();
-    setOrgSwitcherOpen(false);
-    await signOut();
-    router.push("/login");
-  };
-
   return (
     <div className="hidden min-[1025px]:block">
       {isOpen && (
@@ -101,15 +90,15 @@ export function Sidebar() {
         )}
         style={{ background: "linear-gradient(180deg, #0e0e0e 0%, #0b0b0b 100%)" }}
       >
-        <div className="flex h-full flex-col">
+        <div className="flex h-full flex-col px-[14px] py-[22px]">
           {/* Logo/Brand – same in both modes */}
-          <div className="flex items-center relative px-[22px] py-5 gap-2.5 mb-8">
+          <div className="flex items-center relative pl-2 gap-2.5 mb-8">
             <Link href={isOrganizationMode ? "https://splito.io" : "/"} onClick={close} className="z-10 flex items-center">
               <Image src={logo} alt="Splito Logo" width={120} height={32} className="h-8 w-auto" />
             </Link>
             <button
               onClick={close}
-              className="absolute right-4 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-[#17171A] text-white/70 hover:text-white transition-colors min-[1025px]:hidden"
+              className="absolute right-0 top-1/2 -translate-y-1/2 h-8 w-8 flex items-center justify-center rounded-full bg-[#17171A] text-white/70 hover:text-white transition-colors min-[1025px]:hidden"
               aria-label="Close menu"
             >
               <ChevronLeft className="h-5 w-5" strokeWidth={1.5} />
@@ -117,7 +106,7 @@ export function Sidebar() {
           </div>
 
           {/* Main Navigation */}
-          <div className="flex-1 space-y-1 px-4 py-4 sm:py-6 overflow-y-auto">
+          <nav className="flex flex-col gap-0.5">
             {/* Dashboard - shared; in personal mode use design styling */}
             {(!isOrganizationMode ? (
               <Link
@@ -125,10 +114,10 @@ export function Sidebar() {
                 href="/"
                 onClick={close}
                 className={cn(
-                  "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                  "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                   pathname === "/" && !pathname.startsWith("/groups/")
-                    ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                    : "text-white/60"
+                    ? "bg-white/[0.09] text-white font-bold"
+                    : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                 )}
               >
                 <span className={pathname === "/" ? "text-[#22D3EE]" : "inherit"}>{Icons.home({})}</span>
@@ -140,10 +129,10 @@ export function Sidebar() {
                 href="/organization"
                 onClick={close}
                 className={cn(
-                  "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                  "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                   pathname === "/organization"
-                    ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                    : "text-white/60"
+                    ? "bg-white/[0.09] text-white font-bold"
+                    : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                 )}
               >
                 <span className={pathname === "/organization" ? "text-[#22D3EE]" : "inherit"}><LayoutDashboard className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -173,10 +162,10 @@ export function Sidebar() {
                   href={`/organization/${linkOrgId}/invoices`}
                   onClick={close}
                   className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                     pathname === `/organization/${linkOrgId}/invoices`
-                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "text-white/60"
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                   )}
                 >
                   <span className={pathname === `/organization/${linkOrgId}/invoices` ? "text-[#22D3EE]" : "inherit"}><FileText className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -189,10 +178,10 @@ export function Sidebar() {
                     href={`/organization/${linkOrgId}/expenses`}
                     onClick={close}
                     className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                       pathname === `/organization/${linkOrgId}/expenses`
-                        ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                        : "text-white/60"
+                        ? "bg-white/[0.09] text-white font-bold"
+                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                     )}
                   >
                     <span className={pathname === `/organization/${linkOrgId}/expenses` ? "text-[#22D3EE]" : "inherit"}><Receipt className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -206,10 +195,10 @@ export function Sidebar() {
                     href={`/organization/${linkOrgId}/streams`}
                     onClick={close}
                     className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                       pathname === `/organization/${linkOrgId}/streams`
-                        ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                        : "text-white/60"
+                        ? "bg-white/[0.09] text-white font-bold"
+                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                     )}
                   >
                     <span className={pathname === `/organization/${linkOrgId}/streams` ? "text-[#22D3EE]" : "inherit"}><TrendingUp className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -223,10 +212,10 @@ export function Sidebar() {
                     href={`/organization/${linkOrgId}/activity`}
                     onClick={close}
                     className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                       pathname === `/organization/${linkOrgId}/activity`
-                        ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                        : "text-white/60"
+                        ? "bg-white/[0.09] text-white font-bold"
+                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                     )}
                   >
                     <span className={pathname === `/organization/${linkOrgId}/activity` ? "text-[#22D3EE]" : "inherit"}><Activity className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -239,10 +228,10 @@ export function Sidebar() {
                   href={`/organization/${linkOrgId}/contracts`}
                   onClick={close}
                   className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                     pathname === `/organization/${linkOrgId}/contracts`
-                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "text-white/60"
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                   )}
                 >
                   <span className={pathname === `/organization/${linkOrgId}/contracts` ? "text-[#22D3EE]" : "inherit"}><FileSignature className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -255,10 +244,10 @@ export function Sidebar() {
                     href={`/organization/${linkOrgId}/members`}
                     onClick={close}
                     className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                       pathname === `/organization/${linkOrgId}/members`
-                        ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                        : "text-white/60"
+                        ? "bg-white/[0.09] text-white font-bold"
+                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                     )}
                   >
                     <span className={pathname === `/organization/${linkOrgId}/members` ? "text-[#22D3EE]" : "inherit"}><UserPlus className="h-4 w-4" strokeWidth={1.5} /></span>
@@ -271,10 +260,10 @@ export function Sidebar() {
                   href={`/organization/${linkOrgId}/settings`}
                   onClick={close}
                   className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                     pathname === `/organization/${linkOrgId}/settings`
-                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "text-white/60"
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                   )}
                 >
                   <span className={pathname === `/organization/${linkOrgId}/settings` ? "text-[#22D3EE]" : "inherit"}>{Icons.settings({})}</span>
@@ -291,10 +280,10 @@ export function Sidebar() {
                   href="/groups"
                   onClick={close}
                   className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                     pathname === "/groups" || pathname.startsWith("/groups/")
-                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "text-white/60"
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                   )}
                 >
                   <span className={pathname === "/groups" || pathname.startsWith("/groups/") ? "text-[#22D3EE]" : "inherit"}>{Icons.groups({})}</span>
@@ -305,10 +294,10 @@ export function Sidebar() {
                   href="/friends"
                   onClick={close}
                   className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                     pathname === "/friends"
-                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "text-white/60"
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                   )}
                 >
                   <span className={pathname === "/friends" ? "text-[#22D3EE]" : "inherit"}>{Icons.friends({})}</span>
@@ -319,10 +308,10 @@ export function Sidebar() {
                   href="/settings"
                   onClick={close}
                   className={cn(
-                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-3.5 text-[14px] font-medium transition-all",
+                    "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
                     pathname === "/settings"
-                      ? "bg-white/[0.09] text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.08)]"
-                      : "text-white/60"
+                      ? "bg-white/[0.09] text-white font-bold"
+                      : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                   )}
                 >
                   <span className={pathname === "/settings" ? "text-[#22D3EE]" : "inherit"}>{Icons.settings({})}</span>
@@ -330,14 +319,14 @@ export function Sidebar() {
                 </Link>
               </>
             )}
-          </div>
+          </nav>
 
           {/* Personal mode: GROUPS section + New group + user card */}
           {!isOrganizationMode && (
             <>
-              <div className="mt-7 flex-1 overflow-y-auto min-h-0 px-3.5">
-                <p className="text-[10px] font-extrabold tracking-[0.12em] uppercase text-white/50 px-3.5 mb-2">GROUPS</p>
-                <div className="flex flex-col gap-0.5">
+              <div className="mt-7 flex-1 overflow-y-auto min-h-0">
+                <p className="text-[10px] font-extrabold tracking-[0.12em] uppercase px-[13px] mb-2" style={{ color: "rgba(255,255,255,0.32)" }}>GROUPS</p>
+                <div className="flex flex-col gap-px">
                   {groups.map((g) => {
                     const isActive = pathname.startsWith(`/groups/${g.id}`);
                     return (
@@ -346,14 +335,11 @@ export function Sidebar() {
                         href={`/groups/${g.id}`}
                         onClick={close}
                         className={cn(
-                          "splito-nav-item flex items-center py-2 px-3.5 rounded-[13px] transition-all",
-                          isActive ? "bg-white/[0.09] text-white" : "text-white/60"
+                          "splito-nav-item flex items-center py-[9px] px-[13px] rounded-[12px] transition-all",
+                          isActive ? "bg-white/[0.09] text-white font-bold" : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
                         )}
                       >
-                        <span className={cn(
-                          "text-[13px] font-medium truncate flex-1",
-                          isActive ? "text-white font-semibold" : "inherit"
-                        )}>
+                        <span className="text-[13px] truncate flex-1">
                           {g.name}
                         </span>
                       </Link>
@@ -363,30 +349,35 @@ export function Sidebar() {
                     type="button"
                     onClick={() => {
                       close();
-                      if (pathname === "/groups" || pathname.startsWith("/groups/")) {
+                      if (pathname === "/groups") {
                         document.dispatchEvent(new CustomEvent("open-create-group-modal"));
                       } else {
                         router.push("/groups?openCreate=1");
                       }
                     }}
-                    className="w-full flex items-center gap-[9px] rounded-xl py-[9px] px-[13px] bg-transparent my-1.5 transition-all hover:bg-white/[0.04] cursor-pointer"
-                    style={{ border: "1.5px dashed rgba(255,255,255,0.1)" }}
+                    className="w-full flex items-center gap-[9px] rounded-[12px] py-[9px] px-[13px] bg-transparent my-1.5 transition-all cursor-pointer"
+                    style={{ border: "1.5px dashed rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.45)" }}
                   >
-                    <span className="text-[15px] leading-none" style={{ color: T.muted }}>+</span>
-                    <span className="text-[13px] font-medium" style={{ color: T.muted }}>New group</span>
+                    <span className="text-[15px] leading-none">+</span>
+                    <span className="text-[13px] font-medium">New group</span>
                   </button>
                 </div>
               </div>
-              <div className="px-3 pb-4 pt-5 mt-2">
-                <div className="flex items-center gap-2.5 py-3 px-3.5 rounded-2xl bg-white/[0.05] border border-white/[0.07]">
-                  <Avatar
-                    init={user?.name?.charAt(0)?.toUpperCase() || "Y"}
-                    color={A}
-                    size={34}
-                  />
+              <div className="mt-3">
+                <div className="flex items-center gap-2.5 py-3 px-[13px] rounded-2xl bg-white/[0.05] border border-white/[0.08]">
+                  <div
+                    className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0"
+                    style={{
+                      background: `${getUserColor(user?.name || "You")}1a`,
+                      border: `2px solid ${getUserColor(user?.name || "You")}33`,
+                      color: getUserColor(user?.name || "You"),
+                    }}
+                  >
+                    {user?.name?.charAt(0)?.toUpperCase() || "Y"}
+                  </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-[13px] font-bold truncate text-white">{user?.name || "You"}</p>
-                    <p className="text-[11px] text-white/60 truncate">{user?.email || "you@email.com"}</p>
+                    <p className="text-[13px] font-bold truncate" style={{ color: "#e8e8e8" }}>{user?.name || "You"}</p>
+                    <p className="text-[11px] truncate font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>{user?.email || "you@email.com"}</p>
                   </div>
                 </div>
               </div>
@@ -395,32 +386,36 @@ export function Sidebar() {
 
           {/* Bottom Section (organization mode only; styled like personal user card) */}
           {isOrganizationMode && (
-              <div className="px-3 pb-4 pt-5 mt-2">
+              <div className="mt-3">
                 <div className="relative" ref={orgSwitcherRef}>
                   <button
                     id="sidebar-org-switcher-button"
                     type="button"
                     onClick={() => setOrgSwitcherOpen((v) => !v)}
                     className={cn(
-                      "flex w-full items-center gap-2.5 py-3 px-3.5 rounded-2xl text-left transition-colors",
-                      "bg-white/[0.05] border border-white/[0.07]",
+                      "flex w-full items-center gap-2.5 py-3 px-[13px] rounded-2xl text-left transition-colors",
+                      "bg-white/[0.05] border border-white/[0.08]",
                       "hover:bg-white/[0.07] hover:border-white/[0.1]",
                       orgSwitcherOpen && "bg-white/[0.07] border-white/[0.1]"
                     )}
-                    style={{ boxShadow: "inset 0 1px 0 rgba(255,255,255,0.04)" }}
                   >
-                    <Avatar
-                      init={currentOrg ? currentOrg.name.charAt(0).toUpperCase() : "?"}
-                      color={A}
-                      size={34}
-                    />
+                    <div
+                      className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0"
+                      style={{
+                        background: `${getUserColor(currentOrg?.name || "?")}1a`,
+                        border: `2px solid ${getUserColor(currentOrg?.name || "?")}33`,
+                        color: getUserColor(currentOrg?.name || "?"),
+                      }}
+                    >
+                      {currentOrg ? currentOrg.name.charAt(0).toUpperCase() : "?"}
+                    </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold truncate text-white">
+                      <p className="text-[13px] font-bold truncate" style={{ color: "#e8e8e8" }}>
                         {currentOrg?.name ?? "Select organization"}
                       </p>
-                      <p className="text-[11px] truncate" style={{ color: T.muted }}>Organization</p>
+                      <p className="text-[11px] truncate font-medium" style={{ color: "rgba(255,255,255,0.45)" }}>Organization</p>
                     </div>
-                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" style={{ color: T.muted }} strokeWidth={1.5} />
+                    <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-60" style={{ color: "rgba(255,255,255,0.45)" }} strokeWidth={1.5} />
                   </button>
 
                 <AnimatePresence>
@@ -457,7 +452,14 @@ export function Sidebar() {
                                 : "text-white/90 hover:bg-white/5 hover:text-white"
                             )}
                           >
-                            <div className="h-7 w-7 rounded-full bg-white/10 flex items-center justify-center text-[11px] font-bold shrink-0">
+                            <div
+                              className="h-7 w-7 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0"
+                              style={{
+                                background: `${getUserColor(org.name)}1a`,
+                                border: `1.5px solid ${getUserColor(org.name)}33`,
+                                color: getUserColor(org.name),
+                              }}
+                            >
                               {org.name.charAt(0).toUpperCase()}
                             </div>
                             <span className="truncate">{org.name}</span>

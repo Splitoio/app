@@ -19,7 +19,7 @@ export function GroupInfoHeader({
   onSettleClick,
   group,
   onAddExpenseClick,
-  onSettingsClick,
+  onSettingsClick: _onSettingsClick,
 }: {
   groupId: string;
   onSettleClick: () => void;
@@ -29,11 +29,11 @@ export function GroupInfoHeader({
 }) {
   const router = useRouter();
   const pathname = usePathname();
-  const [isAddingExpense, setIsAddingExpense] = useState(false);
-  const [isSettling, setIsSettling] = useState(false);
+  const [isAddingExpense, _setIsAddingExpense] = useState(false);
+  const [_isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const { defaultCurrency } = useGroupLayout();
+  const { defaultCurrency, openAddMember, isAdmin } = useGroupLayout();
 
   // Compute balance arrays (use empty when no group so hooks are unconditional)
   const balancesByCurrency = (() => {
@@ -95,8 +95,8 @@ export function GroupInfoHeader({
 
   const tabs = [
     { label: "Splits", href: `/groups/${groupId}/splits` },
-    { label: "Members", href: `/groups/${groupId}/members` },
     { label: "Activity", href: `/groups/${groupId}/activity` },
+    { label: "Members", href: `/groups/${groupId}/members` },
   ];
 
   const memberCount = group.groupUsers?.length ?? 0;
@@ -112,7 +112,7 @@ export function GroupInfoHeader({
 
   return (
     <div
-      className="flex flex-col sticky top-0 z-10"
+      className="flex flex-col sticky top-0 z-[40]"
       style={{
         background: "rgba(11,11,11,0.95)",
         backdropFilter: "blur(20px)",
@@ -193,8 +193,8 @@ export function GroupInfoHeader({
         style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
       />
 
-      {/* Tabs: Splits, Members, Activity */}
-      <div className="flex items-center px-4 sm:px-7 py-4 sm:py-6">
+      {/* Tabs: Splits, Activity, Members + Add Member button */}
+      <div className="flex items-center justify-between px-4 sm:px-7 py-4 sm:py-6">
         <div
           className="flex rounded-[14px] transition-all w-full sm:w-auto"
           style={{
@@ -214,13 +214,22 @@ export function GroupInfoHeader({
                   "flex-1 sm:flex-initial rounded-[10px] text-[13px] transition-all text-center",
                   isActive ? "bg-white/10 text-white font-bold" : "text-white/60 font-medium"
                 )}
-                style={{ padding: "8px 12px" }}
+                style={{ padding: "8px 20px" }}
               >
                 {tab.label}
               </Link>
             );
           })}
         </div>
+        {pathname === `/groups/${groupId}/members` && isAdmin && (
+          <Btn
+            onClick={openAddMember}
+            variant="ghost"
+            style={{ padding: "8px 14px", fontSize: 12, flexShrink: 0 }}
+          >
+            <Icons.userPlus /> Add Member
+          </Btn>
+        )}
       </div>
     </div>
   );

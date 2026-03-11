@@ -6,17 +6,7 @@ import { motion } from "framer-motion";
 import { Loader2, AlertTriangle, X, CheckCircle } from "lucide-react";
 import { staggerContainer, slideUp } from "@/utils/animations";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
-import { Card, GroupAvatar, Icons, Tag, G, T } from "@/lib/splito-design";
-
-const AVATAR_COLORS = ["#22D3EE", "#a78bfa", "#34D399", "#fb923c"];
-
-function getInit(name: string | null | undefined, fallback: string): string {
-  if (!name || !name.trim()) return fallback;
-  const parts = name.trim().split(/\s+/);
-  if (parts.length >= 2)
-    return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase();
-  return name.charAt(0).toUpperCase();
-}
+import { Card, GroupAvatar, Icons, Tag, G, T, getUserColor } from "@/lib/splito-design";
 
 function relativeTime(date: Date): string {
   const now = new Date();
@@ -50,26 +40,17 @@ function GroupCard({
   formatCurrency: (amount: number, currency: string) => string;
 }) {
   const balances = group.groupBalances || [];
-  const memberIds = Array.from(new Set(balances.map((b) => b.userId)));
-  // Prefer groupUsers for initials (like Dashboard); fallback to balance-derived list with "?" for others
-  const avatarItems =
-    group.groupUsers && group.groupUsers.length > 0
-      ? group.groupUsers.slice(0, 4).map((gu, i) => ({
-          init: getInit(gu.user.name, gu.user.id === user?.id ? "Y" : "?"),
-          color: AVATAR_COLORS[i % AVATAR_COLORS.length],
-        }))
-      : memberIds.slice(0, 4).map((userId, i) => ({
-          init:
-            userId === user?.id
-              ? getInit(user?.name ?? null, "Y")
-              : "?",
-          color: AVATAR_COLORS[i % AVATAR_COLORS.length],
-        }));
-  if (avatarItems.length === 0)
-    avatarItems.push({
-      init: group.name.charAt(0).toUpperCase() || "G",
-      color: AVATAR_COLORS[0],
-    });
+
+  // Use the same logic as dashboard for consistency
+  const avatarItems = (group.groupUsers ?? [])
+    .slice(0, 4)
+    .map((gu) => ({
+      init: gu.user.name?.charAt(0)?.toUpperCase() || "?",
+      color: getUserColor(gu.user.name ?? null),
+    }));
+
+  // Get member count from groupUsers
+  const memberCount = (group.groupUsers ?? []).length;
 
   const userBalances = balances.filter((b) => b.userId === user?.id);
   const byCurrency: Record<string, number> = {};
@@ -88,13 +69,12 @@ function GroupCard({
   const net = totalOwed - totalOwe;
 
   const balanceLabel = (() => {
-    if (net === 0) return { text: "±$0", color: T.muted };
+    if (net === 0) return { text: "±$0", color: T.dim };
     if (net > 0) return { text: `+$${net.toFixed(2)}`, color: G };
-    return { text: `-$${Math.abs(net).toFixed(2)}`, color: "#FF4444" };
+    return { text: `-$${Math.abs(net).toFixed(2)}`, color: "#F87171" };
   })();
   const totalMagnitude = Object.values(byCurrency).reduce((s, a) => s + Math.abs(a), 0);
   const totalLabel = totalMagnitude > 0 ? formatCurrency(totalMagnitude, defaultCurrency) : formatCurrency(0, defaultCurrency);
-  const memberCount = memberIds.length;
   const expenseCount = Array.isArray((group as { expenses?: unknown[] }).expenses)
     ? (group as { expenses: unknown[] }).expenses.length
     : 0;
@@ -107,11 +87,12 @@ function GroupCard({
     <motion.div variants={slideUp}>
       <Link
         href={groupUrl}
-        className="flex items-center w-full text-left transition-colors hover:bg-white/[0.03] gap-3 sm:gap-4 py-4 px-4 sm:py-[18px] sm:px-6"
+        className="flex items-center w-full text-left transition-colors hover:bg-white/[0.03] py-4 px-4 sm:py-[18px] sm:px-6"
+        style={{ gap: 16 }}
       >
         <GroupAvatar items={avatarItems} size={52} radius={17} />
         <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2 mb-0.5">
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
             <p className="text-[15px] font-extrabold text-white truncate tracking-[-0.01em]" style={{ color: T.bright }}>
               {group.name}
             </p>
@@ -121,19 +102,19 @@ function GroupCard({
             {memberCount} members · {expenseCount} expenses · {ago}
           </p>
         </div>
-        <div className="flex items-center shrink-0" style={{ gap: 8 }}>
-          <div className="text-right">
-            <p
-              className="font-[family-name:var(--font-dm-mono)] text-[17px] font-extrabold"
-              style={{ color: balanceLabel.color }}
-            >
-              {balanceLabel.text}
-            </p>
-            <p className="text-[11px] font-semibold mt-[3px]" style={{ color: T.muted }}>
-              total {totalLabel}
-            </p>
-          </div>
-          <span className="text-white/40">{Icons.chevR({ size: 18 })}</span>
+        <div className="text-right shrink-0">
+          <p
+            className="font-[family-name:var(--font-dm-mono)] text-[17px] font-extrabold"
+            style={{ color: balanceLabel.color }}
+          >
+            {balanceLabel.text}
+          </p>
+          <p className="text-[11px] font-semibold mt-[3px]" style={{ color: T.muted }}>
+            total {totalLabel}
+          </p>
+        </div>
+        <div style={{ color: T.dim, display: "flex" }}>
+          {Icons.chevR()}
         </div>
       </Link>
     </motion.div>
@@ -180,20 +161,18 @@ export function GroupsListContent(props: GroupsListContentProps) {
 
   return (
     <div>
-      <div
-        className="grid grid-cols-3 gap-2 sm:gap-3 mb-4 sm:mb-6"
-      >
-        <Card className="p-3 sm:p-5 min-w-0">
-          <p className="uppercase mb-1 sm:mb-2 text-[10px] sm:text-[11px] font-bold tracking-wider truncate" style={{ color: T.muted }}>Groups</p>
-          <p className="font-[family-name:var(--font-dm-mono)] text-base sm:text-[22px] font-extrabold tracking-tight truncate" style={{ color: "#e8e8e8" }}>{filteredGroups.length}</p>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 26 }}>
+        <Card style={{ padding: "18px 20px" }}>
+          <p style={{ color: T.muted, fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: "0.05em" }}>Groups</p>
+          <p style={{ color: "#e8e8e8", fontSize: 22, fontWeight: 800, fontFamily: "monospace", letterSpacing: "-0.02em" }}>{filteredGroups.length}</p>
         </Card>
-        <Card className="p-3 sm:p-5 min-w-0">
-          <p className="uppercase mb-1 sm:mb-2 text-[10px] sm:text-[11px] font-bold tracking-wider truncate" style={{ color: T.muted }}>Total spent</p>
-          <p className="font-[family-name:var(--font-dm-mono)] text-base sm:text-[22px] font-extrabold tracking-tight truncate" style={{ color: "#e8e8e8" }}>{totalSpentFormatted}</p>
+        <Card style={{ padding: "18px 20px" }}>
+          <p style={{ color: T.muted, fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: "0.05em" }}>Total spent</p>
+          <p style={{ color: "#e8e8e8", fontSize: 22, fontWeight: 800, fontFamily: "monospace", letterSpacing: "-0.02em" }}>{totalSpentFormatted}</p>
         </Card>
-        <Card className="p-3 sm:p-5 min-w-0">
-          <p className="uppercase mb-1 sm:mb-2 text-[10px] sm:text-[11px] font-bold tracking-wider truncate" style={{ color: T.muted }}>Net balance</p>
-          <p className="font-[family-name:var(--font-dm-mono)] text-base sm:text-[22px] font-extrabold tracking-tight truncate" style={{ color: netBalanceColor }}>{netBalanceFormatted}</p>
+        <Card style={{ padding: "18px 20px" }}>
+          <p style={{ color: T.muted, fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: "0.05em" }}>Net balance</p>
+          <p style={{ color: netBalanceColor, fontSize: 22, fontWeight: 800, fontFamily: "monospace", letterSpacing: "-0.02em" }}>{netBalanceFormatted}</p>
         </Card>
       </div>
 

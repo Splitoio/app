@@ -6,21 +6,14 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { ApiError } from "@/types/api-error";
 import { UserPlus } from "lucide-react";
-import { Card, Avatar, Icons, T, fmt, G } from "@/lib/splito-design";
+import { Card, Avatar, Icons, T, fmt, G, getUserColor } from "@/lib/splito-design";
+import { SettleDebtsModal } from "@/components/settle-debts-modal";
+import { useAuthStore } from "@/stores/authStore";
+import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 
-const AVATAR_COLORS = [
-  "#A78BFA",
-  "#34D399",
-  "#FB923C",
-  "#F472B6",
-  "#FBBF24",
-  "#22D3EE",
-  "#F87171",
-  "#818CF8",
-];
 
 function getInitials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -40,6 +33,10 @@ function getFriendBalance(
 export function FriendsList({ search = "" }: { search?: string }) {
   const { data: friends, isLoading, error } = useGetFriends();
   const router = useRouter();
+  const { user } = useAuthStore();
+  const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
+  const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
+  const [selectedFriendId, setSelectedFriendId] = useState<string | null>(null);
 
   useEffect(() => {
     if (error) {
@@ -56,6 +53,30 @@ export function FriendsList({ search = "" }: { search?: string }) {
       }
     }
   }, [error, router]);
+
+  // Find the group that has a balance with this friend
+  const getGroupForFriend = (friendId: string) => {
+    const sharedGroups = groups.filter((g) =>
+      (g.groupUsers ?? []).some(
+        (gu: { userId?: string; user?: { id: string } }) =>
+          gu.userId === friendId || gu.user?.id === friendId
+      )
+    );
+    return (
+      sharedGroups.find((g) =>
+        (g.groupBalances ?? []).some(
+          (b) => b.firendId === friendId && b.amount !== 0
+        )
+      ) ?? sharedGroups[0] ?? null
+    );
+  };
+
+  const handleSettleFriendClick = (friendId: string) => {
+    setSelectedFriendId(friendId);
+    setIsSettleModalOpen(true);
+  };
+
+  const selectedGroup = selectedFriendId ? getGroupForFriend(selectedFriendId) : null;
 
   const searchLower = search.trim().toLowerCase();
   const filtered =
@@ -156,9 +177,28 @@ export function FriendsList({ search = "" }: { search?: string }) {
               friend={friend}
               index={idx}
               isLast={idx === filtered.length - 1}
+              onSettleClick={() => handleSettleFriendClick(friend.id)}
             />
           ))}
         </motion.div>
+      )}
+      {selectedGroup && (
+        <SettleDebtsModal
+          isOpen={isSettleModalOpen}
+          onClose={() => {
+            setIsSettleModalOpen(false);
+            setSelectedFriendId(null);
+          }}
+          showIndividualView={false}
+          groupId={selectedGroup.id}
+          balances={selectedGroup.groupBalances ?? []}
+          members={(selectedGroup.groupUsers ?? []).map(
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (gu: any) => gu.user ?? { id: "", name: null }
+          )}
+          defaultCurrency={user?.currency || selectedGroup.defaultCurrency || "USD"}
+          defaultExpandedMemberId={selectedFriendId}
+        />
       )}
     </Card>
   );
@@ -168,6 +208,7 @@ function FriendRow({
   friend,
   index,
   isLast,
+  onSettleClick,
 }: {
   friend: {
     id: string;
@@ -177,9 +218,10 @@ function FriendRow({
   };
   index: number;
   isLast: boolean;
+  onSettleClick: () => void;
 }) {
   const balance = getFriendBalance(friend.balances);
-  const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
+  const color = getUserColor(friend.name);
   const init = getInitials(friend.name);
 
   return (
@@ -214,6 +256,10 @@ function FriendRow({
       {balance < 0 && (
         <button
           type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSettleClick();
+          }}
           className="sbtn shrink-0"
           style={{
             display: "flex",

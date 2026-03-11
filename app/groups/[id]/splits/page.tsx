@@ -14,6 +14,7 @@ import {
   Icons,
   G,
   T,
+  getUserColor,
 } from "@/lib/splito-design";
 
 type ExpenseWithParticipants = {
@@ -38,10 +39,12 @@ const CATEGORY_STYLES: Record<string, { bg: string; icon: string }> = {
 
 function getCategoryStyle(category: string) {
   const key = (category || "").toUpperCase();
-  return (
-    CATEGORY_STYLES[key] ||
-    CATEGORY_STYLES[key.split(/[\s-_]/)[0]] || { bg: "rgba(255,255,255,0.06)", icon: "🧾" }
-  );
+  const known = CATEGORY_STYLES[key] || CATEGORY_STYLES[key.split(/[\s-_]/)[0]];
+  if (known) return known;
+  // If not a known keyword, treat it as a raw emoji
+  const trimmed = (category || "").trim();
+  if (trimmed && trimmed !== "OTHER") return { bg: "rgba(255,255,255,0.06)", icon: trimmed };
+  return { bg: "rgba(255,255,255,0.06)", icon: "🧾" };
 }
 
 function formatDateKey(d: Date | string): string {
@@ -192,7 +195,7 @@ function ExpenseRow({
                       <Avatar
                         init={u ? (u.name ?? "?")[0].toUpperCase() : "?"}
                         size={28}
-                        color="#22D3EE"
+                        color={getUserColor(u?.name || "?")}
                       />
                       <span style={{ color: T.body, fontSize: 13, fontWeight: 500 }}>{name}</span>
                     </div>
@@ -216,32 +219,15 @@ function ExpenseRow({
               })}
             </div>
           <div style={{ display: "flex", gap: 8, paddingTop: 16 }}>
-            <Btn variant="ghost" onClick={onSettle} style={{ padding: "8px 16px", fontSize: 12 }}>
+            <Btn variant="ghost" onClick={onSettle} className="splito-sbtn" style={{ padding: "8px 16px", fontSize: 12 }}>
               <Icons.check /> Settle
             </Btn>
-            <Btn variant="ghost" onClick={onNotify} style={{ padding: "8px 16px", fontSize: 12 }}>
+            <Btn variant="ghost" onClick={onNotify} className="splito-abtn" style={{ padding: "8px 16px", fontSize: 12 }}>
               <Icons.bell /> Notify
             </Btn>
-            <button
-              type="button"
-              onClick={onDelete}
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 5,
-                background: "rgba(248,113,113,0.06)",
-                border: "1px solid rgba(248,113,113,0.15)",
-                borderRadius: 12,
-                padding: "8px 14px",
-                color: "#F87171",
-                fontSize: 12,
-                cursor: "pointer",
-                fontFamily: "inherit",
-                fontWeight: 600,
-              }}
-            >
+            <Btn variant="danger" onClick={onDelete} style={{ padding: "8px 14px", fontSize: 12 }}>
               <Icons.trash size={14} /> Delete
-            </button>
+            </Btn>
           </div>
         </div>
       )}
@@ -255,7 +241,7 @@ export default function GroupSplitsPage() {
   const {
     group,
     formatCurrency,
-    handleSettleFriendClick,
+    openSettle,
     handleSendReminder,
     openAddExpense,
   } = useGroupLayout();
@@ -321,8 +307,7 @@ export default function GroupSplitsPage() {
                     if (firstOwer) handleSendReminder(firstOwer.userId, expense.id);
                   }}
                   onSettle={() => {
-                    const firstOwer = expense.expenseParticipants?.find((p) => p.amount > 0);
-                    if (firstOwer) handleSettleFriendClick(firstOwer.userId);
+                    openSettle();
                   }}
                   onDelete={() => {
                     if (!group?.id) {
@@ -341,7 +326,7 @@ export default function GroupSplitsPage() {
 
       {expenseToDelete && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 !mt-0"
           onClick={() => {
             if (!deleteExpenseMutation.isPending) setExpenseToDelete(null);
           }}

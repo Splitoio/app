@@ -2,7 +2,7 @@
 
 import React from "react";
 import Image from "next/image";
-import { Loader2, Trash2, Save, Info } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import type { Currency } from "@/features/currencies/api/client";
 import type { Wallet } from "@/features/wallets/api/client";
@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { AddWalletModal } from "@/components/add-wallet-modal";
 import type { User } from "@/api-helpers/modelSchema/UserSchema";
-import { Card, Btn, T, Icons, A } from "@/lib/splito-design";
+import { Card, Btn, T, Icons, A, getUserColor } from "@/lib/splito-design";
 
 export interface SettingsPageContentProps {
   user: User;
@@ -81,6 +81,15 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
   } = props;
 
   const [notificationsOn, setNotificationsOn] = React.useState(true);
+  const [isMobile, setIsMobile] = React.useState(false);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const set = () => setIsMobile(mq.matches);
+    set();
+    mq.addEventListener("change", set);
+    return () => mq.removeEventListener("change", set);
+  }, []);
 
   const SLabel = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
     <div
@@ -167,20 +176,28 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
   const userEmail = user?.email ?? "";
   const userInitial = (displayName || user?.name || "Y").charAt(0).toUpperCase();
 
+  // Chain metadata (matching design artifact)
+  const CHAIN_META: Record<string, { color: string; icon: string }> = {
+    Aptos: { color: "#22D3EE", icon: "⬡" },
+    Ethereum: { color: "#818CF8", icon: "◆" },
+    Base: { color: "#3B82F6", icon: "🔵" },
+    Solana: { color: "#A78BFA", icon: "◎" },
+    Stellar: { color: "#34D399", icon: "✦" },
+    Polygon: { color: "#A855F7", icon: "⬟" },
+  };
+
+  const getChainMeta = (chainName: string) => {
+    return CHAIN_META[chainName] || { color: "#666", icon: "◆" };
+  };
+
   return (
-    <div className="flex w-full min-h-screen bg-black rounded-xl">
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Sticky header – design (matches Dashboard), responsive */}
-        <div
-          className="border-b border-white/[0.07] px-4 sm:px-7 flex items-center h-14 sm:h-[70px] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
-        >
-          <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
-            Settings
-          </h1>
-        </div>
-        <div className="flex-1 p-4 sm:p-7 overflow-y-auto max-w-[660px] pb-24">
-          <SLabel style={{ marginTop: 0 }}>Profile</SLabel>
-          <Card className="p-4 sm:p-[22px] mb-1">
+    <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
+      <div style={{ borderBottom: "1px solid rgba(255,255,255,0.07)", padding: "0 28px", display: "flex", alignItems: "center", height: 70, position: "sticky", top: 0, background: "rgba(11,11,11,0.95)", backdropFilter: "blur(20px)", zIndex: 40 }}>
+        <h1 style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em", color: "#fff" }}>Settings</h1>
+      </div>
+      <div style={{ flex: 1, padding: "26px 28px", overflowY: "auto", maxWidth: 660 }}>
+          <SLabel>Profile</SLabel>
+          <Card style={{ padding: "22px", marginBottom: 4 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22, paddingBottom: 22, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
               <div style={{ position: "relative" }}>
                 <label htmlFor="profile-upload" style={{ cursor: isUploadingImage ? "not-allowed" : "pointer", display: "block" }}>
@@ -189,14 +206,14 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
                       width: 64,
                       height: 64,
                       borderRadius: "50%",
-                      background: `${A}1a`,
-                      border: `2px solid ${A}44`,
+                      background: `${getUserColor(user?.name || "You")}1a`,
+                      border: `2px solid ${getUserColor(user?.name || "You")}44`,
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       fontSize: 22,
                       fontWeight: 800,
-                      color: A,
+                      color: getUserColor(user?.name || "You"),
                       overflow: "hidden",
                     }}
                   >
@@ -254,69 +271,30 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
               <input
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1.5px solid rgba(255,255,255,0.09)",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  color: "#fff",
-                  fontSize: 14,
-                  outline: "none",
-                  fontFamily: "inherit",
-                  width: 220,
-                  fontWeight: 500,
-                }}
+                style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", width: 220, fontWeight: 500 }}
               />
             </Row>
             <Row style={{ borderBottom: "none" }}>
               <span style={{ color: T.body, fontSize: 14, fontWeight: 600 }}>Email</span>
               <input
                 value={userEmail}
-                readOnly
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1.5px solid rgba(255,255,255,0.09)",
-                  borderRadius: 12,
-                  padding: "10px 14px",
-                  color: T.muted,
-                  fontSize: 14,
-                  outline: "none",
-                  fontFamily: "inherit",
-                  width: 220,
-                  fontWeight: 500,
-                }}
+                onChange={(e) => {}}
+                style={{ background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", borderRadius: 12, padding: "10px 14px", color: "#fff", fontSize: 14, outline: "none", fontFamily: "inherit", width: 220, fontWeight: 500 }}
               />
             </Row>
             <div style={{ paddingTop: 18, display: "flex", justifyContent: "flex-end" }}>
-              {hasChanges && (
-                <button
-                  onClick={handleSaveChanges}
-                  disabled={isUpdatatingUser}
-                  style={{
-                    background: A,
-                    border: "none",
-                    borderRadius: 12,
-                    padding: "10px 22px",
-                    color: "#0a0a0a",
-                    fontWeight: 800,
-                    fontSize: 13,
-                    cursor: isUpdatatingUser ? "not-allowed" : "pointer",
-                    fontFamily: "inherit",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    opacity: isUpdatatingUser ? 0.7 : 1,
-                  }}
-                >
-                  {isUpdatatingUser ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  {isUpdatatingUser ? "Saving..." : "Save Changes"}
-                </button>
-              )}
+              <button
+                onClick={handleSaveChanges}
+                disabled={isUpdatatingUser}
+                style={{ background: A, border: "none", borderRadius: 12, padding: "10px 22px", color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+              >
+                Save Changes
+              </button>
             </div>
           </Card>
 
           <SLabel>Preferences</SLabel>
-          <Card className="px-4 sm:px-[22px] py-0">
+          <Card style={{ padding: "0 22px" }}>
             <Row>
               <div>
                 <p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Notifications</p>
@@ -339,7 +317,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
             </Row>
           </Card>
 
-          {wallets.length > 0 && (
+          {wallets.length > 0 && !isMobile && (
             <>
               <SLabel>Accept Payments in</SLabel>
               <Card className="p-[22px] mb-4" id="settings-accept-payments-tokens">
@@ -366,7 +344,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           )}
 
           <SLabel>Security</SLabel>
-          <Card className="px-4 sm:px-[22px] py-0">
+          <Card style={{ padding: "0 22px" }}>
             <Row
               style={{ borderBottom: "none", cursor: "pointer" }}
               onClick={() => { if (typeof window !== "undefined") window.location.href = "/settings/change-password"; }}
@@ -386,36 +364,50 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
                 <Loader2 className="h-8 w-8 animate-spin" style={{ color: T.muted }} />
               </div>
             ) : wallets.length > 0 ? (
-              wallets.map((wallet, idx) => (
-                <div
-                  key={wallet.id}
-                  className="flex flex-col sm:flex-row sm:items-center gap-3 py-4 px-4 sm:py-[17px] sm:px-[22px] border-b border-white/[0.06] last:border-b-0"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <p className="text-sm font-bold text-[#e8e8e8]">{getChainName(wallet.chainId)}</p>
-                      {wallet.isDefault && (
-                        <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 99, fontWeight: 700, background: `${A}1a`, color: A, border: `1px solid ${A}2a` }}>Primary</span>
-                      )}
+              wallets.map((wallet, idx) => {
+                const chainName = getChainName(wallet.chainId);
+                const meta = getChainMeta(chainName);
+                const addr = wallet.address || "";
+                const truncatedAddress = addr.length > 14 ? `${addr.slice(0, 6)}…${addr.slice(-4)}` : addr;
+                return (
+                  <div
+                    key={wallet.id}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "17px 22px", borderBottom: idx < wallets.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none", minWidth: 0 }}
+                  >
+                    <div style={{ width: 44, height: 44, borderRadius: 14, background: `${meta.color}18`, border: `1.5px solid ${meta.color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 22, flexShrink: 0, color: "#fff" }}>
+                      {meta.icon}
                     </div>
-                    <p className="text-xs text-[#999] font-mono truncate" title={wallet.address}>
-                      {wallet.address.length > 20 ? wallet.address.slice(0, 10) + "..." + wallet.address.slice(-8) : wallet.address}
-                    </p>
+                    <div style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <p style={{ fontSize: 14, fontWeight: 700, color: T.bright }}>{chainName}</p>
+                        {(wallet.isDefault || wallets.length === 1) && (
+                          <span style={{ fontSize: 10, padding: "3px 10px", borderRadius: 99, fontWeight: 700, background: `${A}1a`, color: A, border: `1px solid ${A}2a` }}>Primary</span>
+                        )}
+                      </div>
+                      <p style={{ fontSize: 12, color: T.muted, fontFamily: "monospace", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={addr}>
+                        {truncatedAddress}
+                      </p>
+                    </div>
+                    <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
+                      {!wallet.isDefault && wallets.length > 1 && handleSetAsPrimary && (
+                        <button
+                          onClick={() => handleSetAsPrimary(wallet.id)}
+                          className="abtn"
+                          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "all 0.2s" }}
+                        >
+                          Set Primary
+                        </button>
+                      )}
+                      <button
+                        onClick={() => handleRemoveWallet(wallet.id)}
+                        style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "7px 12px", color: "#F87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", gap: 4, fontWeight: 600 }}
+                      >
+                        {Icons.trash({})} Remove
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-2 flex-shrink-0">
-                    {!wallet.isDefault && handleSetAsPrimary && (
-                      <Btn variant="ghost" className="py-1.5 px-3 text-[11px]" onClick={() => handleSetAsPrimary(wallet.id)}>Set Primary</Btn>
-                    )}
-                    <button
-                      onClick={() => handleRemoveWallet(wallet.id)}
-                      className="flex items-center gap-1 py-1.5 px-3 rounded-lg text-[11px] font-semibold border border-[rgba(248,113,113,0.15)] bg-[rgba(248,113,113,0.07)] text-[#F87171]"
-                    >
-                      {Icons.trash({ size: 12 })}
-                      Remove
-                    </button>
-                  </div>
-                </div>
-              ))
+                );
+              })
             ) : (
               <div style={{ padding: "24px 22px", color: T.body, fontSize: 13 }}>You don&apos;t have any wallets yet.</div>
             )}
@@ -424,32 +416,14 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
             id="settings-add-wallet-button"
             onClick={() => setIsWalletModalOpen(true)}
             disabled={isAddingWallet}
-            style={{
-              width: "100%",
-              padding: 14,
-              background: "rgba(255,255,255,0.03)",
-              border: "1.5px dashed rgba(255,255,255,0.12)",
-              borderRadius: 18,
-              color: T.muted,
-              fontSize: 14,
-              fontWeight: 700,
-              cursor: isAddingWallet ? "not-allowed" : "pointer",
-              fontFamily: "inherit",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              transition: "all 0.2s",
-              marginTop: 10,
-              opacity: isAddingWallet ? 0.7 : 1,
-            }}
+            className="abtn"
+            style={{ width: "100%", padding: "14px", background: "rgba(255,255,255,0.03)", border: "1.5px dashed rgba(255,255,255,0.12)", borderRadius: 18, color: T.muted, fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all 0.2s", marginTop: 10 }}
           >
-            {Icons.plus({ size: 16 })}
-            Add Wallet
+            {Icons.plus({})} Add Wallet
           </button>
 
           <SLabel>Account</SLabel>
-          <Card className="px-4 sm:px-[22px] py-0">
+          <Card style={{ padding: "0 22px" }}>
             <Row
               style={{
                 borderBottom: "none",
@@ -538,7 +512,6 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
             </div>
           )}
         </AnimatePresence>
-      </div>
     </div>
   );
 }

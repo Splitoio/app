@@ -2,16 +2,15 @@
 
 import {
   useAddMembersToGroup,
-  useGetGroupById,
 } from "@/features/groups/hooks/use-create-group";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
-import { X, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
-import { Button } from "@/components/ui/button";
 import { isValidEmail } from "@/utils/validation";
+import { A, T } from "@/lib/splito-design";
 
 interface AddMemberModalProps {
   isOpen: boolean;
@@ -116,65 +115,129 @@ export function AddMemberModal({
 
   if (!isOpen) return null;
 
+  const isDisabled = isPending || isAddingFriend;
+  const canSubmit = !isDisabled && !!email.trim() && isValidEmail(email.trim());
+
   return (
-    <div className="fixed inset-0 z-50 h-screen w-screen">
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-black/70 brightness-100"
+        className="fixed inset-0"
+        style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(16px)" }}
         onClick={onClose}
       />
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px]">
-        <div className="animate-border-light relative z-10">
-          <div className="relative rounded-[14.77px] bg-black p-4 lg:p-8">
-            <div className="flex items-center justify-between mb-6 lg:mb-8">
-              <h3 className="text-2xl lg:text-[29.28px] font-base text-white tracking-[-0.03em]">
-                Add Admin
-              </h3>
-              <button
-                onClick={onClose}
-                className="rounded-full p-1.5 lg:p-2 hover:bg-white/10 transition-colors"
-              >
-                <X className="h-5 w-5 lg:h-6 lg:w-6 text-white" />
-              </button>
-            </div>
 
-            <div className="space-y-4 lg:space-y-6">
-              <p className="text-white/60 text-sm -mt-2">Add a new org admin by email. Regular members join via contract.</p>
-              <label className="block text-lg font-medium text-white mb-2 mt-2">Admin email</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="me@email.com"
-                  className="w-full h-12 lg:h-14 bg-[#1F1F23] rounded-2xl pl-4 pr-4 
-                  text-base lg:text-lg font-normal text-white 
-                  border border-white/10 
-                  transition-all duration-300
-                  placeholder:text-white/30
-                  focus:outline-none focus:border-white/20 focus:shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-                  disabled={isPending || isAddingFriend}
-                />
-              </div>
-
-              <Button
-                onClick={handleAddMember}
-                disabled={(isPending || isAddingFriend) || !email.trim() || !isValidEmail(email.trim())}
-                className="w-full h-14 rounded-full bg-[#fff] text-black text-base font-bold mt-8 shadow-none border-none"
-                style={{ backgroundColor: '#fff', color: '#000' }}
-              >
-                {(isPending || isAddingFriend) ? (
-                  <>
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    Adding...
-                  </>
-                ) : (
-                  "Add Admin"
-                )}
-              </Button>
-            </div>
+      {/* Modal */}
+      <div
+        className="relative z-10 w-full max-w-[460px] rounded-[28px] p-7"
+        style={{
+          background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+          animation: "mIn 0.3s cubic-bezier(.34,1.56,.64,1)",
+        }}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <p style={{ color: "#fff", fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>
+              Add Member
+            </p>
+            <p style={{ color: T.mid, fontSize: 12, marginTop: 4 }}>
+              Invite someone to join this group by their email address.
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              color: "rgba(255,255,255,0.60)",
+              width: 34,
+              height: 34,
+              borderRadius: "50%",
+              cursor: "pointer",
+              fontSize: 18,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
         </div>
+
+        {/* Email field */}
+        <div className="mb-5">
+          <label
+            style={{
+              color: "rgba(204,204,204,0.9)",
+              fontSize: 11,
+              fontWeight: 700,
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              marginBottom: 8,
+              display: "block",
+            }}
+          >
+            Member Email
+          </label>
+          <input
+            type="email"
+            autoFocus
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onKeyDown={handleKeyDown}
+            placeholder="friend@email.com"
+            disabled={isDisabled}
+            style={{
+              width: "100%",
+              background: "rgba(255,255,255,0.05)",
+              border: "1.5px solid rgba(255,255,255,0.09)",
+              borderRadius: 14,
+              padding: "12px 16px",
+              color: "#fff",
+              fontSize: 14,
+              outline: "none",
+              boxSizing: "border-box",
+              fontFamily: "inherit",
+              fontWeight: 500,
+            }}
+          />
+        </div>
+
+        {/* Submit button */}
+        <button
+          onClick={handleAddMember}
+          disabled={!canSubmit}
+          style={{
+            width: "100%",
+            padding: "13px",
+            background: canSubmit ? A : "rgba(255,255,255,0.05)",
+            color: canSubmit ? "#0a0a0a" : "#555",
+            border: "none",
+            borderRadius: 14,
+            fontSize: 14,
+            fontWeight: 800,
+            cursor: canSubmit ? "pointer" : "default",
+            fontFamily: "inherit",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 8,
+            transition: "all 0.2s",
+          }}
+        >
+          {isDisabled ? (
+            <>
+              <Loader2 style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }} />
+              Adding…
+            </>
+          ) : (
+            "Add Member"
+          )}
+        </button>
       </div>
     </div>
   );

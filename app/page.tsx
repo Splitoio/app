@@ -42,6 +42,7 @@ import {
   G,
   T,
   Icons,
+  getUserColor,
 } from "@/lib/splito-design";
 
 /** Derive overall youOwe/youGet from groups' groupBalances (same source as group pages) */
@@ -201,11 +202,11 @@ function GroupBalanceShort({
   const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
   if (loadOwe || loadOwed) return <span className="text-white/60">…</span>;
   const net = (owedTotal ?? 0) - (oweTotal ?? 0);
-  if (net === 0) return <span style={{ color: G, fontSize: 13, fontWeight: 800 }}>+$0</span>;
+  if (net === 0) return <span style={{ color: G, fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>+$0</span>;
   if (net > 0)
     return (
       <span
-        className="font-dm-mono font-extrabold text-[13px]"
+        className="font-mono font-extrabold text-[13px]"
         style={{ color: G }}
       >
         +{formatCurrency(net, defaultCurrency)}
@@ -213,7 +214,7 @@ function GroupBalanceShort({
     );
   return (
     <span
-      className="font-dm-mono font-extrabold text-[13px]"
+      className="font-mono font-extrabold text-[13px]"
       style={{ color: "#F87171" }}
     >
       -{formatCurrency(Math.abs(net), defaultCurrency)}
@@ -423,7 +424,7 @@ export default function Page() {
   /** Recent activity from all groups (expenses + settlements) for Dashboard card */
   const recentActivityFromGroups = useMemo(() => {
     if (!user || !groups?.length) return [];
-    const items: { id: string; text: string; date: Date; dotColor: string }[] = [];
+    const items: { id: string; text: string; subtext: string; date: Date; dotColor: string }[] = [];
     for (const group of groups) {
       const expenses = (group as { expenses?: { id: string; name: string; amount: number; currency: string; paidBy: string; createdAt: Date; splitType: string }[] }).expenses ?? [];
       const groupUsers = (group as { groupUsers?: { user: { id: string; name?: string | null } }[] }).groupUsers ?? [];
@@ -431,18 +432,22 @@ export default function Page() {
         userId === user.id ? "You" : (groupUsers.find((gu) => gu.user.id === userId)?.user?.name ?? "Someone");
       for (const exp of expenses) {
         const date = exp.createdAt instanceof Date ? exp.createdAt : new Date(exp.createdAt);
-        const amountStr = formatCurrency(exp.amount, exp.currency || defaultCurrency);
+        const amountStr = formatCurrency(Math.abs(exp.amount), exp.currency || defaultCurrency);
+        const timeAgo = formatRelativeTime(date);
+        const subtext = `${timeAgo} · ${group.name}`;
         if (exp.splitType === "SETTLEMENT") {
           items.push({
             id: exp.id,
-            text: `${paidByName(exp.paidBy)} marked a payment as settled (${amountStr})`,
+            text: `${paidByName(exp.paidBy)} settled ${amountStr}`,
+            subtext,
             date,
-            dotColor: G,
+            dotColor: "#A78BFA",
           });
         } else {
           items.push({
             id: exp.id,
             text: `${paidByName(exp.paidBy)} added ${exp.name} (${amountStr})`,
+            subtext,
             date,
             dotColor: A,
           });
@@ -458,16 +463,16 @@ export default function Page() {
       .slice(0, 4)
       .map((gu) => ({
         init: gu.user.name?.charAt(0)?.toUpperCase() || "?",
-        color: "#22D3EE",
+        color: getUserColor(gu.user.name),
       }));
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
       {/* Sticky header – design, responsive padding */}
       <div
-        className="border-b border-white/[0.07] px-4 sm:px-7 flex items-center h-14 sm:h-[70px] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
+        className="border-b border-white/[0.07] px-7 flex items-center h-[70px] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
       >
-        <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
+        <h1 className="text-[20px] font-extrabold tracking-[-0.02em] text-white">
           Dashboard
         </h1>
       </div>
@@ -519,7 +524,7 @@ export default function Page() {
             )}
           </p>
           <div
-            className="h-px my-5"
+            className="h-px my-[22px]"
             style={{ background: "rgba(255,255,255,0.07)" }}
           />
           <div className="grid grid-cols-3 gap-0">
@@ -540,15 +545,15 @@ export default function Page() {
                 "You settled this month",
                 isAnalyticsLoading || settledConvLoading
                   ? "…"
-                  : formatCurrency(settledConverted, defaultCurrency),
+                  : settledThisMonth === 0 ? "$0.00" : formatCurrency(settledConverted, defaultCurrency),
               ],
-            ].map(([label, value], i) => (
+            ].map(([label, value], i, arr) => (
               <div
                 key={String(label)}
-                className={`min-w-0 ${i === 0 ? "pr-2 sm:pr-7" : i === 1 ? "px-2 sm:px-7 border-r border-white/[0.07]" : "pl-2 sm:pl-7"} text-center sm:text-left`}
+                className={`min-w-0 ${i < arr.length - 1 ? "pr-2 sm:pr-[28px] border-r border-white/[0.07]" : ""} ${i > 0 ? "pl-2 sm:pl-[28px]" : ""} text-left`}
               >
                 <p
-                  className="text-[10px] sm:text-[11px] mb-1 sm:mb-2.5 font-semibold tracking-[0.04em] truncate"
+                  className="text-[10px] sm:text-[11px] mb-2 sm:mb-2.5 font-semibold tracking-[0.04em] truncate"
                   style={{ color: T.muted }}
                 >
                   {label}
@@ -561,7 +566,7 @@ export default function Page() {
                 </p>
               </div>
             ))}
-        </div>
+          </div>
       </div>
 
         {/* Your Groups + Recent Activity – design grid, responsive */}
@@ -606,8 +611,8 @@ export default function Page() {
                 return (
                   <Link href={`/groups/${g.id}`} key={g.id}>
                     <div
-                      className="splito-row-hover flex items-center gap-3 py-2.5 border-b border-white/[0.06] cursor-pointer last:border-b-0"
-                      style={i < 2 ? { borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
+                      className="splito-row-hover flex items-center gap-3 py-[11px] border-b border-white/[0.06] cursor-pointer last:border-b-0"
+                      style={i < (groups.slice(0,3).length - 1) ? { borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
                     >
                       <GroupAvatar
                         items={groupAvatarItems(g)}
@@ -623,8 +628,8 @@ export default function Page() {
                             ? (g as { expenses: unknown[] }).expenses.length
                             : 0)}{" "}
                           expenses
-          </p>
-        </div>
+                        </p>
+                      </div>
                       <GroupBalanceShort
                         group={g}
                         userId={user?.id ?? null}
@@ -651,20 +656,20 @@ export default function Page() {
                 {recentActivityFromGroups.map((a) => (
                   <div
                     key={a.id}
-                    className="flex gap-3 py-2.5 border-b border-white/[0.06] last:border-b-0"
+                    className="flex gap-3 py-[9px] border-b border-white/[0.06] last:border-b-0"
                   >
                     <div
-                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
+                      className="w-2 h-2 rounded-full flex-shrink-0 mt-[5px]"
                       style={{ background: a.dotColor }}
                     />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium leading-snug" style={{ color: T.body }}>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-[500] text-[#d4d4d4] leading-snug">
                         {a.text}
                       </p>
-                      <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>
-                        {formatRelativeTime(a.date)}
-          </p>
-        </div>
+                      <p className="text-[11px] mt-0.5 font-[600]" style={{ color: T.sub }}>
+                        {a.subtext}
+                      </p>
+                    </div>
                   </div>
                 ))}
           </div>
@@ -740,18 +745,17 @@ export default function Page() {
                     }));
                   const friendInit =
                     friend.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
-                  const FRIEND_COLORS = [A, "#A78BFA", G, "#FB923C", "#F472B6", "#FBBF24", "#818CF8"];
-                  const color = FRIEND_COLORS[index % FRIEND_COLORS.length];
+                  const color = getUserColor(friend.name);
                   return (
                     <FriendBalanceCard
                       key={friend.id}
                       friendName={friend.name ?? "Friend"}
                       friendInit={friendInit}
                       color={color}
-                              oweItems={oweItems}
-                              owedItems={owedItems}
-                              defaultCurrency={defaultCurrency}
-                            />
+                      oweItems={oweItems}
+                      owedItems={owedItems}
+                      defaultCurrency={defaultCurrency}
+                    />
                   );
                 })
             )}
