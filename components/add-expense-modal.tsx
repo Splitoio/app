@@ -23,6 +23,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { Card, A, T, getUserColor } from "@/lib/splito-design";
 import { useGroupLayout } from "@/contexts/group-layout-context";
+import { useIsMobile } from "@/hooks/useIsMobile";
 
 const CATEGORY_OPTIONS: { emoji: string; api: string }[] = [
   { emoji: "🍽", api: "FOOD" },
@@ -474,7 +475,7 @@ export function AddExpenseModal({
           fontFamily: "inherit",
         }}
       >
-        ← Back
+        ←
       </button>
     );
   };
@@ -514,6 +515,8 @@ export function AddExpenseModal({
     );
   };
 
+  const isMobile = useIsMobile();
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -523,40 +526,59 @@ export function AddExpenseModal({
         >
           <motion.div
             className="fixed inset-0 bg-black/70 brightness-50"
+            style={isMobile ? { backdropFilter: "blur(10px)" } : undefined}
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] px-6">
+          <div
+            className={
+              isMobile
+                ? "modal-as-sheet-wrapper fixed inset-x-0 bottom-0 z-10 w-full max-w-[430px] mx-auto"
+                : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] px-6"
+            }
+          >
+            {isMobile && (
+              <div className="flex justify-center flex-shrink-0" style={{ padding: "8px 0 4px" }}>
+                <div style={{ width: 40, height: 4, borderRadius: 99, background: "rgba(255,255,255,0.15)" }} />
+              </div>
+            )}
             <motion.div
               onClick={(e) => e.stopPropagation()}
-              {...scaleIn}
-              style={{
-                background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
-                border: "1px solid rgba(255,255,255,0.09)",
-                borderRadius: 28,
-                width: "100%",
-                maxWidth: 460,
-                padding: "28px 28px 32px",
-                maxHeight: "90vh",
-                overflowY: "auto",
-                boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
-              }}
+              {...(isMobile ? { initial: { y: "100%" }, animate: { y: 0 }, transition: { type: "tween", duration: 0.32, ease: [0.34, 1.2, 0.64, 1] } } : scaleIn)}
+              className={isMobile ? "modal-as-sheet-card px-5 sm:px-7 pt-0 pb-8" : ""}
+              style={
+                isMobile
+                  ? undefined
+                  : {
+                      background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 28,
+                      width: "100%",
+                      maxWidth: 460,
+                      padding: "28px 28px 32px",
+                      maxHeight: "90vh",
+                      overflowY: "auto",
+                      boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+                    }
+              }
             >
         <div
+          className={isMobile ? "modal-as-sheet-title-bar" : ""}
           style={{
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            marginBottom: 24,
+            marginBottom: isMobile ? 16 : 24,
+            ...(isMobile && { paddingTop: 20 }),
           }}
         >
           <div>
             <p
               style={{
                 color: "#fff",
-                fontSize: 20,
+                fontSize: isMobile ? 18 : 20,
                 fontWeight: 800,
                 letterSpacing: "-0.02em",
               }}

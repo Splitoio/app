@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useWallet } from "@/hooks/useWallet";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { Plus, X } from "lucide-react";
 import {
   useCreateGroup,
@@ -276,6 +277,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     display: "block",
   };
 
+  const isMobile = useIsMobile();
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -285,30 +288,43 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
         >
           <motion.div
             className="fixed inset-0 bg-black/70 brightness-50"
+            style={isMobile ? { backdropFilter: "blur(10px)" } : undefined}
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[500px] px-4 sm:px-0">
+          <div
+            className={
+              isMobile
+                ? "modal-as-sheet-wrapper fixed inset-x-0 bottom-0 z-10 w-full max-w-[430px] mx-auto"
+                : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[500px] px-4 sm:px-0"
+            }
+          >
+            {isMobile && <div className="modal-as-sheet-handle" />}
             <motion.div
-              className="relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
-              style={{ background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
-              {...scaleIn}
+              className={
+                isMobile
+                  ? "modal-as-sheet-card relative z-10 p-5 sm:p-7"
+                  : "relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
+              }
+              style={isMobile ? undefined : { background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
+              {...(isMobile ? { initial: { y: "100%" }, animate: { y: 0 }, transition: { type: "tween", duration: 0.32, ease: [0.34, 1.2, 0.64, 1] } } : scaleIn)}
               onClick={(e) => e.stopPropagation()}
             >
           <div
+            className={isMobile ? "modal-as-sheet-title-bar" : ""}
             style={{
               display: "flex",
               justifyContent: "space-between",
               alignItems: "center",
-              marginBottom: 24,
+              marginBottom: isMobile ? 16 : 24,
             }}
           >
             <div>
               <p
                 style={{
                   color: "#fff",
-                  fontSize: 20,
+                  fontSize: isMobile ? 18 : 20,
                   fontWeight: 800,
                   letterSpacing: "-0.02em",
                 }}
@@ -867,7 +883,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       fontFamily: "inherit",
                     }}
                   >
-                    ← Back
+                    ←
                   </button>
                   <button
                     type="button"

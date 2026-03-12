@@ -2,15 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users2, UserCircle, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { A } from "@/lib/splito-design";
+import { A, Icons } from "@/lib/splito-design";
 
 const NAV_ITEMS = [
-  { key: "home", label: "Home", href: "/", icon: LayoutDashboard },
-  { key: "groups", label: "Groups", href: "/groups", icon: Users2 },
-  { key: "friends", label: "Friends", href: "/friends", icon: UserCircle },
-  { key: "profile", label: "Profile", href: "/settings", icon: Settings },
+  { key: "home",     label: "Home",     href: "/",        icon: Icons.home     },
+  { key: "groups",   label: "Groups",   href: "/groups",  icon: Icons.groups   },
+  { key: "friends",  label: "Friends",  href: "/friends", icon: Icons.friends  },
+  { key: "settings", label: "Settings", href: "/settings",icon: Icons.settings },
 ];
 
 export function PersonalMobileNav() {
@@ -23,7 +22,7 @@ export function PersonalMobileNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-40 min-[1025px]:hidden"
+      className="fixed -bottom-4 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-40 min-[1025px]:hidden"
       style={{
         background: "rgba(10,10,10,0.97)",
         backdropFilter: "blur(20px)",
@@ -34,7 +33,6 @@ export function PersonalMobileNav() {
       <div className="flex justify-around">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item.href);
-          const Icon = item.icon;
           return (
             <Link
               key={item.key}
@@ -50,11 +48,7 @@ export function PersonalMobileNav() {
                   active && "bg-[#22D3EE]/20"
                 )}
               >
-                <Icon
-                  className="w-5 h-5 shrink-0"
-                  strokeWidth={active ? 2.2 : 1.8}
-                  style={{ color: active ? A : "inherit" }}
-                />
+                {item.icon({ size: 20 })}
               </div>
               <span
                 className={cn(

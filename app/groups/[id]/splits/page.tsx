@@ -99,15 +99,15 @@ function ExpenseRow({
 
   return (
     <div style={{ borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.06)" }}>
-        <button
+      <button
           type="button"
           onClick={() => setExpanded((e) => !e)}
-        className="w-full text-left transition-colors hover:bg-white/[0.02]"
+          className="w-full text-left transition-colors hover:bg-white/[0.02]"
         style={{
           display: "flex",
           alignItems: "center",
           gap: 14,
-          padding: "16px 22px",
+          padding: "18px 20px",
           cursor: "pointer",
         }}
       >
@@ -115,9 +115,9 @@ function ExpenseRow({
           style={{
             width: 48,
             height: 48,
-            background: categoryStyle.bg,
+            background: "rgba(20,20,20,1)",
             border: "1px solid rgba(255,255,255,0.09)",
-            borderRadius: 14,
+            borderRadius: 16,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
@@ -128,18 +128,18 @@ function ExpenseRow({
           {categoryStyle.icon}
           </div>
           <div className="min-w-0 flex-1">
-          <p style={{ fontWeight: 700, fontSize: 14, color: T.bright, marginBottom: 4 }}>
+            <p style={{ fontWeight: 700, fontSize: 15, color: T.bright, marginBottom: 2 }}>
             {expense.name}
-          </p>
-          <p style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
-            Paid by {paidByName} · {settledLabel}
-          </p>
-              </div>
+            </p>
+            <p style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
+              Paid by {paidByName} · {settledLabel}
+            </p>
+          </div>
         <div style={{ textAlign: "right", flexShrink: 0, marginRight: 8 }}>
           <p
             style={{
               fontWeight: 800,
-              fontSize: 15,
+              fontSize: 17,
               color: T.bright,
               fontFamily: "'DM Mono',monospace",
             }}
@@ -153,6 +153,7 @@ function ExpenseRow({
           )}
         </div>
         <span
+          className="sm:!flex  !hidden"
           style={{
             color: T.dim,
             display: "flex",
@@ -292,7 +293,12 @@ export default function GroupSplitsPage() {
         byDate.map(([dateLabel, dateExpenses]) => (
           <section key={dateLabel} style={{ marginBottom: 24 }}>
             <SectionLabel>{dateLabel}</SectionLabel>
-            <Card style={{ padding: 0 }}>
+            <Card
+              style={{
+                padding: 0,
+                borderRadius: 24,
+              }}
+            >
               {dateExpenses.map((expense, idx) => (
                 <ExpenseRow
                   key={expense.id}

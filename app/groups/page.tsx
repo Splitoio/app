@@ -26,8 +26,9 @@ export default function GroupsPage() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
+      {/* Desktop sticky header (unchanged) */}
       <div
-        className="flex items-center justify-between sticky top-0 z-10 px-4 sm:px-7 h-14 sm:h-[70px] border-b border-white/[0.07] bg-[#0b0b0b]/95 backdrop-blur-xl"
+        className="hidden sm:flex items-center justify-between sticky top-0 z-10 px-7 h-[70px] border-b border-white/[0.07] bg-[#0b0b0b]/95 backdrop-blur-xl"
       >
         <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.02em] text-white">
           My Groups
@@ -41,6 +42,23 @@ export default function GroupsPage() {
         </button>
       </div>
       <div className="flex-1 overflow-y-auto p-4 sm:p-7">
+        {/* Mobile status bar + header, mirroring mobile design spec */}
+        <div className="sm:hidden mb-3">
+          {/* Status bar */}
+         
+          {/* Page header */}
+          <div className=" pb-2 px-0">
+            <p
+              className="text-[13px] font-medium"
+              style={{ color: T.muted }}
+            >
+              Your groups
+            </p>
+            <h1 className="text-[26px] font-black tracking-[-0.04em] text-white mt-1">
+              Groups
+            </h1>
+          </div>
+        </div>
         <div
           style={{
             display: "flex",

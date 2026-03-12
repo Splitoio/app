@@ -325,7 +325,7 @@ export function Sidebar() {
           {!isOrganizationMode && (
             <>
               <div className="mt-7 flex-1 overflow-y-auto min-h-0">
-                <p className="text-[10px] font-extrabold tracking-[0.12em] uppercase px-[13px] mb-2" style={{ color: "rgba(255,255,255,0.32)" }}>GROUPS</p>
+                <p className="text-[10px] font-extrabold tracking-[0.12em] uppercase px-[13px] mb-2" style={{ color: "#777" }}>GROUPS</p>
                 <div className="flex flex-col gap-px">
                   {groups.map((g) => {
                     const isActive = pathname.startsWith(`/groups/${g.id}`);

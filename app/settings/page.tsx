@@ -16,6 +16,8 @@ import {
   useRemoveWallet,
 } from "@/features/wallets/hooks/use-wallets";
 import { SettingsPageContent } from "@/app/settings/settings-page-content";
+import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
+import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 
 // Base API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
@@ -308,6 +310,9 @@ export default function SettingsPage() {
     }
   };
 
+  const { data: allGroups = [] } = useGetAllGroups({ type: "PERSONAL" });
+  const { data: allFriends = [] } = useGetFriends();
+
   // Get chain name from currency list
   const getChainName = (chainId: string) => {
     const currency = currencies.find((c) => c.chainId === chainId);
@@ -362,5 +367,10 @@ export default function SettingsPage() {
     isLoadingWallets,
     onLogout: handleLogout,
     isLoggingOut: isLoggingOut,
+    groupCount: allGroups.length,
+    friendCount: Array.isArray(allFriends) ? allFriends.length : 0,
+    settledCount: Array.isArray(allFriends)
+      ? allFriends.filter((f) => !f.balances?.some((b) => b.amount !== 0)).length
+      : 0,
   });
 }

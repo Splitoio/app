@@ -12,7 +12,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { cn } from "@/lib/utils";
-import { BackBtn, Btn, Icons, A, T } from "@/lib/splito-design";
+import { Btn, Icons, A, T } from "@/lib/splito-design";
 
 export function GroupInfoHeader({
   groupId,
@@ -93,10 +93,11 @@ export function GroupInfoHeader({
     }, 500);
   };
 
+  // Order matches mobile design artifact: Splits · Members · Activity
   const tabs = [
     { label: "Splits", href: `/groups/${groupId}/splits` },
-    { label: "Activity", href: `/groups/${groupId}/activity` },
     { label: "Members", href: `/groups/${groupId}/members` },
+    { label: "Activity", href: `/groups/${groupId}/activity` },
   ];
 
   const memberCount = group.groupUsers?.length ?? 0;
@@ -112,18 +113,34 @@ export function GroupInfoHeader({
 
   return (
     <div
-      className="flex flex-col sticky top-0 z-[40]"
+      className="flex flex-col sm:sticky sm:top-0 z-[40]"
       style={{
         background: "rgba(11,11,11,0.95)",
         backdropFilter: "blur(20px)",
       }}
     >
       {/* Top row: mobile = [icon][name+members][balance]; desktop = [← Back][name+balance text][Settle all][Add Expense] */}
-      <div className="flex items-center justify-between gap-3 px-4 sm:px-7 h-14 sm:h-[70px] min-h-[56px]">
+      <div className="flex items-center justify-between gap-3 px-4 mt-3 sm:mt-4 sm:px-7 h-14 sm:h-[70px] min-h-[56px]">
         <div className="flex items-center gap-3 sm:gap-[14px] min-w-0 flex-1">
-          <BackBtn onClick={() => router.push("/groups")} className="hidden sm:flex" />
+          {/* Mobile back button */}
+          <button
+            onClick={() => router.push("/groups")}
+            className="flex items-center justify-center flex-shrink-0"
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 12,
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.1)",
+              color: "#d4d4d4",
+              fontSize: 18,
+              cursor: "pointer",
+            }}
+          >
+            ←
+          </button>
           <div className="min-w-0">
-            <h1 className="text-[18px] sm:text-[20px] font-extrabold tracking-[-0.03em] text-white truncate">
+            <h1 className="text-[20px] sm:text-[20px] font-extrabold tracking-[-0.03em] text-white truncate">
               {group.name}
             </h1>
             <p className="text-[11px] sm:text-[12px] font-medium mt-0.5" style={{ color: T.mid }}>
@@ -135,7 +152,7 @@ export function GroupInfoHeader({
         <div className="flex flex-col items-end flex-shrink-0 text-right sm:hidden">
           <span
             className={cn(
-              "text-[15px] font-bold tabular-nums",
+              "text-[17px] font-bold tabular-nums",
               isOwedToUser && "text-[#34D399]",
               isUserOwes && "text-[#F87171]",
               !isOwedToUser && !isUserOwes && "text-[#34D399]"
@@ -168,15 +185,24 @@ export function GroupInfoHeader({
       </div>
 
       {/* Action buttons row: mobile only */}
-      <div className="flex gap-2 px-4 sm:px-7 pb-3 sm:pb-4 sm:hidden">
-        <Btn
+      <div className="flex gap-2 px-4 sm:px-7 py-3 sm:py-4 sm:hidden">
+        <button
+          type="button"
           onClick={handleSettleClick}
-          variant="ghost"
-          className="flex-1"
-          style={{ padding: "10px 14px", fontSize: 13, justifyContent: "center" }}
+          className="flex-1 flex items-center justify-center gap-1.5 rounded-xl"
+          style={{
+            padding: "10px 14px",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.12)",
+            color: "#f5f5f5",
+            fontSize: 13,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
         >
           <Icons.wallet /> Settle All
-        </Btn>
+        </button>
         <button
           onClick={handleAddExpenseClick}
           disabled={isAddingExpense}
@@ -225,7 +251,8 @@ export function GroupInfoHeader({
           <Btn
             onClick={openAddMember}
             variant="ghost"
-            style={{ padding: "8px 14px", fontSize: 12, flexShrink: 0 }}
+            style={{ padding: "8px 14px", fontSize: 12, flexShrink: 0}}
+            className="sm:!flex  !hidden"
           >
             <Icons.userPlus /> Add Member
           </Btn>
