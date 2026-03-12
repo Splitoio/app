@@ -727,7 +727,7 @@ export default function Page() {
             ) : (friends ?? []).length === 0 ? (
               <p style={{ color: T.muted, fontSize: 13, padding: "8px 0" }}>No friends yet</p>
             ) : (
-              <div style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+              <div className="hide-scrollbar" style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
                 {(friends ?? []).map((friend) => {
                   const friendInit =
                     friend.name
