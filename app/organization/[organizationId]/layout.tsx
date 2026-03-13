@@ -34,6 +34,7 @@ import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
 import { OrganizationOrgProvider, useOrganizationOrg } from "@/contexts/organization-org-context";
 import { Card, Btn, T, A } from "@/lib/splito-design";
+import { motion, AnimatePresence } from "framer-motion";
 
 function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -327,132 +328,171 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
         <CreateContractModal isOpen={isCreateContractModalOpen} onClose={() => setIsCreateContractModalOpen(false)} organizationId={organizationId} onSuccess={() => {}} />
         <AddMemberModal isOpen={isAddMemberModalOpen} onClose={() => setIsAddMemberModalOpen(false)} groupId={organizationId} />
 
-        {declineInvoiceId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="fixed inset-0 bg-black/70" onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} />
-            <div className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-2xl" style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }} onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold mb-2" style={{ color: T.bright }}>Decline invoice</h3>
-              <p className="text-sm mb-4" style={{ color: T.body }}>Optionally add a reason (visible in activity).</p>
-              <input
-                type="text"
-                value={declineNote}
-                onChange={(e) => setDeclineNote(e.target.value)}
-                placeholder="Reason"
-                className="w-full rounded-xl border outline-none mb-4 font-medium"
-                style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: "#fff", fontSize: 14 }}
-              />
-              <div className="flex gap-3">
-                <Btn variant="ghost" onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} style={{ flex: 1 }}>Cancel</Btn>
-                <Btn
-                  variant="danger"
-                  onClick={() =>
-                    declineInvoiceMutation.mutate(
-                      { invoiceId: declineInvoiceId, note: declineNote || undefined },
-                      { onSuccess: () => { toast.success("Invoice declined"); setDeclineInvoiceId(null); setDeclineNote(""); }, onError: () => toast.error("Failed to decline") }
-                    )
-                  }
-                  style={{ flex: 1, opacity: declineInvoiceMutation.isPending ? 0.7 : 1, cursor: declineInvoiceMutation.isPending ? "not-allowed" : "pointer" }}
-                >
-                  {declineInvoiceMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Declining...</> : "Decline"}
-                </Btn>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isSettingsModalOpen && (
-          <div className="fixed inset-0 z-50 h-screen w-screen">
-            <div className="fixed inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsSettingsModalOpen(false)} />
-            <div
-              className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px] rounded-2xl p-6 z-[999]"
-              style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+        <AnimatePresence>
+          {declineInvoiceId && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
             >
-              <h2 className="text-xl font-extrabold tracking-[-0.02em] mb-6" style={{ color: T.bright }}>Organization settings</h2>
-              <form onSubmit={handleSettingsSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Organization Name</label>
-                  <input
-                    type="text"
-                    value={groupSettings.name || group.name}
-                    onChange={(e) => setGroupSettings((p) => ({ ...p, name: e.target.value }))}
-                    className="w-full rounded-xl outline-none font-medium"
-                    style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: T.bright, fontSize: 14 }}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Default Currency</label>
-                  <CurrencyDropdown selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []} setSelectedCurrencies={(currencies) => setGroupSettings((prev) => ({ ...prev, currency: currencies[0] || "" }))} mode="single" showFiatCurrencies={true} filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"} disableChainCurrencies={true} />
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <Btn variant="ghost" onClick={() => setIsSettingsModalOpen(false)}>Cancel</Btn>
-                  <button
-                    type="submit"
-                    style={{ padding: "9px 22px", borderRadius: 12, background: A, color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", border: "none" }}
+              <div className="absolute inset-0 bg-black/70" onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+                style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h3 className="text-lg font-semibold mb-2" style={{ color: T.bright }}>Decline invoice</h3>
+                <p className="text-sm mb-4" style={{ color: T.body }}>Optionally add a reason (visible in activity).</p>
+                <input
+                  type="text"
+                  value={declineNote}
+                  onChange={(e) => setDeclineNote(e.target.value)}
+                  placeholder="Reason"
+                  className="w-full rounded-xl outline-none mb-4 font-medium"
+                  style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: "#fff", fontSize: 14 }}
+                />
+                <div className="flex gap-3">
+                  <Btn variant="ghost" onClick={() => { setDeclineInvoiceId(null); setDeclineNote(""); }} style={{ flex: 1 }}>Cancel</Btn>
+                  <Btn
+                    variant="danger"
+                    onClick={() =>
+                      declineInvoiceMutation.mutate(
+                        { invoiceId: declineInvoiceId, note: declineNote || undefined },
+                        { onSuccess: () => { toast.success("Invoice declined"); setDeclineInvoiceId(null); setDeclineNote(""); }, onError: () => toast.error("Failed to decline") }
+                      )
+                    }
+                    style={{ flex: 1, opacity: declineInvoiceMutation.isPending ? 0.7 : 1, cursor: declineInvoiceMutation.isPending ? "not-allowed" : "pointer" }}
                   >
-                    Save
-                  </button>
+                    {declineInvoiceMutation.isPending ? <><Loader2 className="h-4 w-4 animate-spin" /> Declining...</> : "Decline"}
+                  </Btn>
                 </div>
-              </form>
-              {isAdmin && (
-                <div className="mt-8 pt-6 border-t border-white/[0.07]">
-                  <button
-                    onClick={handleDeleteOrganization}
-                    className="flex items-center gap-2 font-semibold text-sm transition-colors"
-                    style={{ color: "#F87171" }}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                    <span>Delete Organization</span>
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        <AnimatePresence>
+          {isSettingsModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={() => setIsSettingsModalOpen(false)} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative z-10 w-full max-w-[450px] rounded-2xl p-6"
+                style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="text-xl font-extrabold tracking-[-0.02em] mb-6" style={{ color: T.bright }}>Organization settings</h2>
+                <form onSubmit={handleSettingsSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Organization Name</label>
+                    <input
+                      type="text"
+                      value={groupSettings.name || group.name}
+                      onChange={(e) => setGroupSettings((p) => ({ ...p, name: e.target.value }))}
+                      className="w-full rounded-xl outline-none font-medium"
+                      style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: T.bright, fontSize: 14 }}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Default Currency</label>
+                    <CurrencyDropdown selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []} setSelectedCurrencies={(currencies) => setGroupSettings((prev) => ({ ...prev, currency: currencies[0] || "" }))} mode="single" showFiatCurrencies={true} filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"} disableChainCurrencies={true} />
+                  </div>
+                  <div className="flex justify-end gap-3 mt-6">
+                    <Btn variant="ghost" onClick={() => setIsSettingsModalOpen(false)}>Cancel</Btn>
+                    <button
+                      type="submit"
+                      style={{ padding: "9px 22px", borderRadius: 12, background: A, color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit", border: "none" }}
+                    >
+                      Save
+                    </button>
+                  </div>
+                </form>
+                {isAdmin && (
+                  <div className="mt-8 pt-6 border-t border-white/[0.07]">
+                    <button
+                      onClick={handleDeleteOrganization}
+                      className="flex items-center gap-2 font-semibold text-sm transition-colors"
+                      style={{ color: "#F87171" }}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                      <span>Delete Organization</span>
+                    </button>
+                  </div>
+                )}
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <ReceiptImageModal isOpen={!!expandedImage} onClose={() => setExpandedImage(null)} imageUrl={expandedImage?.url ?? ""} description={expandedImage?.description ?? "Invoice"} />
         <EditInvoiceModal isOpen={!!invoiceToEdit} onClose={() => setInvoiceToEdit(null)} invoice={invoiceToEdit} onSuccess={() => setInvoiceToEdit(null)} />
 
-        {isStreamModalOpen && (
-          <div className="fixed inset-0 z-50 h-screen w-screen">
-            <div className="fixed inset-0 bg-black/80 brightness-50" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }} />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px] rounded-[20px] bg-black p-6 border border-white/20 z-10">
-              <h2 className="text-xl font-medium text-white mb-6">{streamToEdit ? "Edit stream" : "Add income stream"}</h2>
-              <form onSubmit={handleStreamSubmit} className="space-y-4">
-                <div>
-                  <label className="block text-base text-white/80 mb-2">Name</label>
-                  <input type="text" value={streamForm.name} onChange={(e) => setStreamForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Client A" className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20" required />
-                </div>
-                <div>
-                  <label className="block text-base text-white/80 mb-2">Currency</label>
-                  <CurrencyDropdown
-                    selectedCurrencies={streamForm.currency ? [streamForm.currency] : []}
-                    setSelectedCurrencies={(currencies) =>
-                      setStreamForm((p) => ({ ...p, currency: currencies[0] || "USD" }))
-                    }
-                    mode="single"
-                    showFiatCurrencies={true}
-                    filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"}
-                    disableChainCurrencies={true}
-                  />
-                </div>
-                <div>
-                  <label className="block text-base text-white/80 mb-2">Amount</label>
-                  <input type="number" step="any" min="0" value={streamForm.expectedAmount} onChange={(e) => setStreamForm((p) => ({ ...p, expectedAmount: e.target.value }))} placeholder="0" className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20" />
-                </div>
-                <div>
-                  <label className="block text-base text-white/80 mb-2">Description</label>
-                  <input type="text" value={streamForm.description} onChange={(e) => setStreamForm((p) => ({ ...p, description: e.target.value }))} placeholder="Notes" className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20" />
-                </div>
-                <div className="flex justify-end gap-3 mt-6">
-                  <button type="button" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }} className="px-4 py-2 rounded-lg text-white/80 hover:text-white">Cancel</button>
-                  <button type="submit" disabled={createStreamMutation.isPending || updateStreamMutation.isPending} className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90 disabled:opacity-50">
-                    {streamToEdit ? (updateStreamMutation.isPending ? "Saving…" : "Save") : (createStreamMutation.isPending ? "Adding…" : "Add stream")}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        <AnimatePresence>
+          {isStreamModalOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            >
+              <div className="absolute inset-0 bg-black/70" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }} />
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="relative z-10 w-full max-w-md rounded-2xl p-6 shadow-2xl"
+                style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <h2 className="text-xl font-extrabold tracking-[-0.02em] mb-6" style={{ color: T.bright }}>{streamToEdit ? "Edit stream" : "Add income stream"}</h2>
+                <form onSubmit={handleStreamSubmit} className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Name</label>
+                    <input type="text" value={streamForm.name} onChange={(e) => setStreamForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Client A" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" required />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Currency</label>
+                    <CurrencyDropdown
+                      selectedCurrencies={streamForm.currency ? [streamForm.currency] : []}
+                      setSelectedCurrencies={(currencies) => setStreamForm((p) => ({ ...p, currency: currencies[0] || "USD" }))}
+                      mode="single"
+                      showFiatCurrencies={true}
+                      filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"}
+                      disableChainCurrencies={true}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Expected Amount</label>
+                    <input type="number" step="any" min="0" value={streamForm.expectedAmount} onChange={(e) => setStreamForm((p) => ({ ...p, expectedAmount: e.target.value }))} placeholder="0" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Description</label>
+                    <input type="text" value={streamForm.description} onChange={(e) => setStreamForm((p) => ({ ...p, description: e.target.value }))} placeholder="Notes" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" />
+                  </div>
+                  <div className="flex gap-3 pt-2">
+                    <Btn variant="ghost" className="flex-1" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }}>Cancel</Btn>
+                    <button type="submit" disabled={createStreamMutation.isPending || updateStreamMutation.isPending} className="flex-1 rounded-xl py-2.5 font-semibold text-sm disabled:opacity-50" style={{ background: A, color: "#0a0a0a" }}>
+                      {streamToEdit
+                        ? (updateStreamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Save changes")
+                        : (createStreamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Add stream")}
+                    </button>
+                  </div>
+                </form>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </div>
     </OrganizationOrgProvider>
   );

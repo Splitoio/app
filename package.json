@@ -46,6 +46,7 @@
     "petra-plugin-wallet-adapter": "^0.4.5",
     "react": "^18",
     "react-dom": "^18",
+    "recharts": "^2.15.0",
     "sonner": "^2.0.1",
     "stellar-sdk": "^13.1.0",
     "tailwind-merge": "^2.6.0",
