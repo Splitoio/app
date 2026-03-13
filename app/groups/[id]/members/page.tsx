@@ -85,29 +85,25 @@ export default function GroupMembersPage() {
               style={{ transition: "background 0.15s" }}
             >
               <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 14,
-                  padding: "15px 22px",
-                }}
+                className="flex items-center gap-3 sm:gap-[14px] px-4 py-4 sm:px-[22px] sm:py-[15px]"
+                style={{ minHeight: 72 }}
               >
                 <Avatar
                   init={getInit(member.user.name)}
                   color={color}
                   size={42}
                 />
-                <div style={{ flex: 1 }}>
-                  <p style={{ fontWeight: 700, fontSize: 14, color: T.bright }}>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-white truncate" style={{ color: T.bright, fontSize: 14 }}>
                     {isCurrentUser
                       ? `${member.user.name ?? "You"} (you)`
                       : member.user.name ?? "Member"}
                   </p>
                   <p
+                    className="text-xs mt-0.5 truncate"
                     style={{
                       fontSize: 12,
                       color: T.muted,
-                      marginTop: 3,
                       fontWeight: 500,
                     }}
                   >
@@ -117,17 +113,17 @@ export default function GroupMembersPage() {
                     </span>
                   </p>
                 </div>
-                {!isCurrentUser && (
-                  <div style={{ display: "flex", gap: 7 }}>
+                {!isCurrentUser ? (
+                  <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
                     <Btn
                       onClick={() => openSettle(member.user.id)}
                       variant="ghost"
                       style={{
-                        padding: "8px 14px",
-                        fontSize: 12,
+                        padding: "6px 10px",
+                        fontSize: 11,
                         display: "flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: 4,
                         fontWeight: 700,
                       }}
                     >
@@ -142,11 +138,11 @@ export default function GroupMembersPage() {
                       }
                       variant="ghost"
                       style={{
-                        padding: "8px 14px",
-                        fontSize: 12,
+                        padding: "6px 10px",
+                        fontSize: 11,
                         display: "flex",
                         alignItems: "center",
-                        gap: 5,
+                        gap: 4,
                         fontWeight: 600,
                       }}
                     >
@@ -156,7 +152,7 @@ export default function GroupMembersPage() {
                       <button
                         type="button"
                         onClick={() => handleRemoveMember(member.user.id)}
-                        className="shrink-0 flex items-center justify-center w-9 h-9 sm:w-[36px] sm:h-[36px] rounded-xl"
+                        className="hidden sm:flex items-center justify-center w-9 h-9 rounded-xl shrink-0"
                         style={{
                           background: "rgba(248,113,113,0.06)",
                           border: "1px solid rgba(248,113,113,0.15)",
@@ -169,6 +165,13 @@ export default function GroupMembersPage() {
                       </button>
                     )}
                   </div>
+                ) : (
+                  <span
+                    className="flex-shrink-0 text-[11px] font-semibold px-2.5 py-1 rounded-lg sm:text-xs sm:px-3 sm:py-1.5"
+                    style={{ color: T.muted, background: "rgba(255,255,255,0.06)" }}
+                  >
+                    You
+                  </span>
                 )}
               </div>
             </div>

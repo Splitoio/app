@@ -12,6 +12,7 @@ import { Toaster } from "sonner";
 import { OnboardingGate } from "@/components/onboarding-gate";
 import { PersonalMobileNav } from "@/components/personal-mobile-nav";
 import { OrganizationMobileNav } from "@/components/organization-mobile-nav";
+import { MobileFAB } from "@/components/mobile-fab";
 
 const instrumentSans = Instrument_Sans({
   subsets: ["latin"],
@@ -57,6 +58,7 @@ export default function RootLayout({
                 <MobileMenuToggle />
                 {isPersonalMode && <PersonalMobileNav />}
                 {isOrganizationMode && <OrganizationMobileNav />}
+                {isPersonalMode && <MobileFAB />}
                 <div className="min-[1025px]:pl-[226px] min-h-screen flex flex-col">
                   <main className="flex-1 bg-[#0b0b0b] min-h-screen relative flex flex-col min-w-0">
                     <div

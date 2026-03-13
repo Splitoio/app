@@ -201,9 +201,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           group={group}
         />
 
-        <div
-          className="p-4 pt-0 sm:pt-0 sm:p-7"
-        >
+        <div className="p-4 pt-0 sm:pt-0 sm:p-7">
           {children}
         </div>
 

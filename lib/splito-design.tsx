@@ -419,7 +419,7 @@ export const BackBtn = ({
       transition: "all 0.2s",
     }}
   >
-    ← Back
+    ←
   </button>
 );
 

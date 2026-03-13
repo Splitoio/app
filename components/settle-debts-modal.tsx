@@ -10,6 +10,7 @@ import { GroupBalance, User } from "@/api-helpers/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useMarkAsPaid } from "@/features/groups/hooks/use-create-group";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
+import { useIsMobile } from "@/hooks/useIsMobile";
 import { useQueryClient } from "@tanstack/react-query";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
@@ -863,6 +864,8 @@ export function SettleDebtsModal({
     );
   };
 
+  const isMobile = useIsMobile();
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -872,21 +875,33 @@ export function SettleDebtsModal({
         >
           <motion.div
             className="fixed inset-0 bg-black/70 brightness-50"
+            style={isMobile ? { backdropFilter: "blur(10px)" } : undefined}
             onClick={onClose}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
           />
-          <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[500px] px-4 sm:px-0">
+          <div
+            className={
+              isMobile
+                ? "modal-as-sheet-wrapper fixed inset-x-0 bottom-0 z-10 w-full max-w-[430px] mx-auto"
+                : "absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full md:w-[90%] max-w-[500px] px-4 sm:px-0"
+            }
+          >
+            {isMobile && <div className="modal-as-sheet-handle" />}
             {/* Settle All Debts Section - Only shown when header button is clicked */}
             {!showIndividualView && (
               <motion.div
-                className="relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
-                style={{ background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
-                {...scaleIn}
+                className={
+                  isMobile
+                    ? "modal-as-sheet-card relative z-10 p-5 sm:p-7"
+                    : "relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
+                }
+                style={isMobile ? undefined : { background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
+                {...(isMobile ? { initial: { y: "100%" }, animate: { y: 0 }, transition: { type: "tween", duration: 0.32, ease: [0.34, 1.2, 0.64, 1] } } : scaleIn)}
               >
-                <div className="flex items-center justify-between mb-5">
+                <div className={`flex items-center justify-between mb-5 ${isMobile ? "modal-as-sheet-title-bar pb-4" : ""}`}>
                   <div>
-                    <h2 className="text-xl font-extrabold text-white tracking-tight">
+                    <h2 className={`font-extrabold text-white tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>
                       Settle Debts
                     </h2>
                     <p className="mt-1.5 text-xs text-white/55">{displayGroupName}</p>
@@ -1271,13 +1286,17 @@ export function SettleDebtsModal({
             {/* Settle Individual Debt Section - Only shown when a friend's button is clicked */}
             {showIndividualView && (
               <motion.div
-                className="relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
-                style={{ background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
-                {...scaleIn}
+                className={
+                  isMobile
+                    ? "modal-as-sheet-card relative z-10 p-5 sm:p-7"
+                    : "relative z-10 rounded-[28px] p-7 border border-white/[0.09] shadow-[0_40px_100px_rgba(0,0,0,0.8)] max-h-[90vh] overflow-y-auto"
+                }
+                style={isMobile ? undefined : { background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
+                {...(isMobile ? { initial: { y: "100%" }, animate: { y: 0 }, transition: { type: "tween", duration: 0.32, ease: [0.34, 1.2, 0.64, 1] } } : scaleIn)}
               >
-                <div className="flex items-center justify-between mb-5">
+                <div className={`flex items-center justify-between mb-5 ${isMobile ? "modal-as-sheet-title-bar pb-4" : ""}`}>
                   <div>
-                    <h2 className="text-xl font-extrabold text-white tracking-tight">
+                    <h2 className={`font-extrabold text-white tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>
                       Settle {selectedUser ? (selectedUser.name || "Member").split(" ")[0] : "Debt"}
                     </h2>
                     <p className="mt-1.5 text-xs text-white/55">Individual settlement</p>

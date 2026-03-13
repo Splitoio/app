@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from "react";
 import { useWallet } from "@/hooks/useWallet";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { FriendsBreakdownModal } from "@/components/friends-breakdown-modal";
-import { AddFriendsModal } from "@/components/add-friends-modal";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useAnalytics } from "@/features/analytics/hooks/use-analytics";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
@@ -222,6 +221,46 @@ function GroupBalanceShort({
   );
 }
 
+/** Mobile group card balance cell: shows net + label ("owed to you" / "you owe" / "settled") */
+function GroupBalanceMobileCell({
+  group,
+  userId,
+  defaultCurrency,
+}: {
+  group: { groupBalances?: { userId: string; currency: string; amount: number }[] };
+  userId: string | null;
+  defaultCurrency: string;
+}) {
+  const oweItems =
+    !userId || !group.groupBalances?.length
+      ? []
+      : group.groupBalances
+          .filter((b) => b.userId === userId && b.amount > 0)
+          .map((b) => ({ amount: b.amount, currency: b.currency }));
+  const owedItems =
+    !userId || !group.groupBalances?.length
+      ? []
+      : group.groupBalances
+          .filter((b) => b.userId === userId && b.amount < 0)
+          .map((b) => ({ amount: Math.abs(b.amount), currency: b.currency }));
+  const { total: oweTotal, isLoading: loadOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
+  const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
+  if (loadOwe || loadOwed)
+    return <span style={{ color: "#888", fontSize: 14 }}>…</span>;
+  const net = (owedTotal ?? 0) - (oweTotal ?? 0);
+  const color = net > 0 ? G : net < 0 ? "#F87171" : T.dim;
+  const prefix = net > 0 ? "+" : net < 0 ? "-" : "±";
+  const label = net > 0 ? "owed to you" : net < 0 ? "you owe" : "settled";
+  return (
+    <div style={{ textAlign: "right" }}>
+      <p style={{ fontSize: 17, fontWeight: 800, fontFamily: "var(--font-dm-mono,monospace)", color }}>
+        {prefix}{formatCurrency(Math.abs(net), defaultCurrency)}
+      </p>
+      <p style={{ fontSize: 11, color: T.sub, marginTop: 2 }}>{label}</p>
+    </div>
+  );
+}
+
 /** Single friend card for Friends Balance: avatar, name, "Owes you $X" (green) or "You owe $X" (red) */
 function FriendBalanceCard({
   friendName,
@@ -324,7 +363,6 @@ export default function Page() {
   const [isSettleModalOpen, setIsSettleModalOpen] = useState(false);
   const [isFriendsBreakdownModalOpen, setIsFriendsBreakdownModalOpen] =
     useState(false);
-  const [isAddFriendModalOpen, setIsAddFriendModalOpen] = useState(false);
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [settleFriendGroupId, setSettleFriendGroupId] = useState<string | null>(
     null
@@ -468,161 +506,361 @@ export default function Page() {
 
   return (
     <div className="flex-1 flex flex-col min-w-0">
-      {/* Sticky header – design, responsive padding */}
+      {/* Sticky header – desktop only */}
       <div
-        className="border-b border-white/[0.07] px-7 flex items-center h-[70px] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
+        className="hidden sm:block border-b border-white/[0.07] sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10"
       >
-        <h1 className="text-[20px] font-extrabold tracking-[-0.02em] text-white">
-          Dashboard
-        </h1>
+        <div className="flex px-7 items-center h-[70px]">
+          <h1 className="text-[20px] font-extrabold tracking-[-0.02em] text-white">
+            Dashboard
+          </h1>
+        </div>
       </div>
 
       <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
-        {/* Balance hero – design, responsive */}
+        {/* ── Mobile status bar + header (matches splito mobile spec) ── */}
+        <div className="sm:hidden mb-3">
+          {/* Status bar */}
+         
+          {/* Page header */}
+          <div className="pb-2 px-0">
+            <p
+              className="text-[13px] font-medium"
+              style={{ color: T.muted }}
+            >
+              Good morning,
+            </p>
+            <h1 className="text-[26px] font-black tracking-[-0.04em] text-white mt-1">
+              <span className="text-[#22D3EE]">splito</span>
+            </h1>
+          </div>
+        </div>
+
+        {/* Balance hero – mobile uses net + 2-stat layout; desktop uses 3-stat layout */}
         <div
-            id="dashboard-overall-balance"
+          id="dashboard-overall-balance"
           className="rounded-2xl sm:rounded-3xl border border-white/[0.09] p-4 sm:p-7 mb-5 sm:mb-7 relative overflow-hidden"
           style={{
-            background: "linear-gradient(135deg, #111 0%, #0e0e0e 50%, #0f0f0f 100%)",
-            boxShadow: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.06)",
+            background: "linear-gradient(135deg, #141414 0%, #0f0f0f 100%)",
+            boxShadow: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
           }}
         >
           <div
             className="absolute -top-10 -right-10 w-[200px] h-[200px] rounded-full pointer-events-none"
-            style={{
-              background: netOwed >= 0 ? `${G}08` : "#F871710a",
-            }}
+            style={{ background: netOwed >= 0 ? `${G}09` : "#F8717109" }}
           />
-          <p
-            className="text-[11px] sm:text-[12px] font-bold tracking-[0.08em] uppercase mb-2.5"
-            style={{ color: T.muted }}
-          >
-            Overall balance
-          </p>
-          <p className="text-[22px] sm:text-[26px] font-extrabold tracking-[-0.02em] text-white mb-1">
-            {isGroupsLoading ? (
-              <span className="flex items-center gap-2">
-                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-                Loading…
-              </span>
-            ) : youOwe.length > 0 ? (
-              <>
-                Overall, you owe{" "}
-                <span style={{ color: "#F87171" }}>
-                  {overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)}
-                </span>
-              </>
-            ) : youGet.length > 0 ? (
-              <>
-                Overall, you are owed{" "}
-                <span style={{ color: G }}>
-                  +{overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)}
-                </span>
-              </>
-            ) : (
-              <span style={{ color: G }}>All settled ✓</span>
-            )}
-          </p>
-          <div
-            className="h-px my-[22px]"
-            style={{ background: "rgba(255,255,255,0.07)" }}
-          />
-          <div className="grid grid-cols-3 gap-0">
-            {[
-              [
-                "You owed this month",
-                isAnalyticsLoading || owedConvLoading
-                  ? "…"
-                  : formatCurrency(owedConverted, defaultCurrency),
-              ],
-              [
-                "You lent this month",
-                isAnalyticsLoading || lentConvLoading
-                  ? "…"
-                  : formatCurrency(lentConverted, defaultCurrency),
-              ],
-              [
-                "You settled this month",
-                isAnalyticsLoading || settledConvLoading
-                  ? "…"
-                  : settledThisMonth === 0 ? "$0.00" : formatCurrency(settledConverted, defaultCurrency),
-              ],
-            ].map(([label, value], i, arr) => (
-              <div
-                key={String(label)}
-                className={`min-w-0 ${i < arr.length - 1 ? "pr-2 sm:pr-[28px] border-r border-white/[0.07]" : ""} ${i > 0 ? "pl-2 sm:pl-[28px]" : ""} text-left`}
-              >
-                <p
-                  className="text-[10px] sm:text-[11px] mb-2 sm:mb-2.5 font-semibold tracking-[0.04em] truncate"
-                  style={{ color: T.muted }}
-                >
-                  {label}
-                </p>
-                <p
-                  className="text-[14px] sm:text-[22px] font-extrabold tracking-[-0.02em] font-dm-mono truncate"
-                  style={{ color: "#e8e8e8" }}
-                >
-                  {value}
-                </p>
-              </div>
-            ))}
-          </div>
-      </div>
 
-        {/* Your Groups + Recent Activity – design grid, responsive */}
-        <div
-          className="grid gap-4 sm:gap-5 mb-5 sm:mb-7"
-          style={{
-            gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))",
-          }}
-        >
-          <Card className="p-4 sm:p-[22px]">
-            <div className="flex justify-between items-center mb-4">
-              <SectionLabel>Your Groups</SectionLabel>
-              <span
-                className="text-[11px] font-bold rounded-full px-2.5 py-1 border border-white/[0.09]"
-                style={{ color: T.muted, background: "rgba(255,255,255,0.06)" }}
-              >
-                {groups?.length ?? 0} groups
-              </span>
+          {/* ── Mobile layout ─────────────────────────────────── */}
+          <div className="sm:hidden">
+            <p
+              className="text-[11px] font-bold tracking-[0.1em] uppercase mb-2"
+              style={{ color: T.muted }}
+            >
+              Net Balance
+            </p>
+            {isGroupsLoading ? (
+              <div className="flex items-center gap-2 mb-1">
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                <span className="text-white/60 text-sm">Loading…</span>
+              </div>
+            ) : (
+              <>
+                <p
+                  className="text-[36px] font-black tracking-[-0.04em] mb-1"
+                  style={{
+                    color: netOwed >= 0 ? G : "#F87171",
+                  }}
+                >
+                  {netOwed >= 0 ? "+" : "-"}
+                  {overallGetLoading || overallOweLoading
+                    ? "…"
+                    : formatCurrency(Math.abs(netOwed), defaultCurrency)}
+                </p>
+                <p className="text-[13px] font-medium mb-5" style={{ color: T.sub }}>
+                  {netOwed >= 0 ? "overall you're owed" : "overall you owe"}
+                </p>
+              </>
+            )}
+            <div className="h-px mb-5" style={{ background: "rgba(255,255,255,0.07)" }} />
+            <div className="grid grid-cols-2 gap-0">
+              {[
+                ["You're owed", overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency), G],
+                ["You owe", overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency), "#F87171"],
+              ].map(([label, value, color], i) => (
+                <div
+                  key={String(label)}
+                  className={i === 1 ? "pl-4 border-l border-white/[0.08]" : "pr-4"}
+                >
+                  <p className="text-[10px] font-bold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>
+                    {label}
+                  </p>
+                  <p className="text-[20px] font-extrabold font-dm-mono" style={{ color: color as string }}>
+                    {value}
+                  </p>
+                </div>
+              ))}
             </div>
+          </div>
+
+          {/* ── Desktop layout (unchanged) ──────────────────────── */}
+          <div className="hidden sm:block">
+            <p
+              className="text-[12px] font-bold tracking-[0.08em] uppercase mb-2.5"
+              style={{ color: T.muted }}
+            >
+              Overall balance
+            </p>
+            <p className="text-[26px] font-extrabold tracking-[-0.02em] text-white mb-1">
+              {isGroupsLoading ? (
+                <span className="flex items-center gap-2">
+                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                  Loading…
+                </span>
+              ) : youOwe.length > 0 ? (
+                <>
+                  Overall, you owe{" "}
+                  <span style={{ color: "#F87171" }}>
+                    {overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)}
+                  </span>
+                </>
+              ) : youGet.length > 0 ? (
+                <>
+                  Overall, you are owed{" "}
+                  <span style={{ color: G }}>
+                    +{overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)}
+                  </span>
+                </>
+              ) : (
+                <span style={{ color: G }}>All settled ✓</span>
+              )}
+            </p>
+            <div className="h-px my-[22px]" style={{ background: "rgba(255,255,255,0.07)" }} />
+            <div className="grid grid-cols-3 gap-0">
+              {[
+                ["You owed this month", isAnalyticsLoading || owedConvLoading ? "…" : formatCurrency(owedConverted, defaultCurrency)],
+                ["You lent this month", isAnalyticsLoading || lentConvLoading ? "…" : formatCurrency(lentConverted, defaultCurrency)],
+                ["You settled this month", isAnalyticsLoading || settledConvLoading ? "…" : settledThisMonth === 0 ? "$0.00" : formatCurrency(settledConverted, defaultCurrency)],
+              ].map(([label, value], i, arr) => (
+                <div
+                  key={String(label)}
+                  className={`min-w-0 ${i < arr.length - 1 ? "pr-[28px] border-r border-white/[0.07]" : ""} ${i > 0 ? "pl-[28px]" : ""} text-left`}
+                >
+                  <p className="text-[11px] mb-2.5 font-semibold tracking-[0.04em] truncate" style={{ color: T.muted }}>
+                    {label}
+                  </p>
+                  <p className="text-[22px] font-extrabold tracking-[-0.02em] font-dm-mono truncate" style={{ color: "#e8e8e8" }}>
+                    {value}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── MOBILE layout: groups → friends → activity ─────────── */}
+        <div className="sm:hidden">
+          {/* Your Groups */}
+          <div style={{ paddingBottom: 8 }}>
+            <SectionLabel>Your Groups</SectionLabel>
             {isGroupsLoading ? (
               <div className="flex items-center justify-center py-6">
                 <Loader2 className="h-5 w-5 animate-spin text-white/50" />
               </div>
+            ) : (groups ?? []).length === 0 ? (
+              <p style={{ color: T.muted, fontSize: 13, padding: "8px 0" }}>No groups yet</p>
             ) : (
-              (groups ?? []).slice(0, 3).map((g, i) => {
-                const userBalances = (g.groupBalances ?? []).filter(
-                  (b: { userId: string }) => b.userId === user?.id
-                );
-                const byCurr = userBalances.reduce(
-                  (acc: Record<string, number>, b: { currency: string; amount: number }) => {
-                    acc[b.currency] = (acc[b.currency] ?? 0) + b.amount;
-                    return acc;
-                  },
-                  {}
-                );
-                const oweItems = Object.entries(byCurr)
-                  .filter(([, a]) => a > 0)
-                  .map(([currency, amount]) => ({ amount, currency }));
-                const owedItems = Object.entries(byCurr)
-                  .filter(([, a]) => a < 0)
-                  .map(([currency, amount]) => ({ amount: Math.abs(amount), currency }));
+              (groups ?? []).map((g) => {
+                const memberCount = (g as { groupUsers?: unknown[] }).groupUsers?.length ?? 0;
+                const ago = formatRelativeTime(new Date((g as { updatedAt: Date }).updatedAt));
                 return (
                   <Link href={`/groups/${g.id}`} key={g.id}>
                     <div
-                      className="splito-row-hover flex items-center gap-3 py-[11px] border-b border-white/[0.06] cursor-pointer last:border-b-0"
-                      style={i < (groups.slice(0,3).length - 1) ? { borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 14,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 20,
+                        padding: "15px 16px",
+                        cursor: "pointer",
+                        marginBottom: 10,
+                      }}
                     >
-                      <GroupAvatar
-                        items={groupAvatarItems(g)}
-                        size={38}
-                        radius={11}
-                      />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[15px] font-bold text-[#f5f5f5] truncate">
+                      <GroupAvatar items={groupAvatarItems(g)} size={48} radius={15} />
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <p
+                          style={{
+                            fontSize: 15,
+                            fontWeight: 800,
+                            color: T.bright,
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                            whiteSpace: "nowrap",
+                          }}
+                        >
                           {g.name}
                         </p>
+                        <p style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>
+                          {memberCount} {memberCount === 1 ? "person" : "people"} · {ago}
+                        </p>
+                      </div>
+                      <GroupBalanceMobileCell
+                        group={g}
+                        userId={user?.id ?? null}
+                        defaultCurrency={defaultCurrency}
+                      />
+                    </div>
+                  </Link>
+                );
+              })
+            )}
+          </div>
+
+          {/* Friends – horizontal scroll */}
+          <div style={{ padding: "8px 0" }}>
+            <SectionLabel>Friends</SectionLabel>
+            {isFriendsLoading ? (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+              </div>
+            ) : (friends ?? []).length === 0 ? (
+              <p style={{ color: T.muted, fontSize: 13, padding: "8px 0" }}>No friends yet</p>
+            ) : (
+              <div className="hide-scrollbar" style={{ display: "flex", gap: 10, overflowX: "auto", paddingBottom: 4 }}>
+                {(friends ?? []).map((friend) => {
+                  const friendInit =
+                    friend.name
+                      ?.split(" ")
+                      .map((n: string) => n[0])
+                      .join("")
+                      .slice(0, 2)
+                      .toUpperCase() || "?";
+                  const color = getUserColor(friend.name);
+                  const firstName = friend.name?.split(" ")[0] ?? "Friend";
+                  return (
+                    <div
+                      key={friend.id}
+                      style={{
+                        flexShrink: 0,
+                        background: "rgba(255,255,255,0.04)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: 20,
+                        padding: "16px 14px",
+                        minWidth: 110,
+                        textAlign: "center",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "center", marginBottom: 10 }}>
+                        <Avatar init={friendInit} color={color} size={40} />
+                      </div>
+                      <p style={{ fontSize: 13, fontWeight: 700, color: T.bright }}>{firstName}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* Recent Activity */}
+          <div style={{ padding: "16px 0 0" }}>
+            <SectionLabel>Recent Activity</SectionLabel>
+            {isGroupsLoading || isRemindersLoading ? (
+              <div className="flex items-center justify-center py-6">
+                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+              </div>
+            ) : recentActivityFromGroups.length > 0 ? (
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 20,
+                  overflow: "hidden",
+                }}
+              >
+                {recentActivityFromGroups.map((a, i) => (
+                  <div
+                    key={a.id}
+                    style={{
+                      display: "flex",
+                      gap: 12,
+                      padding: "14px 16px",
+                      borderBottom:
+                        i < recentActivityFromGroups.length - 1
+                          ? "1px solid rgba(255,255,255,0.06)"
+                          : "none",
+                      alignItems: "flex-start",
+                    }}
+                  >
+                    <div
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: "50%",
+                        background: a.dotColor,
+                        flexShrink: 0,
+                        marginTop: 5,
+                      }}
+                    />
+                    <div style={{ flex: 1 }}>
+                      <p style={{ fontSize: 13, color: T.body, lineHeight: 1.5 }}>{a.text}</p>
+                      <p style={{ fontSize: 11, color: T.sub, marginTop: 3, fontWeight: 600 }}>
+                        {a.subtext}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div
+                style={{
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.07)",
+                  borderRadius: 20,
+                  padding: "40px 20px",
+                  textAlign: "center",
+                }}
+              >
+                <p style={{ fontSize: 36, marginBottom: 10 }}>📋</p>
+                <p style={{ fontSize: 14, fontWeight: 700, color: T.body }}>No recent activity</p>
+                <p style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>
+                  Expenses from your groups will appear here
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── DESKTOP layout: groups+activity grid, then friends balance ─ */}
+        <div className="hidden sm:block">
+          <div
+            className="grid gap-5 mb-7"
+            style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}
+          >
+            <Card className="p-[22px]">
+              <div className="flex justify-between items-center mb-4">
+                <SectionLabel>Your Groups</SectionLabel>
+                <span
+                  className="text-[11px] font-bold rounded-full px-2.5 py-1 border border-white/[0.09]"
+                  style={{ color: T.muted, background: "rgba(255,255,255,0.06)" }}
+                >
+                  {groups?.length ?? 0} groups
+                </span>
+              </div>
+              {isGroupsLoading ? (
+                <div className="flex items-center justify-center py-6">
+                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                </div>
+              ) : (
+                (groups ?? []).slice(0, 3).map((g, i) => (
+                  <Link href={`/groups/${g.id}`} key={g.id}>
+                    <div
+                      className="splito-row-hover flex items-center gap-3 py-[11px] border-b border-white/[0.06] cursor-pointer last:border-b-0"
+                      style={i < Math.min(groups.length, 3) - 1 ? { borderBottom: "1px solid rgba(255,255,255,0.06)" } : {}}
+                    >
+                      <GroupAvatar items={groupAvatarItems(g)} size={38} radius={11} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[15px] font-bold text-[#f5f5f5] truncate">{g.name}</p>
                         <p className="text-[13px] font-semibold" style={{ color: T.muted }}>
                           {(Array.isArray((g as { expenses?: unknown[] }).expenses)
                             ? (g as { expenses: unknown[] }).expenses.length
@@ -635,133 +873,92 @@ export default function Page() {
                         userId={user?.id ?? null}
                         defaultCurrency={defaultCurrency}
                       />
-          </div>
+                    </div>
                   </Link>
-                );
-              })
-            )}
-            {groups?.length === 0 && !isGroupsLoading && (
-              <p className="text-sm text-white/60 py-2">No groups yet</p>
-            )}
-          </Card>
+                ))
+              )}
+              {groups?.length === 0 && !isGroupsLoading && (
+                <p className="text-sm text-white/60 py-2">No groups yet</p>
+              )}
+            </Card>
 
-          <Card className="p-[22px] min-h-[200px] flex flex-col">
-            <SectionLabel>Recent Activity</SectionLabel>
-            {isGroupsLoading || isRemindersLoading ? (
-              <div className="flex justify-center py-8 flex-1 items-center">
-                <Loader2 className="h-5 w-5 animate-spin text-white/50" />
-              </div>
-            ) : recentActivityFromGroups.length > 0 ? (
-              <div className="flex flex-col">
-                {recentActivityFromGroups.map((a) => (
-                  <div
-                    key={a.id}
-                    className="flex gap-3 py-[9px] border-b border-white/[0.06] last:border-b-0"
-                  >
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0 mt-[5px]"
-                      style={{ background: a.dotColor }}
-                    />
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-[500] text-[#d4d4d4] leading-snug">
-                        {a.text}
-                      </p>
-                      <p className="text-[11px] mt-0.5 font-[600]" style={{ color: T.sub }}>
-                        {a.subtext}
-                      </p>
+            <Card className="p-[22px] min-h-[200px] flex flex-col">
+              <SectionLabel>Recent Activity</SectionLabel>
+              {isGroupsLoading || isRemindersLoading ? (
+                <div className="flex justify-center py-8 flex-1 items-center">
+                  <Loader2 className="h-5 w-5 animate-spin text-white/50" />
+                </div>
+              ) : recentActivityFromGroups.length > 0 ? (
+                <div className="flex flex-col">
+                  {recentActivityFromGroups.map((a) => (
+                    <div key={a.id} className="flex gap-3 py-[9px] border-b border-white/[0.06] last:border-b-0">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0 mt-[5px]" style={{ background: a.dotColor }} />
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-[500] text-[#d4d4d4] leading-snug">{a.text}</p>
+                        <p className="text-[11px] mt-0.5 font-[600]" style={{ color: T.sub }}>{a.subtext}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+              ) : (reminders ?? []).length > 0 ? (
+                <div className="flex flex-col">
+                  {(reminders ?? []).slice(0, 5).map((r) => (
+                    <div key={r.id} className="flex gap-3 py-2.5 border-b border-white/[0.06] last:border-b-0">
+                      <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: A }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[13px] font-medium leading-snug" style={{ color: T.body }}>{r.content || "Transaction request"}</p>
+                        <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>{r.createdAt ? formatRelativeTime(new Date(r.createdAt)) : ""}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
+                  <p className="text-[40px] mb-2" aria-hidden>📋</p>
+                  <p className="text-[13px] font-medium" style={{ color: T.body }}>No recent activity</p>
+                  <p className="text-[12px] mt-1" style={{ color: T.muted }}>Expenses and settlements from your groups will appear here</p>
+                </div>
+              )}
+            </Card>
           </div>
-            ) : (reminders ?? []).length > 0 ? (
-              <div className="flex flex-col">
-                {(reminders ?? []).slice(0, 5).map((r) => (
-                  <div
-                    key={r.id}
-                    className="flex gap-3 py-2.5 border-b border-white/[0.06] last:border-b-0"
-                  >
-                    <div
-                      className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5"
-                      style={{ background: A }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[13px] font-medium leading-snug" style={{ color: T.body }}>
-                        {r.content || "Transaction request"}
-                      </p>
-                      <p className="text-[11px] mt-0.5 font-semibold" style={{ color: T.sub }}>
-                        {r.createdAt ? formatRelativeTime(new Date(r.createdAt)) : ""}
-                      </p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="flex-1 flex flex-col items-center justify-center py-8 text-center">
-                <p className="text-[40px] mb-2" aria-hidden>📋</p>
-                <p className="text-[13px] font-medium" style={{ color: T.body }}>
-                  No recent activity
-                </p>
-                <p className="text-[12px] mt-1" style={{ color: T.muted }}>
-                  Expenses and settlements from your groups will appear here
-                </p>
-              </div>
-            )}
-          </Card>
-      </div>
 
-        {/* Friends Balance – design */}
-        <div>
-          <SectionLabel>Friends Balance</SectionLabel>
-          <div
-            className="grid gap-3"
-            style={{
-              gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))",
-            }}
-          >
-            {isFriendsLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-white/50" />
-              </div>
-            ) : (
-              (friends ?? [])
-                .filter((friend) => {
-                  const balances = friendBalancesFromGroups[friend.id] ?? [];
-                  const hasBalance = balances.some((b: { amount: number }) => b.amount !== 0);
-                  return hasBalance;
-                })
-                .map((friend, index) => {
-                  const balances = friendBalancesFromGroups[friend.id] ?? [];
-                  const oweItems = balances
-                    .filter((b: { amount: number }) => b.amount > 0)
-                    .map((b: { amount: number; currency: string }) => ({
-                      amount: b.amount,
-                      currency: b.currency,
-                    }));
-                  const owedItems = balances
-                    .filter((b: { amount: number }) => b.amount < 0)
-                    .map((b: { amount: number; currency: string }) => ({
-                      amount: Math.abs(b.amount),
-                      currency: b.currency,
-                    }));
-                  const friendInit =
-                    friend.name?.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
-                  const color = getUserColor(friend.name);
-                  return (
-                    <FriendBalanceCard
-                      key={friend.id}
-                      friendName={friend.name ?? "Friend"}
-                      friendInit={friendInit}
-                      color={color}
-                      oweItems={oweItems}
-                      owedItems={owedItems}
-                      defaultCurrency={defaultCurrency}
-                    />
-                  );
-                })
-            )}
-            {(!friends || friends.length === 0) && !isFriendsLoading && (
-              <p className="text-sm text-white/60 col-span-full py-4">No friends with balances</p>
-            )}
+          {/* Friends Balance – desktop grid */}
+          <div>
+            <SectionLabel>Friends Balance</SectionLabel>
+            <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))" }}>
+              {isFriendsLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-white/50" />
+                </div>
+              ) : (
+                (friends ?? [])
+                  .filter((friend) => {
+                    const balances = friendBalancesFromGroups[friend.id] ?? [];
+                    return balances.some((b: { amount: number }) => b.amount !== 0);
+                  })
+                  .map((friend) => {
+                    const balances = friendBalancesFromGroups[friend.id] ?? [];
+                    const oweItems = balances.filter((b: { amount: number }) => b.amount > 0).map((b: { amount: number; currency: string }) => ({ amount: b.amount, currency: b.currency }));
+                    const owedItems = balances.filter((b: { amount: number }) => b.amount < 0).map((b: { amount: number; currency: string }) => ({ amount: Math.abs(b.amount), currency: b.currency }));
+                    const friendInit = friend.name?.split(" ").map((n: string) => n[0]).join("").slice(0, 2).toUpperCase() || "?";
+                    const color = getUserColor(friend.name);
+                    return (
+                      <FriendBalanceCard
+                        key={friend.id}
+                        friendName={friend.name ?? "Friend"}
+                        friendInit={friendInit}
+                        color={color}
+                        oweItems={oweItems}
+                        owedItems={owedItems}
+                        defaultCurrency={defaultCurrency}
+                      />
+                    );
+                  })
+              )}
+              {(!friends || friends.length === 0) && !isFriendsLoading && (
+                <p className="text-sm text-white/60 col-span-full py-4">No friends with balances</p>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -787,10 +984,6 @@ export default function Page() {
         }}
       />
 
-      <AddFriendsModal
-        isOpen={isAddFriendModalOpen}
-        onClose={() => setIsAddFriendModalOpen(false)}
-      />
     </div>
   );
 }

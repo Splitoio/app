@@ -261,32 +261,46 @@ export function FriendsBreakdownModal({
       <AnimatePresence>
         {isOpen && (
           <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="fixed inset-0 z-50 h-screen w-screen"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
           >
-            <div className="absolute inset-0 bg-black/80" onClick={onClose} />
-            <motion.div
-              className="relative w-full max-w-2xl max-h-[90vh] overflow-auto rounded-[24px] bg-black p-5 sm:p-8 border border-white/10 shadow-[0_0_15px_rgba(255,255,255,0.05)]"
-              {...scaleIn}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <div>
-                  <div className="mb-1 text-xs sm:text-sm text-white/60">
-                    Debt Breakdown
+            <div
+              className="fixed inset-0 bg-black/80"
+              onClick={onClose}
+            />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-full max-w-[460px] px-4 sm:px-0">
+              <motion.div
+                {...scaleIn}
+                className="relative z-10"
+                style={{
+                  background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+                  border: "1px solid rgba(255,255,255,0.09)",
+                  borderRadius: 28,
+                  padding: 28,
+                  maxHeight: "90vh",
+                  overflowY: "auto",
+                  boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+                }}
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between mb-5">
+                  <div>
+                    <p className="text-[12px] font-semibold text-white/60 mb-1 tracking-[0.05em] uppercase">
+                      Debt Breakdown
+                    </p>
+                    <h2 className="text-[20px] font-extrabold text-white tracking-[-0.02em]">
+                      Your Outstanding Debts
+                    </h2>
                   </div>
-                  <h2 className="text-xl sm:text-3xl font-semibold text-white">
-                    Your Outstanding Debts
-                  </h2>
+                  <button
+                    onClick={onClose}
+                    className="rounded-full w-9 h-9 flex items-center justify-center hover:bg-white/10 border border-white/15"
+                  >
+                    <X className="h-4 w-4 text-white/70" />
+                  </button>
                 </div>
-                <button
-                  onClick={onClose}
-                  className="p-2 rounded-full hover:bg-white/[0.03] transition-colors"
-                >
-                  <X className="h-5 w-5 text-white/60" />
-                </button>
-              </div>
 
               {isLoading ? (
                 <div className="flex items-center justify-center py-12">
@@ -421,7 +435,8 @@ export function FriendsBreakdownModal({
                   )} */}
                 </>
               )}
-            </motion.div>
+              </motion.div>
+            </div>
           </motion.div>
         )}
       </AnimatePresence>

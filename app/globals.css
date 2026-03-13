@@ -25,6 +25,15 @@ body {
   background: #2a2a2e;
 }
 
+/* Hide scrollbar but keep scroll (e.g. horizontal friend cards) */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Remove increment/decrement buttons */
 input[type="number"]::-webkit-inner-spin-button,
 input[type="number"]::-webkit-outer-spin-button {
@@ -206,6 +215,53 @@ input[type="number"] {
   min-height: 100vh;
   font-family: var(--font-dm-sans), "DM Sans", "Segoe UI", sans-serif;
 }
+/* Spinner animation for loading states */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Modal entry animation used across modals */
+@keyframes mIn {
+  from { opacity: 0; transform: scale(0.93) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes fU {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes fI {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.3; }
+}
+
+/* Short-name hover aliases used across components */
+.rw:hover {
+  background: rgba(255, 255, 255, 0.03) !important;
+}
+.nv:hover {
+  background: rgba(255, 255, 255, 0.07) !important;
+  color: #e8e8e8 !important;
+}
+.btn:hover {
+  opacity: 0.85;
+  transform: translateY(-1px);
+}
+.abtn:hover {
+  border-color: rgba(34, 211, 238, 0.35) !important;
+  color: #22d3ee !important;
+  background: rgba(34, 211, 238, 0.08) !important;
+}
+.sbtn:hover {
+  background: #22d3ee !important;
+  color: #0a0a0a !important;
+  border-color: #22d3ee !important;
+  box-shadow: 0 0 20px rgba(34, 211, 238, 0.4) !important;
+}
 .splito-nav-item:hover {
   background: rgba(255, 255, 255, 0.07) !important;
   color: #e8e8e8 !important;
@@ -233,6 +289,64 @@ input[type="number"] {
 }
 input::placeholder {
   color: #555;
+}
+@keyframes mobileSheetUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Modal as bottom sheet on mobile (match Quick Add layout) */
+.modal-as-sheet-wrapper {
+  position: fixed !important;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  top: auto !important;
+  transform: none !important;
+  width: 100%;
+  max-width: 430px;
+  margin: 0 auto;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  animation: mobileSheetUp 0.32s cubic-bezier(0.34, 1.2, 0.64, 1);
+}
+.modal-as-sheet-handle {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding: 14px 0 6px;
+}
+.modal-as-sheet-handle::before {
+  content: "";
+  width: 40px;
+  height: 4px;
+  border-radius: 99px;
+  background: rgba(255, 255, 255, 0.15);
+}
+.modal-as-sheet-card {
+  border-radius: 26px 26px 0 0 !important;
+  max-height: 92vh !important;
+  overflow-y: auto;
+  background: linear-gradient(180deg, #161616 0%, #111 100%) !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+.modal-as-sheet-card .modal-as-sheet-title-bar {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  flex-shrink: 0;
+}
+.modal-as-sheet-card .modal-as-sheet-body {
+  padding: 16px 20px 28px;
+  flex: 1;
+  overflow-y: auto;
 }
 @keyframes splito-fadeIn {
   from {
