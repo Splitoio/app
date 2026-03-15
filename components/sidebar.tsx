@@ -363,7 +363,7 @@ export function Sidebar() {
                   </button>
                 </div>
               </div>
-              <div className="mt-3">
+              <div className="mt-auto">
                 <div className="flex items-center gap-2.5 py-3 px-[13px] rounded-2xl bg-white/[0.05] border border-white/[0.08]">
                   <div
                     className="w-[34px] h-[34px] rounded-full flex items-center justify-center text-[11px] font-extrabold shrink-0"
@@ -384,9 +384,9 @@ export function Sidebar() {
             </>
           )}
 
-          {/* Bottom Section (organization mode only; styled like personal user card) */}
+          {/* Bottom Section (organization mode only; pinned to bottom in web view) */}
           {isOrganizationMode && (
-              <div className="mt-3">
+              <div className="mt-auto pt-3">
                 <div className="relative" ref={orgSwitcherRef}>
                   <button
                     id="sidebar-org-switcher-button"

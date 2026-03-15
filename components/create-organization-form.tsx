@@ -1,19 +1,19 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronDown, Plus, X } from "lucide-react";
+import { Plus, X, Loader2 } from "lucide-react";
 import { useCreateOrganization } from "@/features/business/hooks/use-organizations";
 import { useAddMembersToGroup } from "@/features/groups/hooks/use-create-group";
 import { useAddFriend } from "@/features/friends/hooks/use-add-friend";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { motion, AnimatePresence } from "framer-motion";
-import { fadeIn } from "@/utils/animations";
+import { AnimatePresence } from "framer-motion";
 import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
 import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
+import { T, A } from "@/lib/splito-design";
 
 interface CreateOrganizationFormProps {
   isOpen: boolean;
@@ -28,39 +28,29 @@ interface Member {
   exists: boolean;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-function useAllChainsTokens() {
-  const [options, setOptions] = useState<ResolverOption[]>([]);
-  useEffect(() => {
-    let cancelled = false;
-    fetch(`${API_URL}/api/multichain/all-chains-tokens`, { credentials: "include" })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error("Failed to load tokens"))))
-      .then((data: any) => {
-        if (cancelled) return;
-        const chains = Array.isArray(data) ? data : data.chainsWithTokens || [];
-        const opts: ResolverOption[] = [];
-        chains.forEach((chain: any) => {
-          (chain.tokens || []).forEach((token: any) => {
-            opts.push({
-              chainId: chain.chainId,
-              id: token.id || token.symbol,
-              symbol: token.symbol,
-              name: token.name,
-              type: token.type,
-            });
-          });
-        });
-        setOptions(opts);
-      })
-      .catch(() => {
-        if (!cancelled) setOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-  return options;
-}
+const inputStyle: React.CSSProperties = {
+  width: "100%",
+  background: "rgba(255,255,255,0.05)",
+  border: "1.5px solid rgba(255,255,255,0.09)",
+  borderRadius: 14,
+  padding: "12px 16px",
+  color: "#fff",
+  fontSize: 14,
+  outline: "none",
+  boxSizing: "border-box",
+  fontFamily: "inherit",
+  fontWeight: 500,
+};
+
+const labelStyle: React.CSSProperties = {
+  color: "rgba(204,204,204,0.9)",
+  fontSize: 11,
+  fontWeight: 700,
+  letterSpacing: "0.08em",
+  textTransform: "uppercase",
+  marginBottom: 8,
+  display: "block",
+};
 
 export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFormProps) {
   const { user } = useAuthStore();
@@ -69,10 +59,21 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
   const addFriendMutation = useAddFriend();
   const router = useRouter();
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
-  const [formData, setFormData] = useState({ name: "", memberEmail: "", currency: "" });
+  const [formData, setFormData] = useState({ name: "", memberEmail: "" });
   const [members, setMembers] = useState<Member[]>([]);
-  const allChainTokenOptions = useAllChainsTokens();
   const [resolver, setResolver] = useState<ResolverOption | undefined>(undefined);
+
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    if (isOpen) {
+      document.addEventListener("keydown", handleEscape);
+      document.body.style.overflow = "hidden";
+    }
+    return () => {
+      document.removeEventListener("keydown", handleEscape);
+      document.body.style.overflow = "unset";
+    };
+  }, [isOpen, onClose]);
 
   const checkUserExists = async (email: string): Promise<Member | null> => {
     try {
@@ -87,17 +88,11 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
         exists: !!userData.emailVerified,
       };
     } catch {
-      return {
-        id: Date.now().toString(),
-        email: email,
-        name: email.split("@")[0],
-        exists: false,
-      };
+      return { id: Date.now().toString(), email, name: email.split("@")[0], exists: false };
     } finally {
       setIsCheckingEmail(false);
     }
   };
-
 
   const inviteMembers = async (organizationId: string) => {
     const invitationPromises = members.map((member) =>
@@ -111,15 +106,9 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.name.trim()) {
-      toast.error("Please enter an organization name");
-      return;
-    }
+    if (!formData.name.trim()) { toast.error("Please enter an organization name"); return; }
     const payload: Record<string, unknown> = { name: formData.name, type: "BUSINESS" };
-    if (resolver?.chainId) {
-      payload.tokenId = resolver.id;
-      payload.chainId = resolver.chainId;
-    }
+    if (resolver?.chainId) { payload.tokenId = resolver.id; payload.chainId = resolver.chainId; }
     createOrganizationMutation.mutate(payload as { name: string; type: "BUSINESS"; tokenId?: string; chainId?: string }, {
       onSuccess: async (data: { id: string }) => {
         if (resolver && data?.id) {
@@ -134,15 +123,13 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
           }
         }
         if (members.length > 0) await inviteMembers(data.id);
-        setFormData({ name: "", memberEmail: "", currency: "" });
+        setFormData({ name: "", memberEmail: "" });
         setMembers([]);
         toast.success("Organization created successfully!");
         onClose();
         router.push(`/organization/organizations/${data.id}`);
       },
-      onError: () => {
-        toast.error("Failed to create organization");
-      },
+      onError: () => { toast.error("Failed to create organization"); },
     });
   };
 
@@ -150,25 +137,14 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
     e.preventDefault();
     const email = formData.memberEmail.trim().toLowerCase();
     if (!email) return;
-    if (!isValidEmail(email)) {
-      toast.error("Please enter a valid email address (e.g. name@example.com)");
-      return;
-    }
-    if (members.some((m) => m.email.toLowerCase() === email)) {
-      toast.error("This member has already been added");
-      return;
-    }
+    if (!isValidEmail(email)) { toast.error("Please enter a valid email address (e.g. name@example.com)"); return; }
+    if (members.some((m) => m.email.toLowerCase() === email)) { toast.error("This member has already been added"); return; }
     const userCheck = await checkUserExists(email);
-    if (userCheck) {
-      setMembers([...members, { ...userCheck, id: userCheck.id || Date.now().toString() }]);
-    }
-
+    if (userCheck) setMembers([...members, { ...userCheck, id: userCheck.id || Date.now().toString() }]);
     setFormData((prev) => ({ ...prev, memberEmail: "" }));
   };
 
-  const removeMember = (memberId: string) => {
-    setMembers((m) => m.filter((member) => member.id !== memberId));
-  };
+  const removeMember = (memberId: string) => setMembers((m) => m.filter((member) => member.id !== memberId));
 
   const handleResolverChange = (option: ResolverOption | undefined) => {
     if (option && !option.chainId) {
@@ -181,101 +157,200 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
 
   if (!isOpen) return null;
 
+  const isSubmitting = createOrganizationMutation.isPending;
+  const canSubmit = !isSubmitting && !!formData.name.trim();
+
   return (
-    <AnimatePresence>
-      <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...fadeIn}>
-        <div className="fixed inset-0 bg-black/70 brightness-50" onClick={onClose} />
-        <div
-          className="relative z-10 bg-black rounded-3xl w-full max-w-md border border-white/70"
-          onClick={(e) => e.stopPropagation()}
-          style={{ overflow: "visible" }}
-        >
-          <div className="p-8">
-            <h2 className="text-xl font-semibold text-white mb-6">Create Organization</h2>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <label className="block text-base text-white">Organization Name</label>
-                <input
-                  id="org-name-input"
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
-                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                  placeholder="New Organization"
-                />
-              </div>
-              <div style={{ overflow: "visible" }}>
-                <label className="block text-base text-white mb-2">Choose Payment Token</label>
-                <ResolverSelector value={resolver} onChange={handleResolverChange} />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-base text-white">Invite members</label>
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={formData.memberEmail}
-                    onChange={(e) => setFormData((prev) => ({ ...prev, memberEmail: e.target.value }))}
-                    onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddMember(e))}
-                    className="flex-1 h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                    placeholder="me@email.com"
-                    disabled={isCheckingEmail}
-                  />
-                  <button
-                    type="button"
-                    onClick={handleAddMember}
-                    className="w-12 h-12 bg-white rounded-full flex items-center justify-center"
-                    disabled={isCheckingEmail || !formData.memberEmail.trim() || !isValidEmail(formData.memberEmail.trim())}
-                  >
-                    <Plus className="h-5 w-5 text-black" />
-                  </button>
-                </div>
-                {members.length > 0 && (
-                  <div className="mt-4 max-h-[140px] overflow-y-auto pr-1 space-y-2">
-                    <AnimatePresence>
-                      {members.map((member) => (
-                        <motion.div
-                          key={member.id}
-                          initial={{ opacity: 0, y: -10 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          exit={{ opacity: 0, x: -10 }}
-                          className="flex items-center justify-between p-3 bg-white/5 rounded-lg"
-                        >
-                          <div className="flex items-center overflow-hidden">
-                            {member.image ? (
-                              <div className="w-8 h-8 rounded-full mr-3 flex-shrink-0 overflow-hidden">
-                                <Image src={member.image} alt={member.name || member.email} width={32} height={32} className="h-full w-full object-cover" />
-                              </div>
-                            ) : (
-                              <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center mr-3 flex-shrink-0">
-                                {(member.name || member.email).charAt(0).toUpperCase()}
-                              </div>
-                            )}
-                            <div className="overflow-hidden">
-                              {member.name && <p className="text-white text-sm font-medium truncate">{member.name}</p>}
-                              <p className="text-white/60 text-xs truncate">{member.email}</p>
-                            </div>
-                          </div>
-                          <button type="button" onClick={() => removeMember(member.id)} className="text-white/70 hover:text-white p-1 ml-2 flex-shrink-0">
-                            <X className="h-4 w-4" />
-                          </button>
-                        </motion.div>
-                      ))}
-                    </AnimatePresence>
-                  </div>
-                )}
-              </div>
-              <button
-                id="org-create-button"
-                type="submit"
-                className="w-full h-12 bg-white text-black rounded-full font-medium hover:bg-white/90 transition-colors mt-8"
-                disabled={createOrganizationMutation.isPending}
-              >
-                {createOrganizationMutation.isPending ? "Creating..." : "Create Organization"}
-              </button>
-            </form>
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      {/* Backdrop */}
+      <div
+        className="fixed inset-0"
+        style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(16px)" }}
+        onClick={onClose}
+      />
+
+      {/* Modal */}
+      <div
+        className="relative z-10 w-full max-w-[500px] rounded-[28px] p-7 max-h-[90vh] overflow-y-auto"
+        style={{
+          background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+          border: "1px solid rgba(255,255,255,0.09)",
+          boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+          animation: "mIn 0.3s cubic-bezier(.34,1.56,.64,1)",
+        }}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-start justify-between mb-6">
+          <div>
+            <p style={{ color: "#fff", fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>
+              Create Organization
+            </p>
+            <p style={{ color: T.mid, fontSize: 12, marginTop: 4 }}>
+              Set up a new business organization.
+            </p>
           </div>
+          <button
+            onClick={onClose}
+            style={{
+              background: "rgba(255,255,255,0.07)",
+              border: "1px solid rgba(255,255,255,0.10)",
+              color: "rgba(255,255,255,0.60)",
+              width: 34, height: 34,
+              borderRadius: "50%",
+              cursor: "pointer",
+              fontSize: 18,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            ×
+          </button>
         </div>
-      </motion.div>
-    </AnimatePresence>
+
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* Organization name */}
+          <div>
+            <label style={labelStyle}>Organization Name</label>
+            <input
+              id="org-name-input"
+              type="text"
+              autoFocus
+              value={formData.name}
+              onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
+              placeholder="e.g. Acme Corp"
+              style={inputStyle}
+            />
+          </div>
+
+          {/* Payment token */}
+          <div style={{ overflow: "visible" }}>
+            <label style={labelStyle}>Payment Token</label>
+            <ResolverSelector value={resolver} onChange={handleResolverChange} />
+          </div>
+
+          {/* Invite members */}
+          <div>
+            <label style={labelStyle}>Invite Members</label>
+            <div className="flex gap-2">
+              <input
+                type="email"
+                value={formData.memberEmail}
+                onChange={(e) => setFormData((prev) => ({ ...prev, memberEmail: e.target.value }))}
+                onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), handleAddMember(e))}
+                placeholder="member@email.com"
+                disabled={isCheckingEmail}
+                style={{ ...inputStyle, flex: 1 }}
+              />
+              <button
+                type="button"
+                onClick={handleAddMember}
+                disabled={isCheckingEmail || !formData.memberEmail.trim() || !isValidEmail(formData.memberEmail.trim())}
+                style={{
+                  width: 46, height: 46,
+                  borderRadius: 14,
+                  border: "1.5px solid rgba(255,255,255,0.09)",
+                  background: "rgba(255,255,255,0.06)",
+                  color: "rgba(255,255,255,0.7)",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  cursor: "pointer",
+                  flexShrink: 0,
+                  transition: "all 0.2s",
+                }}
+              >
+                {isCheckingEmail ? <Loader2 style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }} /> : <Plus style={{ width: 16, height: 16 }} />}
+              </button>
+            </div>
+
+            {/* Member list */}
+            {members.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <AnimatePresence>
+                  {members.map((member) => (
+                    <div
+                      key={member.id}
+                      className="flex items-center gap-3 px-3 py-2.5 rounded-2xl"
+                      style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}
+                    >
+                      <div className="h-8 w-8 rounded-full overflow-hidden flex-shrink-0 border border-white/[0.1]">
+                        {member.image ? (
+                          <Image src={member.image} alt={member.name || member.email} width={32} height={32} className="h-full w-full object-cover" />
+                        ) : (
+                          <div className="h-full w-full flex items-center justify-center text-[12px] font-bold" style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}>
+                            {(member.name || member.email).charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        {member.name && <p className="text-[13px] font-semibold truncate" style={{ color: T.bright }}>{member.name}</p>}
+                        <p className="text-[11px] truncate" style={{ color: T.dim }}>{member.email}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => removeMember(member.id)}
+                        style={{ color: "rgba(255,255,255,0.4)", cursor: "pointer", background: "none", border: "none", padding: 4, display: "flex" }}
+                      >
+                        <X style={{ width: 14, height: 14 }} />
+                      </button>
+                    </div>
+                  ))}
+                </AnimatePresence>
+              </div>
+            )}
+          </div>
+
+          {/* Submit */}
+          <div className="flex gap-3 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              style={{
+                flex: 1,
+                padding: "13px",
+                background: "rgba(255,255,255,0.05)",
+                color: "rgba(255,255,255,0.5)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                borderRadius: 14,
+                fontSize: 14,
+                fontWeight: 700,
+                cursor: "pointer",
+                fontFamily: "inherit",
+              }}
+            >
+              Cancel
+            </button>
+            <button
+              id="org-create-button"
+              type="submit"
+              disabled={!canSubmit}
+              style={{
+                flex: 2,
+                padding: "13px",
+                background: canSubmit ? A : "rgba(255,255,255,0.05)",
+                color: canSubmit ? "#0a0a0a" : "#555",
+                border: "none",
+                borderRadius: 14,
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: canSubmit ? "pointer" : "default",
+                fontFamily: "inherit",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                transition: "all 0.2s",
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }} />
+                  Creating…
+                </>
+              ) : "Create Organization"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from "react";
 import { usePathname } from "next/navigation";
-import { useGetUser } from "@/features/user/hooks/use-update-profile";
+import { useGetUser, useUpdateUser } from "@/features/user/hooks/use-update-profile";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { OnboardingModal } from "./onboarding-modal";
 import { OnboardingTutorial, type OnboardingMode, type OrganizationOnboardingPhase } from "./onboarding-tutorial";
@@ -20,10 +20,12 @@ function isOrgAdmin(
 export function OnboardingGate() {
   const pathname = usePathname();
   const { data: userData, isLoading } = useGetUser();
+  const { mutate: updateUser } = useUpdateUser();
   const { data: organizations = [], isFetched: orgsFetched } = useGetAllOrganizations({
     enabled: (APP_MODE === "organization" || pathname?.startsWith("/organization")) && !!userData?.id,
   });
   const [showTutorial, setShowTutorial] = useState(false);
+
   const mode: OnboardingMode =
     APP_MODE === "organization" || pathname?.startsWith("/organization")
       ? "organization"
@@ -56,35 +58,43 @@ export function OnboardingGate() {
   useEffect(() => {
     if (!userData?.id || isAuthPage || isLoading) return;
     if (mode === "organization" && !orgsFetched) return;
+    if (isNewProfile) return;
 
     if (mode === "personal") {
-      const key = `hasSeenTutorial_personal_${userData.id}`;
-      if (!localStorage.getItem(key) && !isNewProfile) {
-        setShowTutorial(true);
-      }
+      if (!userData.onboardedPersonal) setShowTutorial(true);
       return;
     }
 
     if (mode === "organization" && organizationPhase) {
-      const key = `hasSeenTutorial_organization_${organizationPhase}_${userData.id}`;
-      if (!localStorage.getItem(key) && !isNewProfile) {
-        setShowTutorial(true);
-      } else {
-        setShowTutorial(false);
-      }
+      const seen =
+        organizationPhase === "no-org"
+          ? userData.onboardedOrgNoOrg
+          : userData.onboardedOrgInOrg;
+      setShowTutorial(!seen);
     }
   }, [userData, isNewProfile, isLoading, isAuthPage, mode, orgsFetched, organizationPhase]);
 
-  if (isAuthPage || isLoading || !userData) {
-    return null;
-  }
+  const handleTutorialComplete = () => {
+    setShowTutorial(false);
+
+    // Persist to backend so the tutorial never shows again across devices
+    if (mode === "personal") {
+      updateUser({ onboardedPersonal: true });
+    } else if (mode === "organization") {
+      if (organizationPhase === "no-org") {
+        updateUser({ onboardedOrgNoOrg: true });
+      } else {
+        updateUser({ onboardedOrgInOrg: true });
+      }
+    }
+  };
+
+  if (isAuthPage || isLoading || !userData) return null;
 
   if (isNewProfile) {
     return (
       <OnboardingModal
-        onComplete={() => {
-          setShowTutorial(true);
-        }}
+        onComplete={() => setShowTutorial(true)}
       />
     );
   }
@@ -92,11 +102,10 @@ export function OnboardingGate() {
   if (showTutorial) {
     return (
       <OnboardingTutorial
-        userId={userData.id}
         mode={mode}
         isOrgAdmin={mode === "organization" ? isOrgAdminUser : undefined}
         organizationPhase={mode === "organization" ? organizationPhase ?? undefined : undefined}
-        onComplete={() => setShowTutorial(false)}
+        onComplete={handleTutorialComplete}
       />
     );
   }

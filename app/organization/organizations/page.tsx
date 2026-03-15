@@ -12,7 +12,7 @@ import { useDeleteGroup } from "@/features/groups/hooks/use-create-group";
 import { Loader2, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { Card, Btn, T, A, Icons } from "@/lib/splito-design";
+import { Card, SectionLabel, Btn, T, A, Icons } from "@/lib/splito-design";
 
 function isOrgAdmin(
   org: { userId: string; groupUsers?: { userId: string; role?: string | null }[] },
@@ -43,18 +43,18 @@ export default function OrganizationOrganizationsPage() {
         </button>
       </div>
 
-      <div className="flex-1 p-7 overflow-y-auto" style={{ padding: "28px" }}>
-        <Card className="p-[22px]">
+      <div className="flex-1 p-4 sm:p-7 overflow-y-auto">
+        <SectionLabel className="mb-3">Organizations</SectionLabel>
+        <Card className="p-0 overflow-hidden">
           {isLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin" style={{ color: T.muted }} />
             </div>
           ) : organizations.length > 0 ? (
-            organizations.map((org, idx) => (
+            organizations.map((org) => (
               <div
                 key={org.id}
-                className="flex items-center justify-between gap-2 py-4"
-                style={{ borderBottom: idx < organizations.length - 1 ? "1px solid rgba(255,255,255,0.06)" : "none" }}
+                className="flex items-center justify-between gap-2 px-4 sm:px-5 py-4 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.015] transition-colors"
               >
                 <Link href={`/organization/${org.id}/invoices`} className="flex flex-1 min-w-0 items-center gap-3 sm:gap-4">
                   <div className="h-10 w-10 sm:h-12 sm:w-12 overflow-hidden rounded-xl shrink-0 border border-white/[0.08] bg-white/[0.03]">
@@ -73,7 +73,14 @@ export default function OrganizationOrganizationsPage() {
               </div>
             ))
           ) : (
-            <p className="text-center py-12 text-sm" style={{ color: T.body }}>No organizations yet. Create one to get started!</p>
+            <div className="flex flex-col items-center justify-center py-16 text-center px-4">
+              <div className="text-[48px] mb-4">🏢</div>
+              <h2 className="text-[16px] font-bold text-white mb-2">No organizations yet</h2>
+              <p className="text-[13px] mb-5" style={{ color: T.muted }}>Create one to get started.</p>
+              <button onClick={() => setIsCreateModalOpen(true)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 20px", borderRadius: 12, background: A, color: "#0a0a0a", border: "none", fontSize: 13, fontWeight: 800, cursor: "pointer", fontFamily: "inherit" }}>
+                {Icons.plus({ size: 16 })} Add organization
+              </button>
+            </div>
           )}
         </Card>
       </div>

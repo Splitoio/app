@@ -14,6 +14,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { AddWalletModal } from "@/components/add-wallet-modal";
+import { ChangePasswordModal } from "@/components/change-password-modal";
 import type { User } from "@/api-helpers/modelSchema/UserSchema";
 import { Card, Btn, T, Icons, A, getUserColor } from "@/lib/splito-design";
 
@@ -57,149 +58,17 @@ const CURRENCY_FLAG: Record<string, string> = {
   INR: "🇮🇳", CNY: "🇨🇳", AUD: "🇦🇺", CAD: "🇨🇦", CHF: "🇨🇭",
 };
 
-export function SettingsPageContent(props: SettingsPageContentProps) {
-  const {
-    user,
-    displayName,
-    setDisplayName,
-    preferredCurrency,
-    setPreferredCurrency,
-    hasChanges,
-    handleSaveChanges,
-    isUpdatatingUser,
-    wallets,
-    handleRemoveWallet,
-    handleSetAsPrimary,
-    getChainName,
-    isAddingWallet,
-    isWalletModalOpen,
-    setIsWalletModalOpen,
-    isRemovingWallet,
-    isRemoveConfirmOpen,
-    confirmRemoveWallet,
-    cancelRemoveWallet,
-    isUploadingImage,
-    uploadProgress,
-    uploadError,
-    handleImageUpload,
-    selectedCurrencies,
-    setSelectedCurrencies,
-    isLoadingWallets,
-    onLogout,
-    isLoggingOut = false,
-    groupCount = 0,
-    friendCount = 0,
-    settledCount = 0,
-  } = props;
-
-  const [notificationsOn, setNotificationsOn] = React.useState(true);
-  const [isMobile, setIsMobile] = React.useState(false);
-  const [editingProfile, setEditingProfile] = React.useState(false);
-
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 767px)");
-    const set = () => setIsMobile(mq.matches);
-    set();
-    mq.addEventListener("change", set);
-    return () => mq.removeEventListener("change", set);
-  }, []);
-
-  const userEmail = user?.email ?? "";
-  const userInitial = (displayName || user?.name || "Y").charAt(0).toUpperCase();
-  const userColor = getUserColor(user?.name || "You");
-  const currencyFlag = CURRENCY_FLAG[preferredCurrency] ?? "💱";
-
-  // Chain metadata
-  const CHAIN_META: Record<string, { color: string; icon: string }> = {
-    Aptos: { color: "#22D3EE", icon: "⬡" },
-    Ethereum: { color: "#818CF8", icon: "◆" },
-    Base: { color: "#3B82F6", icon: "🔵" },
-    Solana: { color: "#A78BFA", icon: "◎" },
-    Stellar: { color: "#34D399", icon: "✦" },
-    Polygon: { color: "#A855F7", icon: "⬟" },
-  };
-
-  const getChainMeta = (chainName: string) =>
-    CHAIN_META[chainName] || { color: "#666", icon: "◆" };
-
-  // Shared avatar upload
-  function AvatarUpload({ id, size }: { id: string; size: number }) {
-    return (
-      <div style={{ position: "relative" }}>
-        <label htmlFor={id} style={{ cursor: isUploadingImage ? "not-allowed" : "pointer", display: "block" }}>
-          <div
-            style={{
-              width: size,
-              height: size,
-              borderRadius: "50%",
-              background: `${userColor}1a`,
-              border: `2.5px solid ${userColor}55`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              fontSize: size * 0.32,
-              fontWeight: 800,
-              color: userColor,
-              overflow: "hidden",
-            }}
-          >
-            {user.image ? (
-              <Image src={user.image} alt="Profile" width={size} height={size} className="h-full w-full object-cover" />
-            ) : (
-              <span>{userInitial}</span>
-            )}
-          </div>
-          {isUploadingImage && (
-            <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(0,0,0,0.7)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-              <Loader2 className="h-5 w-5 animate-spin text-white" />
-              <span style={{ fontSize: 10, color: "#fff" }}>{uploadProgress}%</span>
-            </div>
-          )}
-          <button
-            type="button"
-            style={{
-              position: "absolute",
-              bottom: 0,
-              right: 0,
-              width: size * 0.3,
-              height: size * 0.3,
-              borderRadius: "50%",
-              background: "#1e1e1e",
-              border: "2px solid rgba(255,255,255,0.18)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              cursor: isUploadingImage ? "not-allowed" : "pointer",
-              color: T.body,
-            }}
-            onClick={(e) => { e.preventDefault(); document.getElementById(id)?.click(); }}
-          >
-            {Icons.camera({ size: Math.round(size * 0.15) })}
-          </button>
-          <input
-            id={id}
-            type="file"
-            accept="image/png, image/jpeg"
-            className="hidden"
-            disabled={isUploadingImage}
-            onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }}
-          />
-        </label>
-        {uploadError && <p style={{ fontSize: 11, color: "#F87171", marginTop: 4, textAlign: "center" }}>{uploadError}</p>}
-      </div>
-    );
-  }
-
-  // Desktop Row component
-  const Row = ({
-    children,
-    style = {},
-    onClick,
-  }: {
-    children: React.ReactNode;
-    style?: React.CSSProperties;
-    onClick?: () => void;
-  }) => (
+// Desktop Row component
+function Row({
+  children,
+  style = {},
+  onClick,
+}: {
+  children: React.ReactNode;
+  style?: React.CSSProperties;
+  onClick?: () => void;
+}) {
+  return (
     <div
       role={onClick ? "button" : undefined}
       onClick={onClick}
@@ -215,9 +84,11 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       {children}
     </div>
   );
+}
 
-  // Section label
-  const SLabel = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+// Section label
+function SLabel({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
     <div
       style={{
         color: T.soft,
@@ -235,8 +106,10 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       {children}
     </div>
   );
+}
 
-  const Toggle = ({ on, onChange }: { on: boolean; onChange: () => void }) => (
+function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
+  return (
     <div
       onClick={onChange}
       role="switch"
@@ -267,9 +140,11 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       />
     </div>
   );
+}
 
-  // Mobile section card wrapper
-  const MobileCard = ({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) => (
+// Mobile section card wrapper
+function MobileCard({ children, style = {} }: { children: React.ReactNode; style?: React.CSSProperties }) {
+  return (
     <div
       style={{
         background: "rgba(255,255,255,0.04)",
@@ -282,17 +157,19 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       {children}
     </div>
   );
+}
 
-  // Mobile row inside a card
-  const MobileRow = ({
-    children,
-    last = false,
-    onClick,
-  }: {
-    children: React.ReactNode;
-    last?: boolean;
-    onClick?: () => void;
-  }) => (
+// Mobile row inside a card
+function MobileRow({
+  children,
+  last = false,
+  onClick,
+}: {
+  children: React.ReactNode;
+  last?: boolean;
+  onClick?: () => void;
+}) {
+  return (
     <div
       onClick={onClick}
       role={onClick ? "button" : undefined}
@@ -308,9 +185,11 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       {children}
     </div>
   );
+}
 
-  // Section label for mobile
-  const MSLabel = ({ children }: { children: React.ReactNode }) => (
+// Section label for mobile
+function MSLabel({ children }: { children: React.ReactNode }) {
+  return (
     <p
       style={{
         color: "#666",
@@ -325,6 +204,152 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       {children}
     </p>
   );
+}
+
+interface AvatarUploadProps {
+  id: string;
+  size: number;
+  isUploadingImage: boolean;
+  uploadProgress: number;
+  uploadError: string;
+  handleImageUpload: (file: File) => void;
+  userColor: string;
+  userInitial: string;
+  userImage?: string | null;
+}
+
+function AvatarUpload({ id, size, isUploadingImage, uploadProgress, uploadError, handleImageUpload, userColor, userInitial, userImage }: AvatarUploadProps) {
+  return (
+    <div style={{ position: "relative" }}>
+      <label htmlFor={id} style={{ cursor: isUploadingImage ? "not-allowed" : "pointer", display: "block" }}>
+        <div
+          style={{
+            width: size,
+            height: size,
+            borderRadius: "50%",
+            background: `${userColor}1a`,
+            border: `2.5px solid ${userColor}55`,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: size * 0.32,
+            fontWeight: 800,
+            color: userColor,
+            overflow: "hidden",
+          }}
+        >
+          {userImage ? (
+            <Image src={userImage} alt="Profile" width={size} height={size} className="h-full w-full object-cover" />
+          ) : (
+            <span>{userInitial}</span>
+          )}
+        </div>
+        {isUploadingImage && (
+          <div style={{ position: "absolute", inset: 0, borderRadius: "50%", background: "rgba(0,0,0,0.7)", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+            <Loader2 className="h-5 w-5 animate-spin text-white" />
+            <span style={{ fontSize: 10, color: "#fff" }}>{uploadProgress}%</span>
+          </div>
+        )}
+        <button
+          type="button"
+          style={{
+            position: "absolute",
+            bottom: 0,
+            right: 0,
+            width: size * 0.3,
+            height: size * 0.3,
+            borderRadius: "50%",
+            background: "#1e1e1e",
+            border: "2px solid rgba(255,255,255,0.18)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            cursor: isUploadingImage ? "not-allowed" : "pointer",
+            color: T.body,
+          }}
+          onClick={(e) => { e.preventDefault(); document.getElementById(id)?.click(); }}
+        >
+          {Icons.camera({ size: Math.round(size * 0.15) })}
+        </button>
+        <input
+          id={id}
+          type="file"
+          accept="image/png, image/jpeg"
+          className="hidden"
+          disabled={isUploadingImage}
+          onChange={(e) => { const file = e.target.files?.[0]; if (file) handleImageUpload(file); }}
+        />
+      </label>
+      {uploadError && <p style={{ fontSize: 11, color: "#F87171", marginTop: 4, textAlign: "center" }}>{uploadError}</p>}
+    </div>
+  );
+}
+
+const CHAIN_META: Record<string, { color: string; icon: string }> = {
+  Aptos: { color: "#22D3EE", icon: "⬡" },
+  Ethereum: { color: "#818CF8", icon: "◆" },
+  Base: { color: "#3B82F6", icon: "🔵" },
+  Solana: { color: "#A78BFA", icon: "◎" },
+  Stellar: { color: "#34D399", icon: "✦" },
+  Polygon: { color: "#A855F7", icon: "⬟" },
+};
+
+function getChainMeta(chainName: string) {
+  return CHAIN_META[chainName] || { color: "#666", icon: "◆" };
+}
+
+export function SettingsPageContent(props: SettingsPageContentProps) {
+  const {
+    user,
+    displayName,
+    setDisplayName,
+    preferredCurrency,
+    setPreferredCurrency,
+    hasChanges: _hasChanges,
+    handleSaveChanges,
+    isUpdatatingUser,
+    wallets,
+    handleRemoveWallet,
+    handleSetAsPrimary,
+    getChainName,
+    isAddingWallet,
+    isWalletModalOpen,
+    setIsWalletModalOpen,
+    isRemovingWallet,
+    isRemoveConfirmOpen,
+    confirmRemoveWallet,
+    cancelRemoveWallet,
+    isUploadingImage,
+    uploadProgress,
+    uploadError,
+    handleImageUpload,
+    selectedCurrencies,
+    setSelectedCurrencies,
+    isLoadingWallets,
+    onLogout,
+    isLoggingOut = false,
+    groupCount = 0,
+    friendCount = 0,
+    settledCount = 0,
+  } = props;
+
+  const [notificationsOn, setNotificationsOn] = React.useState(true);
+  const [isMobile, setIsMobile] = React.useState(false);
+  const [editingProfile, setEditingProfile] = React.useState(false);
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 767px)");
+    const set = () => setIsMobile(mq.matches);
+    set();
+    mq.addEventListener("change", set);
+    return () => mq.removeEventListener("change", set);
+  }, []);
+
+  const userEmail = user?.email ?? "";
+  const userInitial = (displayName || user?.name || "Y").charAt(0).toUpperCase();
+  const userColor = getUserColor(user?.name || "You");
+  const currencyFlag = CURRENCY_FLAG[preferredCurrency] ?? "💱";
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -339,7 +364,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       <div className="sm:hidden flex-1 overflow-y-auto px-4 pb-10">
         {/* Hero */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", paddingTop: 28, paddingBottom: 24 }}>
-          <AvatarUpload id="profile-upload-mobile" size={90} />
+          <AvatarUpload id="profile-upload-mobile" size={90} isUploadingImage={isUploadingImage} uploadProgress={uploadProgress} uploadError={uploadError} handleImageUpload={handleImageUpload} userColor={userColor} userInitial={userInitial} userImage={user.image} />
           <p style={{ color: "#fff", fontSize: 22, fontWeight: 800, letterSpacing: "-0.02em", marginTop: 16, marginBottom: 3 }}>
             {displayName || "You"}
           </p>
@@ -434,6 +459,35 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           </MobileRow>
         </MobileCard>
 
+        {/* ACCEPT PAYMENTS IN */}
+        {wallets.length > 0 && (
+          <>
+            <MSLabel>Accept Payments in</MSLabel>
+            <MobileCard style={{ padding: 16 }}>
+              <p style={{ color: T.muted, fontSize: 12, marginBottom: 12 }}>Select the tokens you want to accept payments in</p>
+              <CurrencyDropdown
+                selectedCurrencies={selectedCurrencies}
+                setSelectedCurrencies={setSelectedCurrencies}
+                filterCurrencies={(currency: Currency) =>
+                  currency.symbol !== "ETH" &&
+                  currency.symbol !== "USDC" &&
+                  wallets.some((w) => w.chainId === currency.chainId)
+                }
+                showFiatCurrencies={false}
+              />
+            </MobileCard>
+          </>
+        )}
+
+        {/* SECURITY */}
+        <MSLabel>Security</MSLabel>
+        <MobileCard>
+          <MobileRow last onClick={() => setIsChangePasswordOpen(true)}>
+            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Change Password</p>
+            <span style={{ color: T.muted, fontSize: 18 }}>›</span>
+          </MobileRow>
+        </MobileCard>
+
         {/* CONNECTED WALLETS */}
         <MSLabel>Connected Wallets</MSLabel>
         <MobileCard style={{ marginBottom: 10 }}>
@@ -497,15 +551,6 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
           {Icons.plus({})} Add Wallet
         </button>
 
-        {/* SECURITY */}
-        <MSLabel>Security</MSLabel>
-        <MobileCard>
-          <MobileRow last onClick={() => { if (typeof window !== "undefined") window.location.href = "/settings/change-password"; }}>
-            <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Change Password</p>
-            <span style={{ color: T.muted, fontSize: 18 }}>›</span>
-          </MobileRow>
-        </MobileCard>
-
         {/* Sign Out */}
         <button
           type="button"
@@ -536,7 +581,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
         <SLabel>Profile</SLabel>
         <Card style={{ padding: "22px", marginBottom: 4 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 22, paddingBottom: 22, borderBottom: "1px solid rgba(255,255,255,0.07)" }}>
-            <AvatarUpload id="profile-upload" size={64} />
+            <AvatarUpload id="profile-upload" size={64} isUploadingImage={isUploadingImage} uploadProgress={uploadProgress} uploadError={uploadError} handleImageUpload={handleImageUpload} userColor={userColor} userInitial={userInitial} userImage={user.image} />
             <div>
               <p style={{ color: T.bright, fontSize: 16, fontWeight: 800, letterSpacing: "-0.01em" }}>{displayName || "You"}</p>
               <p style={{ color: T.muted, fontSize: 12, fontWeight: 500, marginTop: 2 }}>{userEmail || "you@email.com"}</p>
@@ -623,7 +668,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
         <Card style={{ padding: "0 22px" }}>
           <Row
             style={{ borderBottom: "none", cursor: "pointer" }}
-            onClick={() => { if (typeof window !== "undefined") window.location.href = "/settings/change-password"; }}
+            onClick={() => setIsChangePasswordOpen(true)}
           >
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
               <span style={{ color: T.body, display: "flex" }}>{Icons.shield({})}</span>
@@ -717,6 +762,12 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
         </Card>
         <div style={{ height: 40 }} />
       </div>
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+      />
 
       {/* Add Wallet Modal */}
       <AddWalletModal

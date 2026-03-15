@@ -16,12 +16,14 @@ interface AddMemberModalProps {
   isOpen: boolean;
   onClose: () => void;
   groupId: string;
+  label?: string;
 }
 
 export function AddMemberModal({
   isOpen,
   onClose,
   groupId,
+  label = "Member",
 }: AddMemberModalProps) {
   const [email, setEmail] = useState("");
   const { mutate: addMembersToGroup, isPending } = useAddMembersToGroup();
@@ -141,10 +143,10 @@ export function AddMemberModal({
         <div className="flex items-start justify-between mb-6">
           <div>
             <p style={{ color: "#fff", fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>
-              Add Member
+              Add {label}
             </p>
             <p style={{ color: T.mid, fontSize: 12, marginTop: 4 }}>
-              Invite someone to join this group by their email address.
+              Invite someone by their email address.
             </p>
           </div>
           <button
@@ -181,7 +183,7 @@ export function AddMemberModal({
               display: "block",
             }}
           >
-            Member Email
+            {label} Email
           </label>
           <input
             type="email"
@@ -235,7 +237,7 @@ export function AddMemberModal({
               Adding…
             </>
           ) : (
-            "Add Member"
+            `Add ${label}`
           )}
         </button>
       </div>

@@ -3,32 +3,86 @@
 import { useState } from "react";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
-import { useGetExpenses, useCreateExpense, useUpdateExpense, useDeleteExpense } from "@/features/expenses/hooks/use-create-expense";
-import { Loader2, Plus, Receipt } from "lucide-react";
+import { useGetExpenses, useCreateExpense, useDeleteExpense } from "@/features/expenses/hooks/use-create-expense";
+import { Loader2, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
-import { Card, SectionLabel, Btn, T, A, Icons } from "@/lib/splito-design";
+import { Card, SectionLabel, T, A } from "@/lib/splito-design";
+import { motion, AnimatePresence } from "framer-motion";
+
+type Expense = {
+  id: string;
+  name: string;
+  amount: number;
+  currency: string;
+  expenseDate: string;
+  category: string;
+  paidBy?: string;
+};
+
+const CATEGORIES = [
+  { label: "Business", emoji: "💼" },
+  { label: "Software", emoji: "💻" },
+  { label: "Hardware", emoji: "🖥️" },
+  { label: "Travel", emoji: "✈️" },
+  { label: "Marketing", emoji: "📣" },
+  { label: "Office", emoji: "🏢" },
+  { label: "Other", emoji: "🧾" },
+];
+
+function getCategoryEmoji(category: string): string {
+  const match = CATEGORIES.find(
+    (c) => c.label.toUpperCase() === (category || "").toUpperCase()
+  );
+  return match?.emoji ?? "🧾";
+}
+
+function formatDate(d: string) {
+  return new Date(d).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
 
 export default function OrganizationExpensesPage() {
   const params = useParams();
   const organizationId = params?.organizationId as string;
   const { user } = useAuthStore();
   const { data, isLoading } = useGetExpenses(organizationId);
-  const expenses = (data as { expenses?: Array<{ id: string; name: string; amount: number; currency: string; expenseDate: string; category: string; paidBy?: string }> })?.expenses ?? [];
+  const expenses = ((data as { expenses?: Expense[] })?.expenses ?? []) as Expense[];
   const createExpenseMutation = useCreateExpense(organizationId);
-  const updateExpenseMutation = useUpdateExpense(organizationId);
   const deleteExpenseMutation = useDeleteExpense(organizationId);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [expenseToEdit, setExpenseToEdit] = useState<typeof expenses[0] | null>(null);
-  const [expenseToDelete, setExpenseToDelete] = useState<typeof expenses[0] | null>(null);
-  const [form, setForm] = useState({ name: "", amount: "", currency: "USD", expenseDate: new Date().toISOString().slice(0, 10) });
 
+  const [modalOpen, setModalOpen] = useState(false);
+  const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
+  const [form, setForm] = useState({
+    name: "",
+    amount: "",
+    currency: "USD",
+    category: "Business",
+    expenseDate: new Date().toISOString().slice(0, 10),
+  });
+
+  // ── Aggregates ──────────────────────────────────────────────
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
   const thisMonthExpenses = expenses
     .filter((e) => new Date(e.expenseDate) >= startOfMonth)
     .reduce((sum, e) => sum + e.amount, 0);
+
+  // ── Handlers ─────────────────────────────────────────────────
+  const closeForm = () => {
+    setModalOpen(false);
+    setForm({
+      name: "",
+      amount: "",
+      currency: "USD",
+      category: "Business",
+      expenseDate: new Date().toISOString().slice(0, 10),
+    });
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,34 +92,10 @@ export default function OrganizationExpensesPage() {
       return;
     }
     if (!user?.id) return;
-    if (expenseToEdit) {
-      updateExpenseMutation.mutate(
-        {
-          expenseId: expenseToEdit.id,
-          payload: {
-            name: form.name.trim(),
-            category: "Business",
-            amount,
-            splitType: "EXACT",
-            currency: form.currency,
-            participants: [{ userId: user.id, amount }],
-            expenseDate: form.expenseDate,
-          },
-        },
-        {
-          onSuccess: () => {
-            setExpenseToEdit(null);
-            setForm({ name: "", amount: "", currency: "USD", expenseDate: new Date().toISOString().slice(0, 10) });
-          },
-          onError: (err: Error) => toast.error(err?.message ?? "Failed to update expense"),
-        }
-      );
-      return;
-    }
     createExpenseMutation.mutate(
       {
         name: form.name.trim(),
-        category: "Business",
+        category: form.category,
         amount,
         splitType: "EXACT",
         currency: form.currency,
@@ -78,229 +108,470 @@ export default function OrganizationExpensesPage() {
       {
         onSuccess: () => {
           toast.success("Expense logged");
-          setModalOpen(false);
-          setForm({ name: "", amount: "", currency: "USD", expenseDate: new Date().toISOString().slice(0, 10) });
+          closeForm();
         },
         onError: (err: Error) => toast.error(err?.message ?? "Failed to add expense"),
       }
     );
   };
 
-  const openEditModal = (exp: typeof expenses[0]) => {
-    setExpenseToEdit(exp);
-    setForm({
-      name: exp.name,
-      amount: String(exp.amount),
-      currency: exp.currency,
-      expenseDate: exp.expenseDate ? new Date(exp.expenseDate).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-    });
-  };
-
   const handleDeleteConfirm = () => {
     if (!expenseToDelete) return;
     deleteExpenseMutation.mutate(expenseToDelete.id, {
-      onSettled: () => setExpenseToDelete(null),
+      onSuccess: () => {
+        toast.success("Expense deleted");
+        setExpenseToDelete(null);
+      },
+      onError: () => {
+        toast.error("Failed to delete expense");
+        setExpenseToDelete(null);
+      },
     });
   };
 
+  // ── Sorted expenses ───────────────────────────────────────────
+  const sorted = [...expenses].sort(
+    (a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()
+  );
+
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <SectionLabel>Expenses</SectionLabel>
-        <Btn
-          onClick={() => setModalOpen(true)}
-          style={{ background: A, color: "#0a0a0a", fontWeight: 700 }}
-        >
-          <Plus className="h-4 w-4" />
-          Add expense
-        </Btn>
-      </div>
+    <div className="w-full space-y-5 sm:space-y-6">
 
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Card className="p-4 sm:p-5">
-          <p className="text-sm font-medium mb-1" style={{ color: T.muted }}>Total expenses</p>
-          <p className="text-2xl font-bold text-white">
-            {isLoading ? "—" : formatCurrency(totalExpenses, "USD")}
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h1 className="text-[20px] sm:text-[22px] font-extrabold tracking-[-0.02em] text-white">
+            Expenses
+          </h1>
+          <p className="text-[12px] font-medium mt-0.5" style={{ color: T.muted }}>
+            {isLoading
+              ? "Loading…"
+              : `${expenses.length} expense${expenses.length !== 1 ? "s" : ""} logged`}
           </p>
-        </Card>
-        <Card className="p-4 sm:p-5">
-          <p className="text-sm font-medium mb-1" style={{ color: T.muted }}>This month</p>
-          <p className="text-2xl font-bold text-white">
-            {isLoading ? "—" : formatCurrency(thisMonthExpenses, "USD")}
-          </p>
-        </Card>
-      </div>
-
-      {isLoading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-8 w-8 animate-spin text-white/50" />
         </div>
-      ) : expenses.length === 0 ? (
-        <Card className="p-8 sm:p-12 text-center">
-          <Receipt className="h-12 w-12 mx-auto mb-3 opacity-40" style={{ color: T.muted }} />
-          <p className="text-[15px] font-semibold mb-4" style={{ color: T.muted }}>No expenses logged yet.</p>
-          <p className="text-sm mb-4" style={{ color: T.sub }}>Add expenses you pay for the business (e.g. subscriptions, tools).</p>
-          <button
-            type="button"
-            onClick={() => setModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold"
-            style={{ background: A, color: "#0a0a0a" }}
-          >
-            <Plus className="h-4 w-4" /> Add expense
-          </button>
-        </Card>
-      ) : (
-        <div className="space-y-4">
-          <h2 className="text-sm font-medium uppercase tracking-wider" style={{ color: T.muted }}>Logged expenses</h2>
-          {expenses.map((exp) => (
-            <Card key={exp.id} className="p-4 sm:p-5">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="font-semibold" style={{ color: T.bright }}>{exp.name}</p>
-                  <p className="text-sm mt-1" style={{ color: T.muted }}>
-                    {formatCurrency(exp.amount, exp.currency)}
-                    {exp.expenseDate && ` · ${new Date(exp.expenseDate).toLocaleDateString()} · ${exp.category}`}
-                  </p>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Btn variant="ghost" onClick={() => openEditModal(exp)} style={{ padding: "6px 12px", fontSize: 12 }}>
-                    Edit
-                  </Btn>
-                  <Btn
-                    variant="danger"
-                    onClick={() => setExpenseToDelete(exp)}
-                    style={{ padding: "6px 12px", fontSize: 12 }}
-                  >
-                    {Icons.trash({ size: 12 })} Delete
-                  </Btn>
-                </div>
-              </div>
-            </Card>
-          ))}
+        <button
+          onClick={() => setModalOpen(true)}
+          className="flex items-center gap-2 rounded-xl h-10 px-4 text-[13px] font-extrabold transition-all hover:opacity-90"
+          style={{ background: A, color: "#0a0a0a" }}
+        >
+          <Plus className="h-4 w-4" /> Add expense
+        </button>
+      </div>
+
+      {/* ── Loading ── */}
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-white/30" />
         </div>
       )}
 
-      {(modalOpen || expenseToEdit) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="fixed inset-0 bg-black/70"
-            onClick={() => {
-              if (expenseToEdit) setExpenseToEdit(null);
-              else setModalOpen(false);
-              setForm({ name: "", amount: "", currency: "USD", expenseDate: new Date().toISOString().slice(0, 10) });
+      {/* ── Empty ── */}
+      {!isLoading && expenses.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-20 text-center">
+          <p style={{ fontSize: 52, marginBottom: 16 }}>🧾</p>
+          <p
+            style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: T.body,
+              marginBottom: 8,
             }}
-          />
-          <div
-            className="relative z-10 w-full max-w-md rounded-2xl p-6 shadow-xl"
-            style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)" }}
-            onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-lg font-semibold text-white mb-4">{expenseToEdit ? "Edit expense" : "Log expense"}</h3>
-            <p className="text-sm mb-4" style={{ color: T.muted }}>
-              {expenseToEdit ? "Update the expense details below." : "Record an expense you paid for the business (e.g. subscription, tool, one-off cost)."}
-            </p>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: T.soft }}>Description</label>
-                <input
-                  type="text"
-                  value={form.name}
-                  onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-                  placeholder="e.g. Software subscription"
-                  className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20"
-                />
+            No expenses yet
+          </p>
+          <p style={{ fontSize: 14, color: T.sub, marginBottom: 20 }}>
+            Log business expenses like subscriptions, tools, and one-off costs.
+          </p>
+          <button
+            onClick={() => setModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-extrabold transition-all hover:opacity-90"
+            style={{ background: A, color: "#0a0a0a" }}
+          >
+            <Plus className="h-4 w-4" /> Add first expense
+          </button>
+        </div>
+      )}
+
+      {/* ── Summary ── */}
+      {!isLoading && expenses.length > 0 && (
+        <>
+          <div
+            className="rounded-2xl sm:rounded-3xl border border-white/[0.09] p-5 sm:p-7"
+            style={{
+              background:
+                "linear-gradient(135deg, #141414 0%, #0f0f0f 100%)",
+              boxShadow:
+                "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)",
+            }}
+          >
+            <div className="grid grid-cols-2 gap-0">
+              <div className="min-w-0 pr-4 sm:pr-6 border-r border-white/[0.07]">
+                <p
+                  className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5"
+                  style={{ color: T.dim }}
+                >
+                  Total
+                </p>
+                <p
+                  className="text-[22px] sm:text-[24px] font-extrabold font-mono"
+                  style={{ color: "#F87171" }}
+                >
+                  {formatCurrency(totalExpenses, "USD")}
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: T.soft }}>Amount</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={form.amount}
-                  onChange={(e) => setForm((p) => ({ ...p, amount: e.target.value }))}
-                  placeholder="0.00"
-                  className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20"
-                />
+              <div className="min-w-0 pl-4 sm:pl-6">
+                <p
+                  className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5"
+                  style={{ color: T.dim }}
+                >
+                  This month
+                </p>
+                <p
+                  className="text-[22px] sm:text-[24px] font-extrabold font-mono"
+                  style={{ color: "#22D3EE" }}
+                >
+                  {formatCurrency(thisMonthExpenses, "USD")}
+                </p>
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: T.soft }}>Currency</label>
-                <input
-                  type="text"
-                  value={form.currency}
-                  onChange={(e) => setForm((p) => ({ ...p, currency: e.target.value }))}
-                  placeholder="USD"
-                  className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20"
-                />
+            </div>
+          </div>
+
+          {/* ── Expense list ── */}
+          <div>
+            <SectionLabel className="mb-3">All expenses</SectionLabel>
+            <Card className="p-0 overflow-hidden">
+              {sorted.map((exp, idx) => (
+                <div
+                  key={exp.id}
+                  className="flex items-center gap-4 px-5 py-4 border-b border-white/[0.06] last:border-b-0"
+                >
+                  {/* Emoji icon */}
+                  <div
+                    style={{
+                      width: 42,
+                      height: 42,
+                      borderRadius: 13,
+                      background: "rgba(20,20,20,1)",
+                      border: "1px solid rgba(255,255,255,0.09)",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontSize: 20,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {getCategoryEmoji(exp.category)}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="text-[14px] font-bold truncate"
+                      style={{ color: T.bright }}
+                    >
+                      {exp.name}
+                    </p>
+                    <p
+                      className="text-[12px] font-medium mt-0.5"
+                      style={{ color: T.muted }}
+                    >
+                      {exp.category} · {formatDate(exp.expenseDate)}
+                    </p>
+                  </div>
+
+                  {/* Amount */}
+                  <p
+                    className="text-[15px] font-extrabold font-mono flex-shrink-0"
+                    style={{ color: "#F87171" }}
+                  >
+                    {formatCurrency(exp.amount, exp.currency)}
+                  </p>
+
+                  {/* Delete */}
+                  <button
+                    type="button"
+                    onClick={() => setExpenseToDelete(exp)}
+                    disabled={deleteExpenseMutation.isPending}
+                    className="flex-shrink-0 p-1.5 rounded-lg transition-colors hover:bg-red-500/10 disabled:opacity-40"
+                    style={{ color: "#F87171" }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* ── Add Expense Modal ── */}
+      <AnimatePresence>
+        {modalOpen && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+          >
+            <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={closeForm} />
+            <motion.div
+              initial={{ opacity: 0, y: 40 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 40 }}
+              transition={{ type: "spring", damping: 28, stiffness: 300 }}
+              className="relative z-10 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl"
+              style={{
+                background:
+                  "linear-gradient(145deg, #141414 0%, #0f0f0f 100%)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                boxShadow:
+                  "0 4px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Drag handle (mobile) */}
+              <div className="sm:hidden flex justify-center mb-4">
+                <div className="w-10 h-1 rounded-full bg-white/20" />
               </div>
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: T.soft }}>Date</label>
-                <input
-                  type="date"
-                  value={form.expenseDate}
-                  onChange={(e) => setForm((p) => ({ ...p, expenseDate: e.target.value }))}
-                  className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white outline-none focus:border-white/20"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <Btn
-                  variant="ghost"
-                  className="flex-1"
-                  onClick={() => {
-                    if (expenseToEdit) setExpenseToEdit(null);
-                    else setModalOpen(false);
-                    setForm({ name: "", amount: "", currency: "USD", expenseDate: new Date().toISOString().slice(0, 10) });
+
+              <h3
+                className="text-[18px] font-extrabold tracking-[-0.02em] mb-1"
+                style={{ color: T.bright }}
+              >
+                Log expense
+              </h3>
+              <p className="text-[12px] mb-5" style={{ color: T.muted }}>
+                Record a cost you paid for — no splitting needed.
+              </p>
+
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Name */}
+                <div>
+                  <label
+                    className="block text-[11px] font-bold uppercase tracking-wider mb-1.5"
+                    style={{ color: T.soft }}
+                  >
+                    Description
+                  </label>
+                  <input
+                    type="text"
+                    value={form.name}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, name: e.target.value }))
+                    }
+                    placeholder="e.g. Figma subscription"
+                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
+                  />
+                </div>
+
+                {/* Amount + Currency */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label
+                      className="block text-[11px] font-bold uppercase tracking-wider mb-1.5"
+                      style={{ color: T.soft }}
+                    >
+                      Amount
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={form.amount}
+                      onChange={(e) =>
+                        setForm((p) => ({ ...p, amount: e.target.value }))
+                      }
+                      placeholder="0.00"
+                      className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label
+                      className="block text-[11px] font-bold uppercase tracking-wider mb-1.5"
+                      style={{ color: T.soft }}
+                    >
+                      Currency
+                    </label>
+                    <input
+                      type="text"
+                      value={form.currency}
+                      onChange={(e) =>
+                        setForm((p) => ({
+                          ...p,
+                          currency: e.target.value.toUpperCase(),
+                        }))
+                      }
+                      placeholder="USD"
+                      className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label
+                    className="block text-[11px] font-bold uppercase tracking-wider mb-2"
+                    style={{ color: T.soft }}
+                  >
+                    Category
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {CATEGORIES.map((cat) => (
+                      <button
+                        key={cat.label}
+                        type="button"
+                        onClick={() =>
+                          setForm((p) => ({ ...p, category: cat.label }))
+                        }
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[12px] font-semibold border transition-all"
+                        style={
+                          form.category === cat.label
+                            ? {
+                                background: `${A}18`,
+                                color: A,
+                                borderColor: `${A}30`,
+                              }
+                            : {
+                                background: "transparent",
+                                color: T.muted,
+                                borderColor: "rgba(255,255,255,0.09)",
+                              }
+                        }
+                      >
+                        <span>{cat.emoji}</span>
+                        {cat.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label
+                    className="block text-[11px] font-bold uppercase tracking-wider mb-1.5"
+                    style={{ color: T.soft }}
+                  >
+                    Date
+                  </label>
+                  <input
+                    type="date"
+                    value={form.expenseDate}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, expenseDate: e.target.value }))
+                    }
+                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors"
+                  />
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button
+                    type="button"
+                    onClick={closeForm}
+                    className="flex-1 h-12 rounded-xl border font-semibold text-[13px] transition-all hover:bg-white/5"
+                    style={{
+                      borderColor: "rgba(255,255,255,0.1)",
+                      color: T.body,
+                    }}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={createExpenseMutation.isPending}
+                    className="flex-1 h-12 rounded-xl font-bold text-[13px] transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                    style={{ background: A, color: "#0a0a0a" }}
+                  >
+                    {createExpenseMutation.isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      "Log expense"
+                    )}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Delete confirm ── */}
+      <AnimatePresence>
+        {expenseToDelete && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+          >
+            <div
+              className="absolute inset-0 bg-black/70"
+              onClick={() =>
+                !deleteExpenseMutation.isPending && setExpenseToDelete(null)
+              }
+            />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-2xl"
+              style={{
+                background:
+                  "linear-gradient(145deg, #141414 0%, #0f0f0f 100%)",
+                border: "1px solid rgba(255,255,255,0.08)",
+              }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <h3
+                className="text-[16px] font-bold mb-2"
+                style={{ color: T.bright }}
+              >
+                Delete expense?
+              </h3>
+              <p className="text-[13px] mb-5" style={{ color: T.body }}>
+                <span
+                  className="font-semibold"
+                  style={{ color: T.bright }}
+                >
+                  &ldquo;{expenseToDelete.name}&rdquo;
+                </span>{" "}
+                will be permanently removed.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setExpenseToDelete(null)}
+                  disabled={deleteExpenseMutation.isPending}
+                  className="flex-1 h-11 rounded-xl border font-semibold text-[13px] transition-all hover:bg-white/5 disabled:opacity-50"
+                  style={{
+                    borderColor: "rgba(255,255,255,0.1)",
+                    color: T.body,
                   }}
                 >
                   Cancel
-                </Btn>
+                </button>
                 <button
-                  type="submit"
-                  disabled={createExpenseMutation.isPending || updateExpenseMutation.isPending}
-                  className="flex-1 rounded-xl py-2.5 font-semibold text-sm disabled:opacity-50"
-                  style={{ background: A, color: "#0a0a0a" }}
+                  type="button"
+                  onClick={handleDeleteConfirm}
+                  disabled={deleteExpenseMutation.isPending}
+                  className="flex-1 h-11 rounded-xl font-bold text-[13px] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{
+                    background: "rgba(248,113,113,0.15)",
+                    color: "#F87171",
+                    border: "1px solid rgba(248,113,113,0.25)",
+                  }}
                 >
-                  {updateExpenseMutation.isPending || createExpenseMutation.isPending ? (
-                    <Loader2 className="h-4 w-4 animate-spin mx-auto" />
-                  ) : expenseToEdit ? (
-                    "Save changes"
+                  {deleteExpenseMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
                   ) : (
-                    "Add expense"
+                    "Delete"
                   )}
                 </button>
               </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {expenseToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="fixed inset-0 bg-black/70" onClick={() => setExpenseToDelete(null)} />
-          <div
-            className="relative z-10 w-full max-w-sm rounded-2xl p-6 shadow-xl"
-            style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)" }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <h3 className="text-lg font-semibold text-white mb-2">Delete expense?</h3>
-            <p className="text-sm mb-4" style={{ color: T.muted }}>
-              &ldquo;{expenseToDelete.name}&rdquo; ({formatCurrency(expenseToDelete.amount, expenseToDelete.currency)}) will be removed. This cannot be undone.
-            </p>
-            <div className="flex gap-3">
-              <Btn variant="ghost" className="flex-1" onClick={() => setExpenseToDelete(null)}>
-                Cancel
-              </Btn>
-              <Btn
-                variant="danger"
-                className="flex-1"
-                onClick={handleDeleteConfirm}
-                disabled={deleteExpenseMutation.isPending}
-              >
-                {deleteExpenseMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Delete"}
-              </Btn>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

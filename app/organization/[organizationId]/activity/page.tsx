@@ -2,29 +2,127 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
-import Image from "next/image";
 import { useGetOrganizationActivity } from "@/features/business/hooks/use-invoices";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { Loader2 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
-import { Card, SectionLabel, T, G } from "@/lib/splito-design";
+import { formatRelativeTime } from "@/lib/utils";
+import { Card, SectionLabel, T, G, A } from "@/lib/splito-design";
 
-function activityLabel(type: string) {
-  switch (type) {
+type Activity = {
+  id: string;
+  type: string;
+  createdAt: string;
+  note?: string | null;
+  user?: { id: string; name?: string | null; email?: string | null; image?: string | null } | null;
+  invoice?: { amount: number; currency: string; recipient?: { name?: string | null } | null } | null;
+  contract?: { title?: string | null; jobTitle?: string | null; assignedToEmail?: string | null; assignedTo?: { name?: string | null; email?: string | null } | null } | null;
+};
+
+const DOT_COLORS: Record<string, string> = {
+  INVOICE_RAISED: A,
+  INVOICE_APPROVED: G,
+  INVOICE_DECLINED: "#F87171",
+  INVOICE_CLEARED: G,
+  CONTRACT_CREATED: A,
+  CONTRACT_SIGNED: "#A78BFA",
+};
+
+function getDotColor(type: string): string {
+  return DOT_COLORS[type] ?? T.muted;
+}
+
+function getActivityText(act: Activity): React.ReactNode {
+  const userName = act.user?.name || act.user?.email || "Someone";
+
+  switch (act.type) {
     case "INVOICE_RAISED":
-      return "raised an invoice";
+      return (
+        <>
+          {userName} raised an invoice
+          {act.invoice && (
+            <>
+              {" "}
+              <span style={{ color: A }}>
+                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+              </span>
+              {act.invoice.recipient?.name && ` to ${act.invoice.recipient.name}`}
+            </>
+          )}
+        </>
+      );
     case "INVOICE_APPROVED":
-      return "approved an invoice";
+      return (
+        <>
+          {userName} approved an invoice
+          {act.invoice && (
+            <>
+              {" "}
+              <span style={{ color: G }}>
+                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+              </span>
+            </>
+          )}
+        </>
+      );
     case "INVOICE_DECLINED":
-      return "declined an invoice";
+      return (
+        <>
+          {userName} declined an invoice
+          {act.invoice && (
+            <>
+              {" "}
+              <span style={{ color: "#F87171" }}>
+                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+              </span>
+            </>
+          )}
+        </>
+      );
     case "INVOICE_CLEARED":
-      return "cleared an invoice";
+      return (
+        <>
+          {userName} cleared an invoice
+          {act.invoice && (
+            <>
+              {" "}
+              <span style={{ color: G }}>
+                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+              </span>
+            </>
+          )}
+        </>
+      );
     case "CONTRACT_CREATED":
-      return "created a contract";
+      return (
+        <>
+          {userName} created a contract
+          {act.contract && (
+            <>
+              {act.contract.assignedToEmail || act.contract.assignedTo?.email
+                ? ` for ${act.contract.assignedToEmail ?? act.contract.assignedTo?.email}`
+                : ""}
+              {(act.contract.jobTitle || act.contract.title) && (
+                <> ({act.contract.jobTitle || act.contract.title})</>
+              )}
+            </>
+          )}
+        </>
+      );
     case "CONTRACT_SIGNED":
-      return "signed a contract";
+      return (
+        <>
+          {userName} signed a contract
+          {act.contract && (
+            <>
+              {act.contract.title ? ` · ${act.contract.title}` : ""}
+              {act.contract.assignedTo?.name ? ` · ${act.contract.assignedTo.name}` : ""}
+            </>
+          )}
+        </>
+      );
     default:
-      return type;
+      return <>{userName} performed an action</>;
   }
 }
 
@@ -33,7 +131,7 @@ export default function OrganizationActivityPage() {
   const router = useRouter();
   const organizationId = params?.organizationId as string;
   const { isAdmin } = useOrganizationOrg();
-  const { data: activities = [], isLoading: isActivityLoading } = useGetOrganizationActivity(organizationId);
+  const { data: activities = [], isLoading } = useGetOrganizationActivity(organizationId);
 
   useEffect(() => {
     if (isAdmin === false) {
@@ -43,75 +141,98 @@ export default function OrganizationActivityPage() {
 
   if (isAdmin === false || isAdmin === undefined) {
     return (
-      <div className="flex justify-center py-8">
-        <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+      <div className="flex justify-center py-16">
+        <Loader2 className="h-8 w-8 animate-spin text-white/30" />
       </div>
     );
   }
 
-  const dotColor = (type: string) => (type.includes("APPROVED") || type.includes("SIGNED") ? G : "#22D3EE");
+  const activityList = activities as unknown as Activity[];
 
   return (
-    <div className="space-y-4 sm:space-y-5">
-      <SectionLabel>Activity</SectionLabel>
-      {isActivityLoading ? (
-        <div className="flex justify-center py-8">
-          <Loader2 className="h-8 w-8 animate-spin text-white/50" />
+    <div style={{ padding: "0 0 24px" }}>
+      <SectionLabel>Recent Activity</SectionLabel>
+
+      {isLoading && (
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-white/30" />
         </div>
-      ) : activities.length > 0 ? (
-        <Card className="p-0 overflow-hidden">
-          {activities.map((act, idx) => (
+      )}
+
+      {!isLoading && activityList.length > 0 ? (
+        <Card>
+          {activityList.map((act, idx) => (
             <div
               key={act.id}
-              className="flex items-center gap-3 p-4 sm:p-5 border-b border-white/[0.06] last:border-b-0"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 14,
+                padding: "15px 22px",
+                borderBottom:
+                  idx < activityList.length - 1
+                    ? "1px solid rgba(255,255,255,0.06)"
+                    : "none",
+              }}
             >
-              <div className="w-2 h-2 rounded-full flex-shrink-0 mt-1.5" style={{ background: dotColor(act.type) }} />
-              <div className="h-8 w-8 sm:h-10 sm:w-10 rounded-full overflow-hidden flex-shrink-0 border border-white/[0.08]">
-                <Image
-                  src={act.user?.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${act.user?.id}`}
-                  alt={act.user?.name || "User"}
-                  width={40}
-                  height={40}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-sm sm:text-base leading-snug" style={{ color: T.body }}>
-                  <span className="font-semibold" style={{ color: T.bright }}>{act.user?.name || act.user?.email || "Someone"}</span> {activityLabel(act.type)}
-                  {act.invoice && (
-                    <span style={{ color: T.muted }}>
-                      {" "}
-                      ({formatCurrency(act.invoice.amount, act.invoice.currency)}
-                      {act.invoice.recipient?.name && ` to ${act.invoice.recipient.name}`})
-                    </span>
-                  )}
-                  {act.contract && act.type === "CONTRACT_CREATED" && (
-                    <span style={{ color: T.muted }}>
-                      {" "}for &quot;{act.contract.assignedToEmail ?? act.contract.assignedTo?.email ?? "—"}&quot;
-                      {(act.contract.jobTitle || act.contract.title) && (
-                        <> ({act.contract.jobTitle || act.contract.title})</>
-                      )}
-                    </span>
-                  )}
-                  {act.contract && act.type !== "CONTRACT_CREATED" && (
-                    <span style={{ color: T.muted }}>
-                      {" "}
-                      ({act.contract.title || "Contract"}
-                      {act.contract.assignedTo?.name && ` · ${act.contract.assignedTo.name}`})
-                    </span>
-                  )}
-                </p>
-                <p className="text-xs sm:text-sm mt-1 font-semibold" style={{ color: T.sub }}>{new Date(act.createdAt).toLocaleString()}</p>
-                {act.note && <p className="text-sm mt-1" style={{ color: T.dim }}>Note: {act.note}</p>}
-              </div>
+              <div
+                style={{
+                  width: 9,
+                  height: 9,
+                  borderRadius: "50%",
+                  background: getDotColor(act.type),
+                  flexShrink: 0,
+                }}
+              />
+              <p
+                style={{
+                  flex: 1,
+                  fontSize: 13,
+                  color: T.body,
+                  fontWeight: 500,
+                }}
+              >
+                {getActivityText(act)}
+                {act.note && (
+                  <span style={{ color: T.dim }}> &mdash; &ldquo;{act.note}&rdquo;</span>
+                )}
+              </p>
+              <span
+                style={{
+                  color: T.sub,
+                  fontSize: 12,
+                  flexShrink: 0,
+                  fontWeight: 600,
+                }}
+              >
+                {formatRelativeTime(new Date(act.createdAt))}
+              </span>
             </div>
           ))}
         </Card>
-      ) : (
-        <Card className="p-8 sm:p-12 text-center">
-          <p className="text-[15px] font-semibold" style={{ color: T.muted }}>No activity yet</p>
-        </Card>
-      )}
+      ) : !isLoading ? (
+        <div
+          style={{
+            textAlign: "center",
+            padding: "80px 20px",
+          }}
+        >
+          <p style={{ fontSize: 48, marginBottom: 18 }}>📋</p>
+          <p
+            style={{
+              fontSize: 18,
+              fontWeight: 800,
+              color: T.body,
+              marginBottom: 8,
+            }}
+          >
+            No activity yet
+          </p>
+          <p style={{ fontSize: 14, color: T.sub }}>
+            Expenses and settlements will show here
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

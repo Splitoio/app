@@ -22,7 +22,7 @@ import TimeLockToggle from "./ui/TimeLockToggle";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn } from "@/utils/animations";
 import { Card, A, T, getUserColor } from "@/lib/splito-design";
-import { useGroupLayout } from "@/contexts/group-layout-context";
+import { useGroupLayoutOptional } from "@/contexts/group-layout-context";
 import { useIsMobile } from "@/hooks/useIsMobile";
 
 const CATEGORY_OPTIONS: { emoji: string; api: string }[] = [
@@ -163,8 +163,8 @@ export function AddExpenseModal({
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
   const expenseMutation = useCreateExpense(groupId);
 
-  const group = useGroupLayout().group;
-  const groupName = group?.name ?? "Group";
+  const groupCtx = useGroupLayoutOptional();
+  const groupName = groupCtx?.group?.name ?? "Group";
 
   useEffect(() => {
     if (isOpen) setStep(1);
