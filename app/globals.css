@@ -226,6 +226,10 @@ input[type="number"] {
   from { opacity: 0; transform: scale(0.93) translateY(12px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
 }
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(100%); }
+  to   { opacity: 1; transform: translateY(0); }
+}
 @keyframes fU {
   from { opacity: 0; transform: translateY(6px); }
   to   { opacity: 1; transform: translateY(0); }
@@ -356,6 +360,28 @@ input::placeholder {
     opacity: 1;
   }
 }
+/* Onboarding cards: bottom sheet on mobile, fully rounded on desktop */
+.onboarding-sheet {
+  border-radius: 28px 28px 0 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 32px);
+}
+@media (min-width: 640px) {
+  .onboarding-sheet {
+    border-radius: 28px;
+    padding-bottom: 28px;
+  }
+}
+.onboarding-center-card {
+  border-radius: 24px 24px 0 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+@media (min-width: 640px) {
+  .onboarding-center-card {
+    border-radius: 24px;
+    padding-bottom: 22px;
+  }
+}
+
 @keyframes splito-fadeUp {
   from {
     opacity: 0;

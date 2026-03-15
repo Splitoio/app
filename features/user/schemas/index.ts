@@ -6,4 +6,7 @@ export const UpdateUserResponseSchema = z.object({
   stellarAccount: z.string().nullable().optional(),
   image: z.string().nullable().optional(),
   preferredChain: z.string().nullable().optional(),
+  onboardedPersonal: z.boolean().optional(),
+  onboardedOrgNoOrg: z.boolean().optional(),
+  onboardedOrgInOrg: z.boolean().optional(),
 });
