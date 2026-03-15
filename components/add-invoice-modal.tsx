@@ -9,15 +9,14 @@ import type { Contract } from "@/features/business/api/client";
 import { Loader2, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
-import { fadeIn } from "@/utils/animations";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
+import { T, A } from "@/lib/splito-design";
 
 interface AddInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   organizationId: string;
-  /** When opening from a contract view page, pass the contract to link and prefill amount/currency */
   initialContract?: Contract | null;
 }
 
@@ -27,6 +26,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
   const { data: myContracts = [] } = useGetMyContracts();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const contractsForOrg = myContracts.filter((c) => c.organizationId === organizationId);
+
   const [formData, setFormData] = useState({
     amount: "",
     currency: "USD",
@@ -68,7 +68,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
       toast.error("Please enter a valid amount");
       return;
     }
-    // Invoices are settled at once; use today as due date (contract terms define payment)
     const dueDate = new Date().toISOString().split("T")[0];
     createInvoiceMutation.mutate(
       {
@@ -82,12 +81,12 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
       },
       {
         onSuccess: () => {
-          toast.success("Invoice created");
+          toast.success("Invoice raised");
           setFormData({ amount: "", currency: "USD", description: "", imageUrl: "", contractId: "" });
           onClose();
         },
         onError: (err: { message?: string }) => {
-          toast.error(err?.message || "Failed to create invoice");
+          toast.error(err?.message || "Failed to raise invoice");
         },
       }
     );
@@ -95,7 +94,7 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
 
   const onContractSelect = (contract: Contract | null) => {
     if (!contract) {
-      setFormData((p) => ({ ...p, contractId: "", amount: p.amount, currency: p.currency }));
+      setFormData((p) => ({ ...p, contractId: "" }));
       return;
     }
     setFormData((p) => ({
@@ -106,126 +105,186 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
     }));
   };
 
-  if (!isOpen) return null;
-
   return (
     <AnimatePresence>
-      <motion.div className="fixed inset-0 z-50 flex items-center justify-center p-4" {...fadeIn}>
-        <div className="fixed inset-0 bg-black/70 brightness-50" onClick={onClose} />
-        <div className="relative z-10 bg-black rounded-3xl w-full max-w-lg border border-white/70 p-8" onClick={(e) => e.stopPropagation()}>
-          <h2 className="text-xl font-semibold text-white mb-6">Raise Invoice</h2>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {contractsForOrg.length > 0 && (
-              <div>
-                <label className="block text-base text-white mb-2">Link to contract</label>
-                <select
-                  value={formData.contractId}
-                  onChange={(e) => {
-                    const id = e.target.value;
-                    const c = id ? contractsForOrg.find((x) => x.id === id) ?? null : null;
-                    onContractSelect(c);
-                  }}
-                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                >
-                  <option value="">None</option>
-                  {contractsForOrg.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.title || "Contract"} {c.compensationAmount != null ? `(${c.compensationCurrency} ${c.compensationAmount})` : ""}
-                    </option>
-                  ))}
-                </select>
+      {isOpen && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
+        >
+          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            transition={{ type: "spring", damping: 28, stiffness: 300 }}
+            className="relative z-10 w-full sm:max-w-md rounded-t-3xl sm:rounded-2xl p-6 shadow-2xl"
+            style={{
+              background: "linear-gradient(145deg, #141414 0%, #0f0f0f 100%)",
+              border: "1px solid rgba(255,255,255,0.08)",
+              boxShadow: "0 4px 40px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.04)",
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle (mobile) */}
+            <div className="sm:hidden flex justify-center mb-4">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+
+            <h3 className="text-[18px] font-extrabold tracking-[-0.02em] mb-1" style={{ color: T.bright }}>
+              Raise invoice
+            </h3>
+            <p className="text-[12px] mb-5" style={{ color: T.muted }}>
+              Submit an invoice to your organization for approval.
+            </p>
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {/* Contract link */}
+              {contractsForOrg.length > 0 && (
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
+                    Link to contract
+                  </label>
+                  <select
+                    value={formData.contractId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      const c = id ? contractsForOrg.find((x) => x.id === id) ?? null : null;
+                      onContractSelect(c);
+                    }}
+                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors appearance-none"
+                    style={{ color: formData.contractId ? T.bright : T.dim }}
+                  >
+                    <option value="" style={{ background: "#141414" }}>None</option>
+                    {contractsForOrg.map((c) => (
+                      <option key={c.id} value={c.id} style={{ background: "#141414" }}>
+                        {c.title || "Contract"}
+                        {c.compensationAmount != null ? ` · ${c.compensationCurrency} ${c.compensationAmount}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Amount + Currency */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
+                    Amount
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.amount}
+                    onChange={(e) => setFormData((p) => ({ ...p, amount: e.target.value }))}
+                    placeholder="0.00"
+                    required
+                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
+                    Currency
+                  </label>
+                  <CurrencyDropdown
+                    selectedCurrencies={formData.currency ? [formData.currency] : []}
+                    setSelectedCurrencies={(currencies) =>
+                      setFormData((p) => ({ ...p, currency: currencies[0] || "USD" }))
+                    }
+                    mode="single"
+                    showFiatCurrencies={true}
+                    disableChainCurrencies={true}
+                    filterCurrencies={(currency: Currency) =>
+                      currency.symbol !== "ETH" && currency.symbol !== "USDC"
+                    }
+                    placeholder="Currency"
+                  />
+                </div>
               </div>
-            )}
-            <div className="grid grid-cols-2 gap-4">
+
+              {/* Description */}
               <div>
-                <label className="block text-base text-white mb-2">Amount</label>
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
+                  Description
+                </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.amount}
-                  onChange={(e) => setFormData((p) => ({ ...p, amount: e.target.value }))}
-                  className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                  placeholder="0.00"
-                  required
+                  type="text"
+                  value={formData.description}
+                  onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
+                  placeholder="e.g. October development work"
+                  className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
                 />
               </div>
+
+              {/* Receipt image */}
               <div>
-                <label className="block text-base text-white mb-2">Currency</label>
-                <CurrencyDropdown
-                  selectedCurrencies={formData.currency ? [formData.currency] : []}
-                  setSelectedCurrencies={(currencies) =>
-                    setFormData((p) => ({ ...p, currency: currencies[0] || "USD" }))
-                  }
-                  mode="single"
-                  showFiatCurrencies={true}
-                  disableChainCurrencies={true}
-                  filterCurrencies={(currency: Currency) =>
-                    currency.symbol !== "ETH" && currency.symbol !== "USDC"
-                  }
-                  placeholder="Select currency..."
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-base text-white mb-2">Description</label>
-              <input
-                type="text"
-                value={formData.description}
-                onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
-                className="w-full h-12 bg-transparent rounded-lg px-4 text-base text-white border border-white/10"
-                placeholder="Invoice description"
-              />
-            </div>
-            <div>
-              <label className="block text-base text-white mb-2">Invoice image</label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={handleImageChange}
-              />
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="h-24 w-24 rounded-xl border border-white/20 border-dashed flex items-center justify-center text-white/60 hover:text-white hover:border-white/40 transition-colors overflow-hidden"
-                >
-                  {formData.imageUrl ? (
-                    <span className="relative block w-full h-full min-h-[96px] min-w-[96px]">
-                      <Image src={formData.imageUrl} alt="Invoice" fill className="object-cover" sizes="96px" />
-                    </span>
-                  ) : (
-                    <Camera className="h-8 w-8" />
-                  )}
-                </button>
-                {formData.imageUrl && (
+                <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
+                  Receipt image <span style={{ color: T.dim, fontWeight: 400, textTransform: "none", letterSpacing: 0 }}>(optional)</span>
+                </label>
+                <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={handleImageChange} />
+                <div className="flex items-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setFormData((p) => ({ ...p, imageUrl: "" }))}
-                    className="p-2 rounded-full border border-white/20 text-white/70 hover:text-white"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="h-20 w-20 rounded-xl overflow-hidden flex items-center justify-center transition-colors hover:border-white/20"
+                    style={{
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px dashed rgba(255,255,255,0.15)",
+                    }}
                   >
-                    <X className="h-4 w-4" />
+                    {formData.imageUrl ? (
+                      <span className="relative block w-full h-full">
+                        <Image src={formData.imageUrl} alt="Receipt" fill className="object-cover" sizes="80px" />
+                      </span>
+                    ) : uploadFileMutation.isPending ? (
+                      <Loader2 className="h-6 w-6 animate-spin" style={{ color: T.dim }} />
+                    ) : (
+                      <Camera className="h-6 w-6" style={{ color: T.dim }} />
+                    )}
                   </button>
-                )}
+                  {formData.imageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData((p) => ({ ...p, imageUrl: "" }))}
+                      className="p-1.5 rounded-lg border transition-colors hover:bg-white/5"
+                      style={{ borderColor: "rgba(255,255,255,0.1)", color: T.muted }}
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-            <div className="flex gap-3 pt-4">
-              <button type="button" onClick={onClose} className="flex-1 h-12 rounded-full border border-white/20 text-white hover:bg-white/5">
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={createInvoiceMutation.isPending}
-                className="flex-1 h-12 bg-white text-black rounded-full font-medium hover:bg-white/90 disabled:opacity-70"
-              >
-                {createInvoiceMutation.isPending ? <Loader2 className="h-5 w-5 animate-spin mx-auto" /> : "Create Invoice"}
-              </button>
-            </div>
-          </form>
-        </div>
-      </motion.div>
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-1">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="flex-1 h-12 rounded-xl border font-semibold text-[13px] transition-all hover:bg-white/5"
+                  style={{ borderColor: "rgba(255,255,255,0.1)", color: T.body }}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={createInvoiceMutation.isPending}
+                  className="flex-1 h-12 rounded-xl font-bold text-[13px] transition-all hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-2"
+                  style={{ background: A, color: "#0a0a0a" }}
+                >
+                  {createInvoiceMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    "Raise invoice"
+                  )}
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
     </AnimatePresence>
   );
 }

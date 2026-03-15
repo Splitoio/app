@@ -45,3 +45,7 @@ export function useGroupLayout() {
   if (!ctx) throw new Error("useGroupLayout must be used within GroupLayoutProvider");
   return ctx;
 }
+
+export function useGroupLayoutOptional() {
+  return useContext(GroupLayoutContext);
+}

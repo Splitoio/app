@@ -119,7 +119,7 @@ export default function OrganizationStreamsPage() {
                     </p>
                   )}
                   <div className="flex items-center gap-2">
-                  <button type="button" onClick={() => openEditStream(stream)}
+                  <button type="button" onClick={() => openEditStream(stream as unknown as Parameters<typeof openEditStream>[0])}
                     className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold border transition-all hover:bg-white/5"
                     style={{ borderColor: "rgba(255,255,255,0.1)", color: T.muted }}>
                     <Pencil className="h-3 w-3" /> Edit

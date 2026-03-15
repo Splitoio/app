@@ -21,7 +21,7 @@ import { InvoiceReviewModal } from "@/components/invoice-review-modal";
 import type { Invoice } from "@/features/business/api/client";
 import { Card, SectionLabel, Btn, T, Icons, A } from "@/lib/splito-design";
 
-const PAYABLE_STATUSES = ["APPROVED", "OVERDUE", "SENT"] as const;
+const PAYABLE_STATUSES = ["DRAFT", "APPROVED", "OVERDUE", "SENT"] as const;
 const APPROVAL_STATUS = "SENT";
 const PREVIOUS_STATUSES = ["PAID", "CLEARED", "DECLINED"] as const;
 
@@ -274,7 +274,7 @@ export default function OrganizationInvoicesPage() {
       {/* ── Pending to pay ── */}
       {pendingToPay.length > 0 && (
         <div className="w-full mb-5 sm:mb-6">
-          <SectionLabel className="mb-3">Pending payment · {pendingToPay.length}</SectionLabel>
+          <SectionLabel className="mb-3">Active · {pendingToPay.length}</SectionLabel>
           <Card className="w-full p-0 overflow-hidden">
             {pendingToPay.map((inv) => (
               <InvoiceRow

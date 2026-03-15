@@ -27,7 +27,7 @@ import { useGetContractById, useGetMyContracts } from "@/features/business/hooks
 import { ContractGateModal } from "@/components/contract-gate-modal";
 import { ReceiptImageModal } from "@/components/receipt-image-modal";
 import { useDeleteGroup, useUpdateGroup } from "@/features/groups/hooks/use-create-group";
-import { Loader2, Plus, Settings, Trash2, XCircle, FileText } from "lucide-react";
+import { Loader2, Settings, Trash2, XCircle, FileText } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 import CurrencyDropdown from "@/components/currency-dropdown";
@@ -274,31 +274,8 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
             <p style={{ color: T.muted, fontSize: 12, fontWeight: 600 }}>{(group.groupUsers || []).length} members</p>
             </div>
           </div>
-          <div className="flex items-center gap-2 flex-shrink-0">
-            {!isAdmin && (
-              <button
-                onClick={() => setIsAddInvoiceModalOpen(true)}
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 6,
-                  height: 40,
-                  padding: "0 18px",
-                  borderRadius: 12,
-                  background: A,
-                  color: "#0a0a0a",
-                  border: "none",
-                  fontSize: 13,
-                  fontWeight: 800,
-                  cursor: "pointer",
-                  fontFamily: "inherit",
-                }}
-              >
-                <Plus className="h-4 w-4" />
-                <span>Raise Invoice</span>
-              </button>
-            )}
-            {isAdmin && (
+          {isAdmin && (
+            <div className="flex items-center gap-2 flex-shrink-0">
               <button
                 onClick={() => setIsSettingsModalOpen(true)}
                 style={{
@@ -316,8 +293,8 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
               >
                 <Settings className="h-5 w-5" />
               </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="flex-1 p-4 sm:p-7 overflow-y-auto min-h-0">
@@ -326,7 +303,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
         <AddInvoiceModal isOpen={isAddInvoiceModalOpen} onClose={() => setIsAddInvoiceModalOpen(false)} organizationId={organizationId} initialContract={contractForInvoice ?? undefined} />
         <CreateContractModal isOpen={isCreateContractModalOpen} onClose={() => setIsCreateContractModalOpen(false)} organizationId={organizationId} onSuccess={() => {}} />
-        <AddMemberModal isOpen={isAddMemberModalOpen} onClose={() => setIsAddMemberModalOpen(false)} groupId={organizationId} />
+        <AddMemberModal isOpen={isAddMemberModalOpen} onClose={() => setIsAddMemberModalOpen(false)} groupId={organizationId} label="Admin" />
 
         <AnimatePresence>
           {declineInvoiceId && (

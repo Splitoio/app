@@ -109,14 +109,14 @@ export default function OrganizationMembersPage() {
             className="flex items-center gap-2 rounded-xl h-10 px-4 text-[13px] font-extrabold transition-all hover:opacity-90"
             style={{ background: A, color: "#0a0a0a" }}
           >
-            <UserPlus className="h-4 w-4" /> Add member
+            <UserPlus className="h-4 w-4" /> Add admin
           </button>
         )}
       </div>
 
       {currentUserIsAdmin && (
         <p className="text-[13px] mb-5" style={{ color: T.muted }}>
-          Admins can manage roles, invoices, and organization settings. Members can raise invoices.
+          Members join automatically when they sign a contract. Use &ldquo;Add admin&rdquo; to manually grant admin access.
         </p>
       )}
 
@@ -134,14 +134,14 @@ export default function OrganizationMembersPage() {
           <h2 className="text-[16px] font-bold text-white mb-2">No members yet</h2>
           <p className="text-[13px] mb-5" style={{ color: T.muted }}>
             {currentUserIsAdmin
-              ? "Add admins above. Regular members join by accepting a contract."
-              : "Ask an admin to send you a contract."}
+              ? "Members join automatically via signed contracts. Add an admin above to grant extra permissions."
+              : "Members join automatically when they sign a contract from the organization."}
           </p>
           {currentUserIsAdmin && (
             <button onClick={openAddMember}
               className="flex items-center gap-2 rounded-xl px-5 py-2.5 text-[13px] font-extrabold transition-all hover:opacity-90"
               style={{ background: A, color: "#0a0a0a" }}>
-              <UserPlus className="h-4 w-4" /> Add member
+              <UserPlus className="h-4 w-4" /> Add admin
             </button>
           )}
         </div>

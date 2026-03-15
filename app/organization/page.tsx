@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 import { useGetInvoicesByOrganization, useGetOrganizationAnalytics } from "@/features/business/hooks/use-invoices";
-import { useGetContractsByOrganization } from "@/features/business/hooks/use-contracts";
+import { useGetContractsByOrganization, useGetMyContracts } from "@/features/business/hooks/use-contracts";
 import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
 import { Loader2, FileText, TrendingUp, ChevronsUpDown, Plus, Clock, AlertCircle, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
@@ -51,6 +52,7 @@ const dropdownVariants = {
 
 export default function OrganizationDashboardPage() {
   const { user } = useAuthStore();
+  const router = useRouter();
   const [mobileOrgSwitcherOpen, setMobileOrgSwitcherOpen] = useState(false);
   const mobileOrgSwitcherRef = useRef<HTMLDivElement>(null);
   const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
@@ -68,11 +70,14 @@ export default function OrganizationDashboardPage() {
   const orgIds = organizations.map((o) => o.id);
   const selectedOrgId = orgIds[0] ?? "";
   const selectedOrg = organizations.find((o) => o.id === selectedOrgId);
-  const hasAdminOrg = organizations.some((o) => isOrgAdmin(o, user?.id ?? ""));
+  const hasAdminOrg = organizations.some((o) => isOrgAdmin(o, user?.id ?? "")); // kept for future use
   const isAdminOfSelectedOrg = selectedOrg ? isOrgAdmin(selectedOrg, user?.id ?? "") : false;
 
   const { data: invoicesForOrg = [] } = useGetInvoicesByOrganization(isAdminOfSelectedOrg ? selectedOrgId : "");
+  const { data: memberInvoices = [] } = useGetInvoicesByOrganization(!isAdminOfSelectedOrg ? selectedOrgId : "");
   const { data: contractsForOrg = [], isLoading: contractsLoading } = useGetContractsByOrganization(selectedOrgId);
+  const { data: myAllContracts = [] } = useGetMyContracts();
+  const myOrgContracts = myAllContracts.filter((c) => c.organizationId === selectedOrgId);
   const { data: streamsForOrg = [], isLoading: streamsLoading } = useGetStreamsByOrganization(selectedOrgId, {
     enabled: !!selectedOrgId && isAdminOfSelectedOrg,
   });
@@ -137,7 +142,7 @@ export default function OrganizationDashboardPage() {
   return (
     <div className="w-full flex flex-col min-w-0">
       {/* ── Sticky header ── */}
-      <div className="border-b border-white/[0.07] flex items-center justify-between gap-3 h-14 sm:h-[70px] px-4 sm:px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10">
+      <div className="border-b py-10 border-white/[0.07] flex items-center justify-between gap-3 h-14 sm:h-[70px] px-4 sm:px-7 sticky top-0 bg-[#0b0b0b]/95 backdrop-blur-xl z-10">
         {/* Desktop title / Mobile org switcher */}
         <div className="min-w-0 flex-1 flex items-center">
           <div className="hidden sm:block">
@@ -208,15 +213,19 @@ export default function OrganizationDashboardPage() {
           </div>
         </div>
 
-        {/* User avatar */}
+        {/* User avatar → settings */}
         {user && (
-          <div className="h-9 w-9 sm:h-10 sm:w-10 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.1]">
+          <button
+            type="button"
+            onClick={() => router.push("/organization/settings")}
+            className="h-9 w-9 sm:h-10 sm:w-10 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.1] transition-opacity hover:opacity-80"
+          >
             {user.image ? (
               <Image src={user.image} alt="" width={40} height={40} className="h-full w-full object-cover" />
             ) : (
               <Image src={`https://api.dicebear.com/9.x/identicon/svg?seed=${user.id || user.email || "user"}`} alt="" width={40} height={40} className="h-full w-full object-cover" />
             )}
-          </div>
+          </button>
         )}
       </div>
 
@@ -251,92 +260,203 @@ export default function OrganizationDashboardPage() {
                 { label: "Invoices", value: String(totalInvoicesForOrg), accent: paymentsOverdue > 0 ? "#F87171" : T.bright },
                 { label: "Streams", value: String(totalStreamsCount), accent: "#34D399" },
                 { label: "Contracts", value: String(contractsForOrg.length), accent: A },
-              ].map((s, i, arr) => (
-                <div key={s.label} className={cn("min-w-0", i > 0 ? "pl-4 sm:pl-6 border-l border-white/[0.07]" : "", i < arr.length - 1 ? "pr-4 sm:pr-6" : "")}>
-                  <p className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>{s.label}</p>
-                  <p className="text-[22px] sm:text-[24px] font-extrabold font-mono" style={{ color: s.accent }}>{s.value}</p>
-                </div>
-              ))}
+              ].flatMap((s, i) => {
+                const el = (
+                  <div
+                    key={s.label}
+                    className={cn(
+                      "min-w-0",
+                      (i === 1 || i === 3) ? "pl-4 sm:pl-6 border-l border-white/[0.07]" : "",
+                      i === 2 ? "sm:pl-6 sm:border-l sm:border-white/[0.07]" : "",
+                      (i === 0 || i === 2) ? "pr-4 sm:pr-6" : "",
+                    )}
+                  >
+                    <p className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>{s.label}</p>
+                    <p className="text-[22px] sm:text-[24px] font-extrabold font-mono" style={{ color: s.accent }}>{s.value}</p>
+                  </div>
+                );
+                if (i === 2) {
+                  return [
+                    <div key="row-sep" className="col-span-2 sm:hidden h-px my-4" style={{ background: "rgba(255,255,255,0.07)" }} />,
+                    el,
+                  ];
+                }
+                return [el];
+              })}
             </div>
           </div>
         )}
 
-        {/* ── Needs attention + Team members (two columns) ── */}
-        {((hasAdminOrg && selectedOrgId && (paymentsOverdue > 0 || approvalRequestsCount > 0)) || members.length > 0) && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6 mb-5 sm:mb-6">
-            <div className="min-w-0">
-              {hasAdminOrg && selectedOrgId && (paymentsOverdue > 0 || approvalRequestsCount > 0) && (
-                <>
-                  <SectionLabel className="mb-3">Needs attention</SectionLabel>
-                  <div className="space-y-2">
-                    {paymentsOverdue > 0 && (
-                      <Link href={`/organization/${selectedOrgId}/invoices`}
-                        className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 transition-colors hover:opacity-90"
-                        style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)" }}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(248,113,113,0.15)" }}>
-                            <AlertCircle className="h-4 w-4 text-red-400" />
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-bold text-red-400">{paymentsOverdue} overdue payment{paymentsOverdue !== 1 ? "s" : ""}</p>
-                            <p className="text-[12px] font-medium mt-0.5" style={{ color: T.muted }}>{formatCurrency(totalOutstanding, currencyFirst)} outstanding</p>
-                          </div>
+        {/* ── Admin: Needs attention + Team members ── */}
+        {isAdminOfSelectedOrg && ((paymentsOverdue > 0 || approvalRequestsCount > 0) || members.length > 0) && (
+          <div className="mb-5 sm:mb-6">
+            {(paymentsOverdue > 0 || approvalRequestsCount > 0) && (
+              <div className="mb-5 sm:mb-6">
+                <SectionLabel className="mb-3">Needs attention</SectionLabel>
+                <div className="space-y-2">
+                  {paymentsOverdue > 0 && (
+                    <Link href={`/organization/${selectedOrgId}/invoices`}
+                      className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 transition-colors hover:opacity-90"
+                      style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.2)" }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(248,113,113,0.15)" }}>
+                          <AlertCircle className="h-4 w-4 text-red-400" />
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <span className="text-[12px] font-extrabold px-3 py-1.5 rounded-lg" style={{ background: "#F87171", color: "#0a0a0a" }}>Pay now</span>
-                        </div>
-                      </Link>
-                    )}
-                    {approvalRequestsCount > 0 && (
-                      <Link href={`/organization/${selectedOrgId}/invoices`}
-                        className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 transition-colors hover:opacity-90"
-                        style={{ background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.18)" }}>
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(34,211,238,0.12)" }}>
-                            <FileText className="h-4 w-4" style={{ color: A }} />
-                          </div>
-                          <div>
-                            <p className="text-[14px] font-bold" style={{ color: A }}>{approvalRequestsCount} approval request{approvalRequestsCount !== 1 ? "s" : ""}</p>
-                            {approvalPastDueCount > 0 && <p className="text-[12px] font-medium mt-0.5 text-red-400/80">{approvalPastDueCount} past due</p>}
-                          </div>
-                        </div>
-                        <ChevronRight className="h-4 w-4 shrink-0" style={{ color: T.muted }} />
-                      </Link>
-                    )}
-                  </div>
-                </>
-              )}
-            </div>
-            <div className="min-w-0">
-              {members.length > 0 && (
-                <>
-                  <div className="flex items-center justify-between mb-3">
-                    <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: T.soft }}>Team members</p>
-                    <Link href="/organization/members" className="flex items-center gap-1.5 text-[12px] font-semibold transition-colors hover:opacity-80" style={{ color: A }}>
-                      View all <ChevronRight className="h-3.5 w-3.5" />
-                    </Link>
-                  </div>
-                  <Card className="p-0 overflow-hidden">
-                    {members.slice(0, 5).map((member) => (
-                      <div key={member.id} className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] last:border-b-0">
-                        <div className="h-9 w-9 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.08]">
-                          <Image src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`} alt={member.name || "Member"} width={36} height={36} className="h-full w-full object-cover" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-semibold truncate" style={{ color: T.bright }}>{member.name || member.email || "Member"}</p>
-                          <p className="text-[11px] truncate mt-0.5" style={{ color: T.dim }}>{member.orgNames.join(", ")}</p>
+                        <div>
+                          <p className="text-[14px] font-bold text-red-400">{paymentsOverdue} overdue payment{paymentsOverdue !== 1 ? "s" : ""}</p>
+                          <p className="text-[12px] font-medium mt-0.5" style={{ color: T.muted }}>{formatCurrency(totalOutstanding, currencyFirst)} outstanding</p>
                         </div>
                       </div>
-                    ))}
-                  </Card>
-                </>
-              )}
-            </div>
+                      <span className="text-[12px] font-extrabold px-3 py-1.5 rounded-lg shrink-0" style={{ background: "#F87171", color: "#0a0a0a" }}>Pay now</span>
+                    </Link>
+                  )}
+                  {approvalRequestsCount > 0 && (
+                    <Link href={`/organization/${selectedOrgId}/invoices`}
+                      className="flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 transition-colors hover:opacity-90"
+                      style={{ background: "rgba(34,211,238,0.08)", border: "1px solid rgba(34,211,238,0.18)" }}>
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="h-9 w-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: "rgba(34,211,238,0.12)" }}>
+                          <FileText className="h-4 w-4" style={{ color: A }} />
+                        </div>
+                        <div>
+                          <p className="text-[14px] font-bold" style={{ color: A }}>{approvalRequestsCount} approval request{approvalRequestsCount !== 1 ? "s" : ""}</p>
+                          {approvalPastDueCount > 0 && <p className="text-[12px] font-medium mt-0.5 text-red-400/80">{approvalPastDueCount} past due</p>}
+                        </div>
+                      </div>
+                      <ChevronRight className="h-4 w-4 shrink-0" style={{ color: T.muted }} />
+                    </Link>
+                  )}
+                </div>
+              </div>
+            )}
+            {members.length > 0 && (
+              <div className="min-w-0">
+                <div className="flex items-center justify-between mb-3">
+                  <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: T.soft }}>Team members</p>
+                  <Link href="/organization/members" className="flex items-center gap-1.5 text-[12px] font-semibold transition-colors hover:opacity-80" style={{ color: A }}>
+                    View all <ChevronRight className="h-3.5 w-3.5" />
+                  </Link>
+                </div>
+                <Card className="p-0 overflow-hidden">
+                  {members.slice(0, 5).map((member) => (
+                    <div key={member.id} className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] last:border-b-0">
+                      <div className="h-9 w-9 overflow-hidden rounded-full flex-shrink-0 border border-white/[0.08]">
+                        <Image src={member.image || `https://api.dicebear.com/9.x/identicon/svg?seed=${member.id}`} alt={member.name || "Member"} width={36} height={36} className="h-full w-full object-cover" />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[14px] font-semibold truncate" style={{ color: T.bright }}>{member.name || member.email || "Member"}</p>
+                        <p className="text-[11px] truncate mt-0.5" style={{ color: T.dim }}>{member.orgNames.join(", ")}</p>
+                      </div>
+                    </div>
+                  ))}
+                </Card>
+              </div>
+            )}
           </div>
         )}
 
-        {/* ── Financial overview (moved from Streams; now line chart) ── */}
-        {selectedOrgId && (
+        {/* ── Member: My invoices + My contracts ── */}
+        {!isAdminOfSelectedOrg && selectedOrgId && (
+          <div className="mb-5 sm:mb-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+            {/* My invoices */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: T.soft }}>My invoices</p>
+                <Link href={`/organization/${selectedOrgId}/invoices`} className="flex items-center gap-1 text-[12px] font-semibold hover:opacity-80" style={{ color: A }}>
+                  View all <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              {memberInvoices.length === 0 ? (
+                <div className="rounded-2xl px-5 py-6 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-[13px]" style={{ color: T.muted }}>No invoices raised yet</p>
+                </div>
+              ) : (
+                <Card className="p-0 overflow-hidden">
+                  {memberInvoices.slice(0, 5).map((inv) => {
+                    const badge = (() => {
+                      switch (inv.status) {
+                        case "APPROVED": return { label: "Approved", color: "#34D399" };
+                        case "PAID":     return { label: "Paid",     color: "#34D399" };
+                        case "SENT":     return { label: "Sent",     color: A };
+                        case "DECLINED": return { label: "Declined", color: "#F87171" };
+                        case "OVERDUE":  return { label: "Overdue",  color: "#F87171" };
+                        case "CLEARED":  return { label: "Cleared",  color: T.muted };
+                        default:         return { label: inv.status, color: T.muted };
+                      }
+                    })();
+                    return (
+                      <Link key={inv.id} href={`/organization/${selectedOrgId}/invoices`}
+                        className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.015] transition-colors">
+                        <div className="h-9 w-9 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                          <FileText className="h-4 w-4" style={{ color: T.dim }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold truncate" style={{ color: T.bright }}>
+                            {formatCurrency(inv.amount, inv.currency)}
+                          </p>
+                          <p className="text-[11px] mt-0.5" style={{ color: T.muted }}>
+                            Due {new Date(inv.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                          </p>
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0" style={{ color: badge.color, background: `${badge.color}18`, border: `1px solid ${badge.color}30` }}>
+                          {badge.label}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </Card>
+              )}
+            </div>
+
+            {/* My contracts */}
+            <div>
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-[11px] font-semibold tracking-[0.06em] uppercase" style={{ color: T.soft }}>My contracts</p>
+                <Link href={`/organization/${selectedOrgId}/contracts`} className="flex items-center gap-1 text-[12px] font-semibold hover:opacity-80" style={{ color: A }}>
+                  View all <ChevronRight className="h-3.5 w-3.5" />
+                </Link>
+              </div>
+              {myOrgContracts.length === 0 ? (
+                <div className="rounded-2xl px-5 py-6 text-center" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.07)" }}>
+                  <p className="text-[13px]" style={{ color: T.muted }}>No contracts assigned</p>
+                </div>
+              ) : (
+                <Card className="p-0 overflow-hidden">
+                  {myOrgContracts.slice(0, 5).map((contract) => {
+                    const signed = !!contract.signedAt;
+                    return (
+                      <Link key={contract.id} href={`/organization/${selectedOrgId}/contracts`}
+                        className="flex items-center gap-3 px-4 py-3.5 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.015] transition-colors">
+                        <div className="h-9 w-9 rounded-xl flex-shrink-0 flex items-center justify-center" style={{ background: signed ? "rgba(52,211,153,0.1)" : "rgba(255,255,255,0.04)", border: `1px solid ${signed ? "rgba(52,211,153,0.2)" : "rgba(255,255,255,0.07)"}` }}>
+                          <FileText className="h-4 w-4" style={{ color: signed ? "#34D399" : T.dim }} />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-[13px] font-semibold truncate" style={{ color: T.bright }}>
+                            {contract.title || "Contract"}
+                          </p>
+                          {contract.compensationAmount != null && (
+                            <p className="text-[11px] mt-0.5" style={{ color: T.muted }}>
+                              {formatCurrency(contract.compensationAmount, contract.compensationCurrency ?? "USD")}
+                            </p>
+                          )}
+                        </div>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                          style={{ color: signed ? "#34D399" : T.muted, background: signed ? "rgba(52,211,153,0.12)" : "rgba(255,255,255,0.06)", border: `1px solid ${signed ? "rgba(52,211,153,0.25)" : "rgba(255,255,255,0.09)"}` }}>
+                          {signed ? "Signed" : "Pending"}
+                        </span>
+                      </Link>
+                    );
+                  })}
+                </Card>
+              )}
+            </div>
+            </div>{/* end grid */}
+          </div>
+        )}
+
+        {/* ── Admin: Financial overview ── */}
+        {isAdminOfSelectedOrg && selectedOrgId && (
           <div className="mb-6">
             <SectionLabel className="mb-3">Financial overview</SectionLabel>
             {isAnalyticsLoading ? (

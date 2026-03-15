@@ -61,7 +61,7 @@ export function OrganizationMobileNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-[430px] z-40 min-[1025px]:hidden"
+      className="fixed bottom-[-10px] left-1/2 -translate-x-1/2 w-full max-w-[430px] z-40 min-[1025px]:hidden"
       style={navStyle}
     >
       <div className="flex justify-around gap-0">
