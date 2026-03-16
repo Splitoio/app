@@ -54,6 +54,7 @@ export default function OrganizationDashboardPage() {
   const { user } = useAuthStore();
   const router = useRouter();
   const [mobileOrgSwitcherOpen, setMobileOrgSwitcherOpen] = useState(false);
+  const [chartRange, setChartRange] = useState<"week" | "month" | "year">("week");
   const mobileOrgSwitcherRef = useRef<HTMLDivElement>(null);
   const { data: organizations = [], isLoading: isOrgsLoading, isError: isOrgsError, error: orgsError } = useGetAllOrganizations();
 
@@ -100,22 +101,30 @@ export default function OrganizationDashboardPage() {
   const approvalRequestsCount = invoicesForOrg.filter((i) => i.status === "SENT").length;
   const approvalPastDueCount = invoicesForOrg.filter((i) => i.status === "SENT" && new Date(i.dueDate) < new Date()).length;
 
-  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetOrganizationAnalytics(selectedOrgId);
+  const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetOrganizationAnalytics(selectedOrgId, chartRange);
   const expenseThisMonth = analyticsData?.expenseThisMonth ?? 0;
   const totalPaid = analyticsData?.totalPaid ?? 0;
-  const totalInflow = analyticsData?.totalInflow ?? 0;
-  const byMonth = analyticsData?.inflowOutflowByMonth ?? [];
-  const formatMonthLabel = (monthStr: string) => {
-    const [y, m] = (monthStr || "").split("-");
-    if (!m) return monthStr;
-    const months = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split(" ");
-    return `${months[parseInt(m, 10) - 1]} ${(y || "").slice(-2)}`;
-  };
-  const lineChartData = byMonth.map((m: { month: string; inflow: number; outflow: number }) => ({
-    month: formatMonthLabel(m.month),
-    inflow: m.inflow,
-    outflow: m.outflow,
-  }));
+  const totalInflow = streamsForOrg.reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
+  const outflowByPeriod = analyticsData?.outflowByPeriod ?? [];
+
+  // Compute inflow per bucket from streams createdAt (same bucketing logic as backend)
+  const lineChartData = outflowByPeriod.map((bucket) => {
+    const bucketLabel = bucket.month;
+    // Find matching streams: parse the label back to a date range for comparison
+    const inflow = streamsForOrg
+      .filter((s) => {
+        const d = new Date(s.streamDate);
+        if (chartRange === "year") {
+          const label = d.toLocaleDateString("en-US", { month: "short" }) + " " + String(d.getFullYear()).slice(-2);
+          return label === bucketLabel;
+        }
+        // week / month: label is "Mon D" (e.g. "Mar 16")
+        const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+        return label === bucketLabel;
+      })
+      .reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
+    return { month: bucketLabel, inflow, outflow: bucket.outflow };
+  });
 
   const membersMap = new Map<string, { id: string; name: string | null; image: string | null; email: string | null; orgNames: string[] }>();
   organizations.forEach((org) => {
@@ -467,17 +476,36 @@ export default function OrganizationDashboardPage() {
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {/* Chart: two columns */}
                 <Card className="lg:col-span-2 p-4 sm:p-5 min-w-0">
-                  <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-[14px] font-bold" style={{ color: T.bright }}>Inflow vs outflow · last 6 months</h3>
-                    <div className="flex gap-4 text-[11px]" style={{ color: T.muted }}>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-0.5 rounded-full" style={{ background: G }} />
-                        Inflow
-                      </span>
-                      <span className="flex items-center gap-1.5">
-                        <span className="w-3 h-0.5 rounded-full" style={{ background: "#F87171" }} />
-                        Outflow
-                      </span>
+                  <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                    <h3 className="text-[14px] font-bold" style={{ color: T.bright }}>Inflow vs outflow</h3>
+                    <div className="flex items-center gap-3">
+                      {/* Range tabs */}
+                      <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
+                        {(["week", "month", "year"] as const).map((r) => (
+                          <button
+                            key={r}
+                            onClick={() => setChartRange(r)}
+                            className="px-3 py-1 text-[11px] font-semibold transition-colors capitalize"
+                            style={{
+                              background: chartRange === r ? "rgba(255,255,255,0.1)" : "transparent",
+                              color: chartRange === r ? T.bright : T.muted,
+                            }}
+                          >
+                            {r}
+                          </button>
+                        ))}
+                      </div>
+                      {/* Legend */}
+                      <div className="flex gap-4 text-[11px]" style={{ color: T.muted }}>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-0.5 rounded-full" style={{ background: G }} />
+                          Inflow
+                        </span>
+                        <span className="flex items-center gap-1.5">
+                          <span className="w-3 h-0.5 rounded-full" style={{ background: "#F87171" }} />
+                          Outflow
+                        </span>
+                      </div>
                     </div>
                   </div>
                   {lineChartData.length === 0 ? (
