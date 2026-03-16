@@ -165,6 +165,26 @@ export default function SettingsPage() {
     }
   };
 
+  // Auto-save currency change immediately (no save button needed for dropdown)
+  const handleCurrencyChange = (newCurrency: string) => {
+    if (!newCurrency || newCurrency === initialPreferredCurrency) return;
+    setPreferredCurrency(newCurrency);
+    updateUser({ currency: newCurrency }, {
+      onSuccess: () => {
+        setInitialPreferredCurrency(newCurrency);
+        if (user) {
+          setUser({ ...user, currency: newCurrency });
+        }
+        toast.success("Currency updated");
+      },
+      onError: (error) => {
+        toast.error("Failed to update currency");
+        console.error("Error updating currency:", error);
+        setPreferredCurrency(initialPreferredCurrency); // revert on error
+      },
+    });
+  };
+
   // Logout handler
   const handleLogout = async () => {
     try {
@@ -344,6 +364,7 @@ export default function SettingsPage() {
     setDisplayName,
     preferredCurrency,
     setPreferredCurrency,
+    onCurrencyChange: handleCurrencyChange,
     hasChanges,
     handleSaveChanges,
     isUpdatatingUser,

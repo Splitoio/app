@@ -24,6 +24,7 @@ export interface SettingsPageContentProps {
   setDisplayName: (v: string) => void;
   preferredCurrency: string;
   setPreferredCurrency: (v: string) => void;
+  onCurrencyChange?: (v: string) => void;
   hasChanges: boolean;
   handleSaveChanges: () => void;
   isUpdatatingUser: boolean;
@@ -305,6 +306,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
     setDisplayName,
     preferredCurrency,
     setPreferredCurrency,
+    onCurrencyChange,
     hasChanges: _hasChanges,
     handleSaveChanges,
     isUpdatatingUser,
@@ -628,7 +630,11 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
             <div style={{ minWidth: 220 }}>
               <CurrencyDropdown
                 selectedCurrencies={preferredCurrency ? [preferredCurrency] : []}
-                setSelectedCurrencies={(currencies) => setPreferredCurrency(currencies[0] || "")}
+                setSelectedCurrencies={(currencies) => {
+                  const newCurrency = currencies[0] || "";
+                  setPreferredCurrency(newCurrency);
+                  onCurrencyChange?.(newCurrency);
+                }}
                 mode="single"
                 showFiatCurrencies={true}
                 filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"}

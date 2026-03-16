@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetExpenses, useCreateExpense, useDeleteExpense } from "@/features/expenses/hooks/use-create-expense";
@@ -9,6 +10,8 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { Card, SectionLabel, T, A } from "@/lib/splito-design";
 import { motion, AnimatePresence } from "framer-motion";
+import CurrencyDropdown from "@/components/currency-dropdown";
+import type { Currency } from "@/features/currencies/api/client";
 
 type Expense = {
   id: string;
@@ -54,6 +57,8 @@ export default function OrganizationExpensesPage() {
   const createExpenseMutation = useCreateExpense(organizationId);
   const deleteExpenseMutation = useDeleteExpense(organizationId);
 
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
   const [modalOpen, setModalOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [form, setForm] = useState({
@@ -305,7 +310,7 @@ export default function OrganizationExpensesPage() {
       )}
 
       {/* ── Add Expense Modal ── */}
-      <AnimatePresence>
+      {mounted && createPortal(<AnimatePresence>
         {modalOpen && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -392,17 +397,15 @@ export default function OrganizationExpensesPage() {
                     >
                       Currency
                     </label>
-                    <input
-                      type="text"
-                      value={form.currency}
-                      onChange={(e) =>
-                        setForm((p) => ({
-                          ...p,
-                          currency: e.target.value.toUpperCase(),
-                        }))
+                    <CurrencyDropdown
+                      selectedCurrencies={form.currency ? [form.currency] : []}
+                      setSelectedCurrencies={(currencies) =>
+                        setForm((p) => ({ ...p, currency: currencies[0] || "USD" }))
                       }
-                      placeholder="USD"
-                      className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
+                      mode="single"
+                      showFiatCurrencies={true}
+                      disableChainCurrencies={true}
+                      filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"}
                     />
                   </div>
                 </div>
@@ -459,7 +462,7 @@ export default function OrganizationExpensesPage() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, expenseDate: e.target.value }))
                     }
-                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors"
+                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors [color-scheme:dark]"
                   />
                 </div>
 
@@ -493,10 +496,10 @@ export default function OrganizationExpensesPage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
 
       {/* ── Delete confirm ── */}
-      <AnimatePresence>
+      {mounted && createPortal(<AnimatePresence>
         {expenseToDelete && (
           <motion.div
             initial={{ opacity: 0 }}
@@ -571,7 +574,7 @@ export default function OrganizationExpensesPage() {
             </motion.div>
           </motion.div>
         )}
-      </AnimatePresence>
+      </AnimatePresence>, document.body)}
     </div>
   );
 }
