@@ -113,10 +113,10 @@ export const useGetOrganizationActivity = (organizationId: string) => {
   });
 };
 
-export const useGetOrganizationAnalytics = (organizationId: string) => {
+export const useGetOrganizationAnalytics = (organizationId: string, range: "week" | "month" | "year" = "week") => {
   return useQuery({
-    queryKey: [QueryKeys.INVOICES, organizationId, "analytics"],
-    queryFn: () => getOrganizationAnalytics(organizationId),
+    queryKey: [QueryKeys.INVOICES, organizationId, "analytics", range],
+    queryFn: () => getOrganizationAnalytics(organizationId, range),
     enabled: !!organizationId,
   });
 };

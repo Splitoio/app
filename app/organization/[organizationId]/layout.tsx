@@ -67,7 +67,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceForEdit | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
   const [streamToEdit, setStreamToEdit] = useState<IncomeStream | null>(null);
-  const [streamForm, setStreamForm] = useState({ name: "", currency: "USD", expectedAmount: "" as string | number, description: "" });
+  const [streamForm, setStreamForm] = useState({ name: "", currency: "USD", expectedAmount: "" as string | number, description: "", streamDate: new Date().toISOString().slice(0, 10) });
   const [isCreateContractModalOpen, setIsCreateContractModalOpen] = useState(false);
 
   const updateGroupMutation = useUpdateGroup();
@@ -123,7 +123,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
   const openAddStreamModal = () => {
     setStreamToEdit(null);
-    setStreamForm({ name: "", currency: "USD", expectedAmount: "", description: "" });
+    setStreamForm({ name: "", currency: "USD", expectedAmount: "", description: "", streamDate: new Date().toISOString().slice(0, 10) });
     setIsStreamModalOpen(true);
   };
 
@@ -134,6 +134,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
       currency: stream.currency,
       expectedAmount: stream.expectedAmount ?? "",
       description: stream.description ?? "",
+      streamDate: new Date(stream.streamDate).toISOString().slice(0, 10),
     });
     setIsStreamModalOpen(true);
   };
@@ -143,12 +144,12 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
     const expectedNum = streamForm.expectedAmount === "" ? null : Number(streamForm.expectedAmount);
     if (streamToEdit) {
       updateStreamMutation.mutate(
-        { organizationId, streamId: streamToEdit.id, payload: { name: streamForm.name.trim(), currency: streamForm.currency, expectedAmount: expectedNum, description: streamForm.description.trim() || null } },
+        { organizationId, streamId: streamToEdit.id, payload: { name: streamForm.name.trim(), currency: streamForm.currency, expectedAmount: expectedNum, description: streamForm.description.trim() || null, streamDate: streamForm.streamDate } },
         { onSuccess: () => { toast.success("Stream updated"); setIsStreamModalOpen(false); setStreamToEdit(null); }, onError: () => toast.error("Failed to update stream") }
       );
     } else {
       createStreamMutation.mutate(
-        { organizationId, payload: { name: streamForm.name.trim(), currency: streamForm.currency, expectedAmount: expectedNum ?? undefined, description: streamForm.description.trim() || undefined } },
+        { organizationId, payload: { name: streamForm.name.trim(), currency: streamForm.currency, expectedAmount: expectedNum ?? undefined, description: streamForm.description.trim() || undefined, streamDate: streamForm.streamDate } },
         { onSuccess: () => { toast.success("Stream added"); setIsStreamModalOpen(false); }, onError: () => toast.error("Failed to add stream") }
       );
     }
@@ -456,6 +457,10 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
                   <div>
                     <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Description</label>
                     <input type="text" value={streamForm.description} onChange={(e) => setStreamForm((p) => ({ ...p, description: e.target.value }))} placeholder="Notes" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Date</label>
+                    <input type="date" value={streamForm.streamDate} onChange={(e) => setStreamForm((p) => ({ ...p, streamDate: e.target.value }))} className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white outline-none focus:border-white/20 [color-scheme:dark]" required />
                   </div>
                   <div className="flex gap-3 pt-2">
                     <Btn variant="ghost" className="flex-1" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }}>Cancel</Btn>

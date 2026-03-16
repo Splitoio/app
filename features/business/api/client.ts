@@ -106,6 +106,7 @@ export const IncomeStreamSchema = z.object({
   currency: z.string(),
   expectedAmount: z.number().nullable(),
   description: z.string().nullable(),
+  streamDate: z.coerce.date(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -199,13 +200,12 @@ export const getOrganizationActivity = async (organizationId: string) => {
   return OrganizationActivitySchema.array().parse(response);
 };
 
-export const getOrganizationAnalytics = async (organizationId: string) => {
-  const response = await apiClient.get(`/invoices/organization/${organizationId}/analytics`);
+export const getOrganizationAnalytics = async (organizationId: string, range: "week" | "month" | "year" = "week") => {
+  const response = await apiClient.get(`/invoices/organization/${organizationId}/analytics?range=${range}`);
   return response as unknown as {
     expenseThisMonth: number;
     totalPaid: number;
-    totalInflow: number;
-    inflowOutflowByMonth: { month: string; inflow: number; outflow: number }[];
+    outflowByPeriod: { month: string; outflow: number }[];
   };
 };
 
@@ -221,7 +221,7 @@ export const getStreamsByOrganization = async (organizationId: string) => {
 
 export const createStream = async (
   organizationId: string,
-  payload: { name: string; currency?: string; expectedAmount?: number | null; description?: string | null }
+  payload: { name: string; currency?: string; expectedAmount?: number | null; description?: string | null; streamDate?: string }
 ) => {
   const response = await apiClient.post(`/groups/${organizationId}/streams`, payload);
   return IncomeStreamSchema.parse(response);
@@ -230,7 +230,7 @@ export const createStream = async (
 export const updateStream = async (
   organizationId: string,
   streamId: string,
-  payload: { name?: string; currency?: string; expectedAmount?: number | null; description?: string | null }
+  payload: { name?: string; currency?: string; expectedAmount?: number | null; description?: string | null; streamDate?: string }
 ) => {
   const response = await apiClient.put(`/groups/${organizationId}/streams/${streamId}`, payload);
   return IncomeStreamSchema.parse(response);
