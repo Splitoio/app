@@ -20,7 +20,7 @@ import {
   DollarSign,
   Settings,
 } from "lucide-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQueries } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
@@ -30,7 +30,8 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { formatRelativeTime } from "@/lib/utils";
-import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+import { useConvertedBalanceTotal, CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
+import { getExchangeRate } from "@/features/currencies/api/client";
 import {
   A,
   Card,
@@ -201,7 +202,7 @@ function GroupBalanceShort({
   const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
   if (loadOwe || loadOwed) return <span className="text-white/60">…</span>;
   const net = (owedTotal ?? 0) - (oweTotal ?? 0);
-  if (net === 0) return <span style={{ color: G, fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>+$0</span>;
+  if (net === 0) return <span style={{ color: G, fontSize: 13, fontWeight: 800, fontFamily: "monospace" }}>+{formatCurrency(0, defaultCurrency)}</span>;
   if (net > 0)
     return (
       <span
@@ -404,19 +405,20 @@ export default function Page() {
   const owedThisMonth = Number(analyticsData?.owed) || 0;
   const lentThisMonth = Number(analyticsData?.lent) || 0;
   const settledThisMonth = Number(analyticsData?.settled) || 0;
+  const analyticsCurrency = analyticsData?.currency || defaultCurrency;
   const { total: owedConverted, isLoading: owedConvLoading } =
     useConvertedBalanceTotal(
-      owedThisMonth ? [{ amount: owedThisMonth, currency: "USD" }] : [],
+      owedThisMonth ? [{ amount: owedThisMonth, currency: analyticsCurrency }] : [],
       defaultCurrency
     );
   const { total: lentConverted, isLoading: lentConvLoading } =
     useConvertedBalanceTotal(
-      lentThisMonth ? [{ amount: lentThisMonth, currency: "USD" }] : [],
+      lentThisMonth ? [{ amount: lentThisMonth, currency: analyticsCurrency }] : [],
       defaultCurrency
     );
   const { total: settledConverted, isLoading: settledConvLoading } =
     useConvertedBalanceTotal(
-      settledThisMonth ? [{ amount: settledThisMonth, currency: "USD" }] : [],
+      settledThisMonth ? [{ amount: settledThisMonth, currency: analyticsCurrency }] : [],
       defaultCurrency
     );
   const queryClient = useQueryClient();
@@ -459,6 +461,36 @@ export default function Page() {
 
   const netOwed = (overallGetLoading || overallOweLoading) ? 0 : overallGetTotal - overallOweTotal;
 
+  // Collect all unique expense currencies across groups for the activity card
+  const activityCurrencies = useMemo(() => {
+    if (!groups?.length) return [];
+    const currencies = new Set<string>();
+    for (const group of groups) {
+      const expenses = (group as { expenses?: { currency: string }[] }).expenses ?? [];
+      expenses.forEach((e) => { if (e.currency) currencies.add(e.currency); });
+    }
+    currencies.delete(defaultCurrency);
+    return [...currencies].filter(Boolean);
+  }, [groups, defaultCurrency]);
+
+  const activityRateQueries = useQueries({
+    queries: activityCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+
+  const activityRateMap = useMemo(() => {
+    const map: Record<string, number> = { [defaultCurrency]: 1 };
+    activityCurrencies.forEach((c, i) => {
+      const rate = activityRateQueries[i]?.data?.rate;
+      if (rate) map[c] = rate;
+    });
+    return map;
+  }, [activityCurrencies, activityRateQueries, defaultCurrency]);
+
   /** Recent activity from all groups (expenses + settlements) for Dashboard card */
   const recentActivityFromGroups = useMemo(() => {
     if (!user || !groups?.length) return [];
@@ -470,7 +502,9 @@ export default function Page() {
         userId === user.id ? "You" : (groupUsers.find((gu) => gu.user.id === userId)?.user?.name ?? "Someone");
       for (const exp of expenses) {
         const date = exp.createdAt instanceof Date ? exp.createdAt : new Date(exp.createdAt);
-        const amountStr = formatCurrency(Math.abs(exp.amount), exp.currency || defaultCurrency);
+        const src = exp.currency || defaultCurrency;
+        const rate = activityRateMap[src] ?? 1;
+        const amountStr = formatCurrency(Math.abs(exp.amount) * rate, defaultCurrency);
         const timeAgo = formatRelativeTime(date);
         const subtext = `${timeAgo} · ${group.name}`;
         if (exp.splitType === "SETTLEMENT") {
@@ -494,7 +528,7 @@ export default function Page() {
     }
     items.sort((a, b) => b.date.getTime() - a.date.getTime());
     return items.slice(0, 5);
-  }, [groups, user?.id, defaultCurrency]);
+  }, [groups, user?.id, defaultCurrency, activityRateMap]);
 
   const groupAvatarItems = (g: { groupUsers?: { user: { name: string | null; id: string } }[] }) =>
     (g.groupUsers ?? [])
@@ -639,7 +673,7 @@ export default function Page() {
               {[
                 ["You owed this month", isAnalyticsLoading || owedConvLoading ? "…" : formatCurrency(owedConverted, defaultCurrency)],
                 ["You lent this month", isAnalyticsLoading || lentConvLoading ? "…" : formatCurrency(lentConverted, defaultCurrency)],
-                ["You settled this month", isAnalyticsLoading || settledConvLoading ? "…" : settledThisMonth === 0 ? "$0.00" : formatCurrency(settledConverted, defaultCurrency)],
+                ["You settled this month", isAnalyticsLoading || settledConvLoading ? "…" : formatCurrency(settledThisMonth === 0 ? 0 : settledConverted, defaultCurrency)],
               ].map(([label, value], i, arr) => (
                 <div
                   key={String(label)}

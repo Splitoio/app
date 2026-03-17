@@ -4,6 +4,9 @@ import { useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
+import { useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import {
   useGetInvoicesByOrganization,
   useUpdateInvoice,
@@ -61,6 +64,7 @@ function InvoiceRow({
   isDeleting,
   isClearing,
   setExpandedImage,
+  formatAmt,
 }: {
   inv: Invoice;
   isAdmin: boolean;
@@ -74,16 +78,18 @@ function InvoiceRow({
   isDeleting?: boolean;
   isClearing?: boolean;
   setExpandedImage?: (v: { url: string; description: string }) => void;
+  formatAmt?: (amount: number, currency: string) => string;
 }) {
   const isPastDue = inv.dueDate && new Date(inv.dueDate) < new Date();
   const isIssuer = inv.issuerId === userId;
+  const displayAmt = formatAmt ?? ((amount: number, currency: string) => formatCurrency(amount, currency));
 
   return (
     <div className="w-full flex items-center gap-3 sm:gap-6 px-4 sm:px-6 py-4 border-b border-white/[0.06] last:border-b-0 hover:bg-white/[0.015] transition-colors">
       {/* Receipt image thumbnail */}
       {inv.imageUrl ? (
         <button type="button"
-          onClick={() => setExpandedImage?.({ url: inv.imageUrl!, description: inv.description || `Invoice — ${formatCurrency(inv.amount, inv.currency)}` })}
+          onClick={() => setExpandedImage?.({ url: inv.imageUrl!, description: inv.description || `Invoice — ${displayAmt(inv.amount, inv.currency)}` })}
           className="relative h-12 w-14 flex-shrink-0 rounded-xl overflow-hidden border border-white/[0.08] cursor-pointer hover:border-white/20 transition-colors">
           <Image src={inv.imageUrl} alt="Invoice" fill className="object-cover" sizes="56px" />
         </button>
@@ -109,7 +115,7 @@ function InvoiceRow({
           </div>
           <div className="flex items-center gap-2 flex-shrink-0">
             <p className="text-[16px] font-extrabold font-mono" style={{ color: T.bright }}>
-              {formatCurrency(inv.amount, inv.currency)}
+              {displayAmt(inv.amount, inv.currency)}
             </p>
             <StatusPill status={inv.status} />
           </div>
@@ -174,21 +180,37 @@ export default function OrganizationInvoicesPage() {
   const [invoiceToReview, setInvoiceToReview] = useState<Invoice | null>(null);
   const [showPreviousInvoices, setShowPreviousInvoices] = useState(false);
 
-  const formatCurrencyLocal = (amount: number, currency: string) => formatCurrency(amount, currency);
+  const defaultCurrency = user?.currency || "USD";
+  const uniqueCurrencies = Array.from(new Set(invoices.map((i) => i.currency))).filter(
+    (c) => c !== defaultCurrency
+  );
+  const rateQueries = useQueries({
+    queries: uniqueCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+  const rateMap: Record<string, number> = { [defaultCurrency]: 1 };
+  uniqueCurrencies.forEach((c, i) => {
+    const rate = rateQueries[i]?.data?.rate;
+    if (rate != null) rateMap[c] = rate;
+  });
+  const convert = (amount: number, currency: string) => amount * (rateMap[currency] ?? 1);
 
   const pendingToPay = invoices.filter((i) => PAYABLE_STATUSES.includes(i.status as typeof PAYABLE_STATUSES[number]));
   const approvalRequests = invoices.filter((i) => i.status === APPROVAL_STATUS);
   const previousInvoices = invoices.filter((i) => PREVIOUS_STATUSES.includes(i.status as typeof PREVIOUS_STATUSES[number]));
 
-  const pendingTotal = pendingToPay.reduce((sum, i) => sum + i.amount, 0);
-  const currencyFirst = pendingToPay[0]?.currency ?? invoices[0]?.currency ?? "USD";
+  const pendingTotal = pendingToPay.reduce((sum, i) => sum + convert(i.amount, i.currency), 0);
 
   const handlePayAll = () => {
     const approvedOnly = pendingToPay.filter((i) => i.status === "APPROVED");
     if (approvedOnly.length === 0) { toast.error("No approved invoices to pay"); return; }
     approvedOnly.forEach((inv) => {
       markPaidMutation.mutate(inv.id, {
-        onSuccess: () => toast.success(`Marked as paid: ${formatCurrencyLocal(inv.amount, inv.currency)}`),
+        onSuccess: () => toast.success(`Marked as paid: ${formatCurrency(convert(inv.amount, inv.currency), defaultCurrency)}`),
         onError: () => toast.error(`Failed to mark invoice as paid`),
       });
     });
@@ -253,7 +275,7 @@ export default function OrganizationInvoicesPage() {
             <div>
               <p className="text-[11px] font-bold tracking-[0.08em] uppercase mb-1" style={{ color: T.muted }}>Outstanding</p>
               <p className="text-[32px] font-black font-mono tracking-[-0.02em]" style={{ color: paymentsOverdueCount > 0 ? "#F87171" : T.bright }}>
-                {formatCurrencyLocal(pendingTotal, currencyFirst)}
+                {formatCurrency(pendingTotal, defaultCurrency)}
               </p>
               <p className="text-[12px] font-medium mt-1" style={{ color: T.muted }}>
                 {pendingToPay.length} pending · {paymentsOverdueCount} overdue
@@ -288,6 +310,7 @@ export default function OrganizationInvoicesPage() {
                 isPaying={markPaidMutation.isPending}
                 isDeleting={deleteInvoiceMutation.isPending}
                 setExpandedImage={setExpandedImage}
+                formatAmt={(amount, currency) => formatCurrency(convert(amount, currency), defaultCurrency)}
               />
             ))}
           </Card>
@@ -307,6 +330,7 @@ export default function OrganizationInvoicesPage() {
                 userId={user?.id}
                 onReview={() => setInvoiceToReview(inv)}
                 setExpandedImage={setExpandedImage}
+                formatAmt={(amount, currency) => formatCurrency(convert(amount, currency), defaultCurrency)}
               />
             ))}
           </Card>
@@ -342,6 +366,7 @@ export default function OrganizationInvoicesPage() {
                       onClear={() => clearInvoiceMutation.mutate(inv.id, { onSuccess: () => toast.success("Cleared"), onError: () => toast.error("Failed to clear") })}
                       isClearing={clearInvoiceMutation.isPending}
                       setExpandedImage={setExpandedImage}
+                      formatAmt={(amount, currency) => formatCurrency(convert(amount, currency), defaultCurrency)}
                     />
                   ))}
                 </Card>

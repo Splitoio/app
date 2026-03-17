@@ -12,6 +12,9 @@ import { Card, SectionLabel, T, A } from "@/lib/splito-design";
 import { motion, AnimatePresence } from "framer-motion";
 import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
+import { useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 
 type Expense = {
   id: string;
@@ -64,18 +67,38 @@ export default function OrganizationExpensesPage() {
   const [form, setForm] = useState({
     name: "",
     amount: "",
-    currency: "USD",
+    currency: user?.currency || "USD",
     category: "Business",
     expenseDate: new Date().toISOString().slice(0, 10),
   });
 
+  // ── Currency conversion ───────────────────────────────────────
+  const defaultCurrency = user?.currency || "USD";
+  const uniqueCurrencies = Array.from(new Set(expenses.map((e) => e.currency))).filter(
+    (c) => c !== defaultCurrency
+  );
+  const rateQueries = useQueries({
+    queries: uniqueCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+  const rateMap: Record<string, number> = { [defaultCurrency]: 1 };
+  uniqueCurrencies.forEach((c, i) => {
+    const rate = rateQueries[i]?.data?.rate;
+    if (rate != null) rateMap[c] = rate;
+  });
+  const convert = (amount: number, currency: string) => amount * (rateMap[currency] ?? 1);
+
   // ── Aggregates ──────────────────────────────────────────────
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-  const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
+  const totalExpenses = expenses.reduce((sum, e) => sum + convert(e.amount, e.currency), 0);
   const thisMonthExpenses = expenses
     .filter((e) => new Date(e.expenseDate) >= startOfMonth)
-    .reduce((sum, e) => sum + e.amount, 0);
+    .reduce((sum, e) => sum + convert(e.amount, e.currency), 0);
 
   // ── Handlers ─────────────────────────────────────────────────
   const closeForm = () => {
@@ -83,7 +106,7 @@ export default function OrganizationExpensesPage() {
     setForm({
       name: "",
       amount: "",
-      currency: "USD",
+      currency: user?.currency || "USD",
       category: "Business",
       expenseDate: new Date().toISOString().slice(0, 10),
     });
@@ -221,7 +244,7 @@ export default function OrganizationExpensesPage() {
                   className="text-[22px] sm:text-[24px] font-extrabold font-mono"
                   style={{ color: "#F87171" }}
                 >
-                  {formatCurrency(totalExpenses, "USD")}
+                  {formatCurrency(totalExpenses, defaultCurrency)}
                 </p>
               </div>
               <div className="min-w-0 pl-4 sm:pl-6">
@@ -235,7 +258,7 @@ export default function OrganizationExpensesPage() {
                   className="text-[22px] sm:text-[24px] font-extrabold font-mono"
                   style={{ color: "#22D3EE" }}
                 >
-                  {formatCurrency(thisMonthExpenses, "USD")}
+                  {formatCurrency(thisMonthExpenses, defaultCurrency)}
                 </p>
               </div>
             </div>
@@ -289,7 +312,7 @@ export default function OrganizationExpensesPage() {
                     className="text-[15px] font-extrabold font-mono flex-shrink-0"
                     style={{ color: "#F87171" }}
                   >
-                    {formatCurrency(exp.amount, exp.currency)}
+                    {formatCurrency(convert(exp.amount, exp.currency), defaultCurrency)}
                   </p>
 
                   {/* Delete */}

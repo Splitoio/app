@@ -1,10 +1,13 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { useDeleteExpense } from "@/features/expenses/hooks/use-create-expense";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import {
   Card,
   SectionLabel,
@@ -242,6 +245,7 @@ export default function GroupSplitsPage() {
   const {
     group,
     formatCurrency,
+    defaultCurrency,
     openSettle,
     handleSendReminder,
     openAddExpense,
@@ -253,6 +257,36 @@ export default function GroupSplitsPage() {
     () => expenses.filter((e) => e.splitType !== "SETTLEMENT"),
     [expenses]
   );
+
+  // Fetch exchange rates for all unique expense currencies that differ from defaultCurrency
+  const expenseCurrencies = useMemo(
+    () => [...new Set(nonSettlement.map((e) => e.currency).filter((c) => c && c !== defaultCurrency))],
+    [nonSettlement, defaultCurrency]
+  );
+  const rateQueries = useQueries({
+    queries: expenseCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+  const rateMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    expenseCurrencies.forEach((c, i) => {
+      const rate = rateQueries[i]?.data?.rate;
+      if (rate) map[c] = rate;
+    });
+    return map;
+  }, [expenseCurrencies, rateQueries]);
+
+  // Converts an amount from its expense currency to defaultCurrency, then formats
+  const convertedFormatCurrency = (amount: number, currency: string): string => {
+    if (!defaultCurrency || currency === defaultCurrency) return formatCurrency(amount, currency);
+    const rate = rateMap[currency];
+    if (!rate) return formatCurrency(amount, currency); // fall back to original if rate not loaded
+    return formatCurrency(amount * rate, defaultCurrency);
+  };
 
   const byDate = useMemo(() => {
     const map = new Map<string, ExpenseWithParticipants[]>();
@@ -306,7 +340,7 @@ export default function GroupSplitsPage() {
             groupUsers={group.groupUsers}
             currentUserId={user.id}
             currentUserName={user.name ?? null}
-                  formatCurrency={formatCurrency}
+                  formatCurrency={convertedFormatCurrency}
                   isLast={idx === dateExpenses.length - 1}
                   onNotify={() => {
                     const firstOwer = expense.expenseParticipants?.find((p) => p.amount > 0);

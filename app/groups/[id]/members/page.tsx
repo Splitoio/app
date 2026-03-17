@@ -1,9 +1,12 @@
 "use client";
 
 import { useMemo } from "react";
+import { useQueries } from "@tanstack/react-query";
 import { Trash2 } from "lucide-react";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import {
   Card,
   SectionLabel,
@@ -35,25 +38,55 @@ export default function GroupMembersPage() {
     handleSendReminder,
     formatCurrency,
     defaultCurrency,
-    getSpecificDebtAmount,
+    getSpecificDebtByCurrency,
   } = useGroupLayout();
+
+  // Collect all unique currencies from expenses and balances that differ from defaultCurrency
+  const allCurrencies = useMemo(() => {
+    const currencies = new Set<string>();
+    (group?.expenses ?? []).forEach((e: { currency: string }) => currencies.add(e.currency));
+    (group?.groupBalances ?? []).forEach((b: { currency: string }) => currencies.add(b.currency));
+    currencies.delete(defaultCurrency);
+    return [...currencies].filter(Boolean);
+  }, [group, defaultCurrency]);
+
+  const rateQueries = useQueries({
+    queries: allCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+
+  const rateMap = useMemo(() => {
+    const map: Record<string, number> = { [defaultCurrency]: 1 };
+    allCurrencies.forEach((c, i) => {
+      const rate = rateQueries[i]?.data?.rate;
+      if (rate) map[c] = rate;
+    });
+    return map;
+  }, [allCurrencies, rateQueries, defaultCurrency]);
+
+  const convert = (amount: number, currency: string) =>
+    amount * (rateMap[currency] ?? 1);
 
   const { totalSpent, youAreOwed, expenseCount } = useMemo(() => {
     if (!group || !user) return { totalSpent: 0, youAreOwed: 0, expenseCount: 0 };
     const totalSpent = (group.expenses ?? [])
       .filter((e: { splitType?: string }) => e.splitType !== "SETTLEMENT")
-      .reduce((a: number, e: { amount: number }) => a + e.amount, 0);
+      .reduce((a: number, e: { amount: number; currency: string }) => a + convert(e.amount, e.currency), 0);
     const youAreOwed = (group.groupBalances ?? [])
       .filter(
-        (b: { userId: string; firendId: string; amount: number }) =>
-          b.userId === user.id && b.amount > 0
+        (b: { userId: string; amount: number }) => b.userId === user.id && b.amount > 0
       )
-      .reduce((a: number, b: { amount: number }) => a + b.amount, 0);
+      .reduce((a: number, b: { amount: number; currency: string }) => a + convert(b.amount, b.currency), 0);
     const expenseCount = (group.expenses ?? []).filter(
       (e: { splitType?: string }) => e.splitType !== "SETTLEMENT"
     ).length;
     return { totalSpent, youAreOwed, expenseCount };
-  }, [group, user]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group, user, rateMap]);
 
   const formatAmount = (amount: number) =>
     formatCurrency(amount, defaultCurrency || "USD");
@@ -71,8 +104,12 @@ export default function GroupMembersPage() {
               (e: { paidBy: string; splitType?: string }) =>
                 e.paidBy === member.user.id && e.splitType !== "SETTLEMENT"
             )
-            .reduce((a: number, e: { amount: number }) => a + e.amount, 0);
-          const owes = getSpecificDebtAmount(member.user.id);
+            .reduce((a: number, e: { amount: number; currency: string }) => a + convert(e.amount, e.currency), 0);
+          const debtByCurrency = getSpecificDebtByCurrency(member.user.id);
+          const owes = Object.entries(debtByCurrency).reduce(
+            (sum, [currency, amount]) => sum + convert(amount, currency),
+            0
+          );
           const owesDisplay =
             owes > 0
               ? { text: `owes ${formatAmount(owes)}`, color: "#F87171" }

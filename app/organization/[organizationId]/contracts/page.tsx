@@ -17,6 +17,9 @@ import { ContractGateModal } from "@/components/contract-gate-modal";
 import { Contract } from "@/features/business/api/client";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuthStore } from "@/stores/authStore";
+import { useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
 import { cn } from "@/lib/utils";
 
@@ -50,6 +53,25 @@ export default function OrganizationContractsPage() {
   const { isAdmin, openCreateContract } = useOrganizationOrg();
   const { user } = useAuthStore();
   const { data: contracts = [], isLoading: isContractsLoading } = useGetContractsByOrganization(organizationId);
+
+  const defaultCurrency = user?.currency || "USD";
+  const uniqueCurrencies = Array.from(
+    new Set(contracts.map((c) => c.compensationCurrency ?? defaultCurrency))
+  ).filter((c) => c !== defaultCurrency);
+  const rateQueries = useQueries({
+    queries: uniqueCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+  const rateMap: Record<string, number> = { [defaultCurrency]: 1 };
+  uniqueCurrencies.forEach((c, i) => {
+    const rate = rateQueries[i]?.data?.rate;
+    if (rate != null) rateMap[c] = rate;
+  });
+  const convert = (amount: number, currency: string) => amount * (rateMap[currency] ?? 1);
   const revokeContractMutation = useRevokeContract();
   const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
   const [contractToRevoke, setContractToRevoke] = useState<Contract | null>(null);
@@ -195,7 +217,7 @@ export default function OrganizationContractsPage() {
                         : `From ${c.organization?.name ?? "organization"}`}
                       {c.compensationAmount != null && (
                         <> · <span className="font-mono font-semibold" style={{ color: T.body }}>
-                          {formatCurrency(c.compensationAmount, c.compensationCurrency ?? "USD")}
+                          {formatCurrency(convert(c.compensationAmount, c.compensationCurrency ?? defaultCurrency), defaultCurrency)}
                           {c.paymentFrequency && `/${c.paymentFrequency.toLowerCase()}`}
                         </span></>
                       )}

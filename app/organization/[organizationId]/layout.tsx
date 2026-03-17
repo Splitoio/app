@@ -62,7 +62,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [declineInvoiceId, setDeclineInvoiceId] = useState<string | null>(null);
   const [declineNote, setDeclineNote] = useState("");
-  const [groupSettings, setGroupSettings] = useState({ name: "", currency: "USD" });
+  const [groupSettings, setGroupSettings] = useState({ name: "", currency: user?.currency || "USD" });
   const [expandedImage, setExpandedImage] = useState<{ url: string; description: string } | null>(null);
   const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceForEdit | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
@@ -79,7 +79,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (group) {
-      setGroupSettings((prev) => ({ ...prev, name: group.name, currency: group.defaultCurrency || "USD" }));
+      setGroupSettings((prev) => ({ ...prev, name: group.name, currency: user?.currency || group.defaultCurrency || "USD" }));
     }
   }, [group]);
 
