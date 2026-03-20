@@ -16,9 +16,10 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import ResolverSelector, { Option as TokenOption } from "./ResolverSelector";
-import { useOrganizedCurrencies, useGetExchangeRate } from "@/features/currencies/hooks/use-currencies";
+import { useOrganizedCurrencies, useGetExchangeRate, CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
@@ -92,6 +93,34 @@ export function SettleDebtsModal({
   const stellarWallet = wallets.find(w => w.chainId === "stellar");
   const userStellarAddress = stellarWallet?.address || null;
   useHandleEscapeToCloseModal(isOpen, onClose);
+
+  // Exchange rate conversion for balance currencies
+  const balanceCurrencies = useMemo(() => {
+    const currencies = new Set<string>();
+    const sourceBalances = Array.isArray(balances) ? balances : [];
+    sourceBalances.forEach((b) => {
+      if (b.currency && b.currency !== (defaultCurrency || "USD")) currencies.add(b.currency);
+    });
+    return [...currencies].filter(Boolean);
+  }, [balances, defaultCurrency]);
+
+  const balanceRateQueries = useQueries({
+    queries: balanceCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency || "USD"],
+      queryFn: () => getExchangeRate(from, defaultCurrency || "USD"),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+
+  const balanceRateMap = useMemo(() => {
+    const map: Record<string, number> = { [defaultCurrency || "USD"]: 1 };
+    balanceCurrencies.forEach((c, i) => {
+      const rate = balanceRateQueries[i]?.data?.rate;
+      if (rate) map[c] = rate;
+    });
+    return map;
+  }, [balanceCurrencies, balanceRateQueries, defaultCurrency]);
 
   // Helper functions for debt calculations
   const transformGroupBalancesToCurrencyMap = (groupBalances: GroupBalance[], userId: string): Record<string, number> => {
@@ -783,8 +812,6 @@ export function SettleDebtsModal({
   // Check if there are any debts to settle for the selected user
   const _hasDebtsToSettle = Object.values(selectedUserDebtByCurrency).some(amount => amount !== 0);
 
-  // Calculate the remaining total after exclusions
-  const remainingTotal = calculateRemainingTotal();
   const displayGroupName = useMemo(() => {
     if (!groupId) return "Group";
     const groupMatch = _groups?.find((g: { id: string; name: string }) => g.id === groupId);
@@ -798,7 +825,8 @@ export function SettleDebtsModal({
       .filter((b) => b.userId !== user?.id && b.amount < 0)
       .reduce((acc, b) => {
         const current = acc.get(b.userId) || 0;
-        acc.set(b.userId, current + Math.abs(b.amount));
+        const rate = balanceRateMap[b.currency] ?? 1;
+        acc.set(b.userId, current + Math.abs(b.amount) * rate);
         return acc;
       }, new Map<string, number>());
 
@@ -821,7 +849,11 @@ export function SettleDebtsModal({
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  }, [balances, user?.id, _members]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [balances, user?.id, _members, balanceRateMap]);
+
+  // Calculate the remaining total after currency conversion
+  const remainingTotal = memberDebtRows.reduce((sum, row) => sum + row.amount, 0);
 
   const CURRENCY_FLAG: Record<string, string> = {
     USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵", THB: "🇹🇭",

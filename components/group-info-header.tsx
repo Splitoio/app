@@ -60,6 +60,8 @@ export function GroupInfoHeader({
     }
   });
 
+  // owed = positive balances = amounts the current user OWES (debts)
+  // owe  = negative balances (abs) = amounts the current user IS OWED (credits)
   const { total: totalOwedToUser, isLoading: loadingOwe } = useConvertedBalanceTotal(
     owe,
     defaultCurrency
@@ -101,15 +103,20 @@ export function GroupInfoHeader({
   ];
 
   const memberCount = group.groupUsers?.length ?? 0;
-  const isOwedToUser = owed.length > 0;
-  const isUserOwes = owe.length > 0;
+  // net = credits (owed to user) - debts (user owes) — same formula as GroupBalanceShort on dashboard
+  const net = converting ? null : totalOwedToUser - totalUserOwes;
+  const isOwedToUser = net !== null && net > 0;
+  const isUserOwes = net !== null && net < 0;
+  const netAmount = net !== null ? Math.abs(net) : 0;
   const balanceLabel = isOwedToUser ? "owed to you" : isUserOwes ? "you owe" : "all settled";
 
-  const desktopSubtitle = isOwedToUser
-    ? <>You are owed <span className="font-bold text-[#34D399]">{converting ? "…" : formatCurrency(totalOwedToUser, defaultCurrency)}</span></>
-    : isUserOwes
-      ? <>You owe <span className="font-bold text-[#F87171]">{converting ? "…" : formatCurrency(totalUserOwes, defaultCurrency)}</span></>
-      : <span className="font-bold text-[#34D399]">All settled ✓</span>;
+  const desktopSubtitle = converting
+    ? <span style={{ color: "rgba(255,255,255,0.4)" }}>…</span>
+    : isOwedToUser
+      ? <>You are owed <span className="font-bold text-[#34D399]">{formatCurrency(netAmount, defaultCurrency)}</span></>
+      : isUserOwes
+        ? <>You owe <span className="font-bold text-[#F87171]">{formatCurrency(netAmount, defaultCurrency)}</span></>
+        : <span className="font-bold text-[#34D399]">All settled ✓</span>;
 
   return (
     <div

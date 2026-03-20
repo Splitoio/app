@@ -4,6 +4,7 @@ export interface AnalyticsData {
   owed: string | number;
   lent: string | number;
   settled: string | number;
+  currency?: string;
 }
 
 export const getAnalytics = async (): Promise<AnalyticsData> => {
@@ -20,7 +21,8 @@ export const getAnalytics = async (): Promise<AnalyticsData> => {
     return {
       owed: data.owed,
       lent: data.lent,
-      settled: data.settled
+      settled: data.settled,
+      currency: data.currency,
     };
   } catch (error) {
     console.error("Analytics API Error:", error);

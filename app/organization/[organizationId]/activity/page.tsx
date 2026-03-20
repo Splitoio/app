@@ -4,10 +4,14 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { useGetOrganizationActivity } from "@/features/business/hooks/use-invoices";
 import { useOrganizationOrg } from "@/contexts/organization-org-context";
+import { useAuthStore } from "@/stores/authStore";
 import { Loader2 } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { formatRelativeTime } from "@/lib/utils";
 import { Card, SectionLabel, T, G, A } from "@/lib/splito-design";
+import { useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 
 type Activity = {
   id: string;
@@ -32,7 +36,7 @@ function getDotColor(type: string): string {
   return DOT_COLORS[type] ?? T.muted;
 }
 
-function getActivityText(act: Activity): React.ReactNode {
+function getActivityText(act: Activity, formatAmt: (amount: number, currency: string) => string): React.ReactNode {
   const userName = act.user?.name || act.user?.email || "Someone";
 
   switch (act.type) {
@@ -44,7 +48,7 @@ function getActivityText(act: Activity): React.ReactNode {
             <>
               {" "}
               <span style={{ color: A }}>
-                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+                ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
               {act.invoice.recipient?.name && ` to ${act.invoice.recipient.name}`}
             </>
@@ -59,7 +63,7 @@ function getActivityText(act: Activity): React.ReactNode {
             <>
               {" "}
               <span style={{ color: G }}>
-                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+                ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
             </>
           )}
@@ -73,7 +77,7 @@ function getActivityText(act: Activity): React.ReactNode {
             <>
               {" "}
               <span style={{ color: "#F87171" }}>
-                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+                ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
             </>
           )}
@@ -87,7 +91,7 @@ function getActivityText(act: Activity): React.ReactNode {
             <>
               {" "}
               <span style={{ color: G }}>
-                ({formatCurrency(act.invoice.amount, act.invoice.currency)})
+                ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
             </>
           )}
@@ -131,7 +135,34 @@ export default function OrganizationActivityPage() {
   const router = useRouter();
   const organizationId = params?.organizationId as string;
   const { isAdmin } = useOrganizationOrg();
+  const { user } = useAuthStore();
   const { data: activities = [], isLoading } = useGetOrganizationActivity(organizationId);
+
+  const defaultCurrency = user?.currency || "USD";
+  const activityList = activities as unknown as Activity[];
+  const uniqueCurrencies = Array.from(
+    new Set(
+      activityList
+        .filter((a) => a.invoice?.currency)
+        .map((a) => a.invoice!.currency)
+    )
+  ).filter((c) => c !== defaultCurrency);
+  const rateQueries = useQueries({
+    queries: uniqueCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+  const rateMap: Record<string, number> = { [defaultCurrency]: 1 };
+  uniqueCurrencies.forEach((c, i) => {
+    const rate = rateQueries[i]?.data?.rate;
+    if (rate != null) rateMap[c] = rate;
+  });
+  const convert = (amount: number, currency: string) => amount * (rateMap[currency] ?? 1);
+  const formatAmt = (amount: number, currency: string) =>
+    formatCurrency(convert(amount, currency), defaultCurrency);
 
   useEffect(() => {
     if (isAdmin === false) {
@@ -146,8 +177,6 @@ export default function OrganizationActivityPage() {
       </div>
     );
   }
-
-  const activityList = activities as unknown as Activity[];
 
   return (
     <div style={{ padding: "0 0 24px" }}>
@@ -192,7 +221,7 @@ export default function OrganizationActivityPage() {
                   fontWeight: 500,
                 }}
               >
-                {getActivityText(act)}
+                {getActivityText(act, formatAmt)}
                 {act.note && (
                   <span style={{ color: T.dim }}> &mdash; &ldquo;{act.note}&rdquo;</span>
                 )}

@@ -12,6 +12,10 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuthStore } from "@/stores/authStore";
+import { useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 
 type Stream = { id: string; name: string; expectedAmount?: number | null; currency: string; description?: string | null };
 
@@ -20,9 +24,29 @@ export default function OrganizationStreamsPage() {
   const router = useRouter();
   const organizationId = params?.organizationId as string;
   const { isAdmin, openStreamModal, openEditStream } = useOrganizationOrg();
+  const { user } = useAuthStore();
   const { data: streams = [], isLoading: isStreamsLoading } = useGetStreamsByOrganization(organizationId, { enabled: !!isAdmin });
   const deleteStreamMutation = useDeleteStream();
   const [streamToDelete, setStreamToDelete] = useState<Stream | null>(null);
+
+  const defaultCurrency = user?.currency || "USD";
+  const uniqueCurrencies = Array.from(
+    new Set((streams as Stream[]).map((s) => s.currency))
+  ).filter((c) => c !== defaultCurrency);
+  const rateQueries = useQueries({
+    queries: uniqueCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!defaultCurrency && !!from,
+    })),
+  });
+  const rateMap: Record<string, number> = { [defaultCurrency]: 1 };
+  uniqueCurrencies.forEach((c, i) => {
+    const rate = rateQueries[i]?.data?.rate;
+    if (rate != null) rateMap[c] = rate;
+  });
+  const convert = (amount: number, currency: string) => amount * (rateMap[currency] ?? 1);
 
   useEffect(() => {
     if (isAdmin === false && organizationId) {
@@ -115,7 +139,7 @@ export default function OrganizationStreamsPage() {
                 <div className="flex items-center gap-3 sm:gap-4 flex-shrink-0">
                   {stream.expectedAmount != null && (
                     <p className="text-[15px] sm:text-[16px] font-extrabold font-mono" style={{ color: G }}>
-                      {formatCurrency(stream.expectedAmount, stream.currency)}
+                      {formatCurrency(convert(stream.expectedAmount, stream.currency), defaultCurrency)}
                     </p>
                   )}
                   <div className="flex items-center gap-2">
@@ -163,7 +187,7 @@ export default function OrganizationStreamsPage() {
               </div>
               <p className="text-[13px] mb-5" style={{ color: T.body }}>
                 <span className="font-semibold" style={{ color: T.bright }}>&ldquo;{streamToDelete.name}&rdquo;</span>
-                {streamToDelete.expectedAmount != null && ` (${formatCurrency(streamToDelete.expectedAmount, streamToDelete.currency)})`}
+                {streamToDelete.expectedAmount != null && ` (${formatCurrency(convert(streamToDelete.expectedAmount, streamToDelete.currency), defaultCurrency)})`}
                 {" "}will be permanently removed from your income streams.
               </p>
               <div className="flex gap-3">

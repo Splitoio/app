@@ -11,6 +11,9 @@ import { useGetContractsByOrganization, useGetMyContracts } from "@/features/bus
 import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
 import { Loader2, FileText, TrendingUp, ChevronsUpDown, Plus, Clock, AlertCircle, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
+import { useQueries } from "@tanstack/react-query";
+import { getExchangeRate } from "@/features/currencies/api/client";
+import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import { OrganizationConnectionError } from "@/components/organization-connection-error";
 import { Card, SectionLabel, T, A, G, Avatar, getUserColor } from "@/lib/splito-design";
 import { cn } from "@/lib/utils";
@@ -83,6 +86,33 @@ export default function OrganizationDashboardPage() {
     enabled: !!selectedOrgId && isAdminOfSelectedOrg,
   });
 
+  // User's personal currency takes priority; analytics data is in the org's own currency
+  const orgCurrency = user?.currency || selectedOrg?.defaultCurrency || "USD";
+  const analyticsCurrency = selectedOrg?.defaultCurrency || "USD";
+
+  const uniqueCurrenciesOrg = Array.from(
+    new Set([
+      ...invoicesForOrg.map((i) => i.currency),
+      ...memberInvoices.map((i) => i.currency),
+      ...streamsForOrg.map((s) => s.currency),
+      analyticsCurrency, // ensure analytics currency has an exchange rate
+    ])
+  ).filter((c) => c !== orgCurrency);
+  const rateQueriesOrg = useQueries({
+    queries: uniqueCurrenciesOrg.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, orgCurrency],
+      queryFn: () => getExchangeRate(from, orgCurrency),
+      staleTime: 1000 * 60 * 5,
+      enabled: !!orgCurrency && !!from,
+    })),
+  });
+  const rateMapOrg: Record<string, number> = { [orgCurrency]: 1 };
+  uniqueCurrenciesOrg.forEach((c, i) => {
+    const rate = rateQueriesOrg[i]?.data?.rate;
+    if (rate != null) rateMapOrg[c] = rate;
+  });
+  const convert = (amount: number, currency: string) => amount * (rateMapOrg[currency] ?? 1);
+
   const memberCountForOrg = selectedOrg ? (selectedOrg.groupUsers?.length ?? 0) : 0;
   const totalStreamsCount = streamsForOrg.length;
   const expectedUsd = streamsForOrg
@@ -91,8 +121,7 @@ export default function OrganizationDashboardPage() {
 
   const totalOutstanding = invoicesForOrg
     .filter((i) => i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED")
-    .reduce((sum, i) => sum + i.amount, 0);
-  const currencyFirst = invoicesForOrg[0]?.currency ?? "USD";
+    .reduce((sum, i) => sum + convert(i.amount, i.currency), 0);
   const pendingCount = invoicesForOrg.filter(
     (i) => i.status === "DRAFT" || i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED"
   ).length;
@@ -102,9 +131,9 @@ export default function OrganizationDashboardPage() {
   const approvalPastDueCount = invoicesForOrg.filter((i) => i.status === "SENT" && new Date(i.dueDate) < new Date()).length;
 
   const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetOrganizationAnalytics(selectedOrgId, chartRange);
-  const expenseThisMonth = analyticsData?.expenseThisMonth ?? 0;
-  const totalPaid = analyticsData?.totalPaid ?? 0;
-  const totalInflow = streamsForOrg.reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
+  const expenseThisMonth = convert(analyticsData?.expenseThisMonth ?? 0, analyticsCurrency);
+  const totalPaid = convert(analyticsData?.totalPaid ?? 0, analyticsCurrency);
+  const totalInflow = streamsForOrg.reduce((sum, s) => sum + convert(s.expectedAmount ?? 0, s.currency), 0);
   const outflowByPeriod = analyticsData?.outflowByPeriod ?? [];
 
   // Compute inflow per bucket from streams createdAt (same bucketing logic as backend)
@@ -122,8 +151,8 @@ export default function OrganizationDashboardPage() {
         const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         return label === bucketLabel;
       })
-      .reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
-    return { month: bucketLabel, inflow, outflow: bucket.outflow };
+      .reduce((sum, s) => sum + convert(s.expectedAmount ?? 0, s.currency), 0);
+    return { month: bucketLabel, inflow, outflow: convert(bucket.outflow, analyticsCurrency) };
   });
 
   const membersMap = new Map<string, { id: string; name: string | null; image: string | null; email: string | null; orgNames: string[] }>();
@@ -313,7 +342,7 @@ export default function OrganizationDashboardPage() {
                         </div>
                         <div>
                           <p className="text-[14px] font-bold text-red-400">{paymentsOverdue} overdue payment{paymentsOverdue !== 1 ? "s" : ""}</p>
-                          <p className="text-[12px] font-medium mt-0.5" style={{ color: T.muted }}>{formatCurrency(totalOutstanding, currencyFirst)} outstanding</p>
+                          <p className="text-[12px] font-medium mt-0.5" style={{ color: T.muted }}>{formatCurrency(totalOutstanding, orgCurrency)} outstanding</p>
                         </div>
                       </div>
                       <span className="text-[12px] font-extrabold px-3 py-1.5 rounded-lg shrink-0" style={{ background: "#F87171", color: "#0a0a0a" }}>Pay now</span>
@@ -402,7 +431,7 @@ export default function OrganizationDashboardPage() {
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-[13px] font-semibold truncate" style={{ color: T.bright }}>
-                            {formatCurrency(inv.amount, inv.currency)}
+                            {formatCurrency(convert(inv.amount, inv.currency), orgCurrency)}
                           </p>
                           <p className="text-[11px] mt-0.5" style={{ color: T.muted }}>
                             Due {new Date(inv.dueDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
@@ -446,7 +475,7 @@ export default function OrganizationDashboardPage() {
                           </p>
                           {contract.compensationAmount != null && (
                             <p className="text-[11px] mt-0.5" style={{ color: T.muted }}>
-                              {formatCurrency(contract.compensationAmount, contract.compensationCurrency ?? "USD")}
+                              {formatCurrency(contract.compensationAmount, contract.compensationCurrency ?? orgCurrency)}
                             </p>
                           )}
                         </div>
@@ -524,7 +553,7 @@ export default function OrganizationDashboardPage() {
                             tickLine={{ stroke: "rgba(255,255,255,0.06)" }}
                           />
                           <YAxis
-                            tickFormatter={(v: number) => formatCurrency(v, "USD")}
+                            tickFormatter={(v: number) => formatCurrency(v, orgCurrency)}
                             tick={{ fontSize: 10, fill: T.dim }}
                             axisLine={{ stroke: "rgba(255,255,255,0.08)" }}
                             tickLine={{ stroke: "rgba(255,255,255,0.06)" }}
@@ -537,7 +566,7 @@ export default function OrganizationDashboardPage() {
                               borderRadius: "12px",
                             }}
                             labelStyle={{ color: T.bright }}
-                            formatter={(value: number, name: string) => [formatCurrency(value, "USD"), name]}
+                            formatter={(value: number, name: string) => [formatCurrency(value, orgCurrency), name]}
                             labelFormatter={(label: string) => label}
                           />
                           <Line
@@ -567,9 +596,9 @@ export default function OrganizationDashboardPage() {
                 {/* Stats: third column */}
                 <div className="flex flex-col gap-3">
                   {[
-                    { label: "Expense this month", value: formatCurrency(expenseThisMonth, "USD"), icon: Clock, iconColor: "#F87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.15)", sub: "From approved/paid invoices" },
-                    { label: "Total paid", value: formatCurrency(totalPaid, "USD"), icon: FileText, iconColor: T.muted, bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.08)", sub: "All time (invoices)" },
-                    { label: "Expected inflow", value: formatCurrency(totalInflow, "USD"), icon: TrendingUp, iconColor: "#34D399", bg: "rgba(52,211,153,0.10)", border: "rgba(52,211,153,0.25)", sub: "From income streams" },
+                    { label: "Expense this month", value: formatCurrency(expenseThisMonth, orgCurrency), icon: Clock, iconColor: "#F87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.15)", sub: "From approved/paid invoices" },
+                    { label: "Total paid", value: formatCurrency(totalPaid, orgCurrency), icon: FileText, iconColor: T.muted, bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.08)", sub: "All time (invoices)" },
+                    { label: "Expected inflow", value: formatCurrency(totalInflow, orgCurrency), icon: TrendingUp, iconColor: "#34D399", bg: "rgba(52,211,153,0.10)", border: "rgba(52,211,153,0.25)", sub: "From income streams" },
                   ].map((stat) => (
                     <div key={stat.label} className="rounded-2xl p-4 flex-1 min-h-0"
                       style={{ background: stat.bg, border: `1px solid ${stat.border}` }}>
