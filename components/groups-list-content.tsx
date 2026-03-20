@@ -14,7 +14,7 @@ type GroupItem = {
   name: string;
   groupBalances?: { userId: string; currency: string; amount: number }[];
   groupUsers?: { user: { id: string; name?: string | null } }[];
-  expenses?: { amount: number; currency: string }[];
+  expenses?: { amount: number; currency: string; splitType?: string }[];
   updatedAt: Date;
 };
 
@@ -48,10 +48,12 @@ function GroupBalanceCell({
   const { total: oweTotal, isLoading: loadOwe } = useConvertedBalanceTotal(oweItems, defaultCurrency);
   const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
 
-  const expenseItems = (group.expenses || []).map((e) => ({
-    amount: Math.abs(e.amount),
-    currency: e.currency,
-  }));
+  const expenseItems = (group.expenses || [])
+    .filter((e) => e.splitType !== "SETTLEMENT")
+    .map((e) => ({
+      amount: Math.abs(e.amount),
+      currency: e.currency,
+    }));
   const { total: totalSpent, isLoading: loadSpent } = useConvertedBalanceTotal(expenseItems, defaultCurrency);
 
   if (loadOwe || loadOwed)

@@ -969,45 +969,27 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     </p>
                   </div>
                                 </div>
-                <div
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    borderRadius: 16,
-                    padding: "15px 18px",
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }}
-                >
-                  <div>
-                    <p
-                      style={{
-                        color: T.sub,
-                        fontSize: 11,
-                        fontWeight: 700,
-                        marginBottom: 4,
-                        letterSpacing: "0.05em",
-                      }}
-                    >
-                      DEFAULT SETTLEMENT
-                    </p>
-                    <p
-                      style={{
-                        color: T.bright,
-                        fontSize: 13,
-                        fontWeight: 700,
-                      }}
-                    >
-                      {formData.currency
-                        ? (() => {
-                            const c = allCurrencies?.currencies?.find((x: { id: string; symbol?: string; name?: string }) => x.id === formData.currency);
-                            return c ? `${c.symbol || formData.currency}${formData.currencyType === "TOKEN" ? ` · ${c.name || ""}` : ""}` : formData.currency;
-                          })()
-                        : "USD (Fiat)"}
-                                </p>
-                              </div>
-                            </div>
+                <div>
+                  <p
+                    style={{
+                      color: T.sub,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      marginBottom: 8,
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    DEFAULT SETTLEMENT
+                  </p>
+                  <CurrencyDropdown
+                    selectedCurrencies={formData.currency ? [formData.currency] : []}
+                    setSelectedCurrencies={handleCurrencySelect}
+                    showFiatCurrencies={true}
+                    disableChainCurrencies={false}
+                    mode="single"
+                    placeholder="Select currency..."
+                  />
+                </div>
                 <div>
                   <label style={lbl}>Members</label>
                   <div

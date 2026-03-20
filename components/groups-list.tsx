@@ -51,6 +51,7 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
         byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
       });
       Object.entries(byCurrency).forEach(([curr, amount]) => {
+        // amount > 0 = you owe, amount < 0 = owed to you
         if (amount > 0) oweItems.push({ amount, currency: curr });
         else if (amount < 0) owedItems.push({ amount: Math.abs(amount), currency: curr });
       });
@@ -80,10 +81,12 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
   const totalSpentItems = useMemo(() => {
     if (!groupsData) return [];
     return groupsData.flatMap((g) =>
-      (Array.isArray((g as { expenses?: { amount: number; currency: string }[] }).expenses)
-        ? (g as { expenses: { amount: number; currency: string }[] }).expenses
+      (Array.isArray((g as { expenses?: { amount: number; currency: string; splitType?: string }[] }).expenses)
+        ? (g as { expenses: { amount: number; currency: string; splitType?: string }[] }).expenses
         : []
-      ).map((e) => ({ amount: e.amount, currency: e.currency }))
+      )
+        .filter((e) => e.splitType !== "SETTLEMENT")
+        .map((e) => ({ amount: e.amount, currency: e.currency }))
     );
   }, [groupsData]);
   const { total: totalSpent } = useConvertedBalanceTotal(totalSpentItems, defaultCurrency);
@@ -202,22 +205,24 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
 
   if (groupsData.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl sm:rounded-3xl bg-[#101012] p-6 sm:p-12 min-h-[calc(100vh-160px)] sm:min-h-[calc(100vh-180px)]">
-        <div className="text-mobile-lg sm:text-xl text-white/70 mb-3 sm:mb-4">
-          No groups created yet
-        </div>
-        <p className="text-mobile-sm sm:text-base text-white/50 text-center max-w-md mb-6 sm:mb-8">
-          Create a group to start tracking expenses and settle debts with your
-          friends
+      <div style={{ textAlign: "center", padding: "80px 20px" }}>
+        <p style={{ fontSize: 48, marginBottom: 18 }}>👥</p>
+        <p style={{ fontSize: 18, fontWeight: 800, color: T.body, marginBottom: 8 }}>
+          No groups yet
+        </p>
+        <p style={{ fontSize: 14, color: T.sub, marginBottom: 24 }}>
+          Create a group to start tracking expenses and settle debts with your friends
         </p>
         <button
+          type="button"
           onClick={() =>
             document.dispatchEvent(new CustomEvent("open-create-group-modal"))
           }
-          className="flex items-center justify-center gap-2 rounded-full bg-white text-black h-10 sm:h-12 px-4 sm:px-6 text-mobile-base sm:text-base font-medium hover:bg-white/90 transition-all"
+          className="inline-flex items-center gap-2 rounded-xl text-[13px] font-extrabold text-[#0a0a0a] transition-opacity hover:opacity-90"
+          style={{ background: "#22D3EE", padding: "10px 18px" }}
         >
-          <Plus className="h-4 sm:h-5 w-4 sm:w-5" strokeWidth={1.5} />
-          <span>Create Group</span>
+          <Plus className="h-4 w-4" strokeWidth={2.5} />
+          New Group
         </button>
       </div>
     );
@@ -229,7 +234,7 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     if (netBalance < 0) return `-${formatCurrency(Math.abs(netBalance), defaultCurrency)}`;
     return formatCurrency(0, defaultCurrency);
   })();
-  const netBalanceColor = netBalance > 0 ? G : netBalance < 0 ? "#FF4444" : T.muted;
+  const netBalanceColor = netBalance > 0 ? G : netBalance < 0 ? "#F87171" : T.muted;
 
   return React.createElement(GroupsListContent, {
     filteredGroups,
