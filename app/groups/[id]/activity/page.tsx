@@ -215,27 +215,6 @@ export default function GroupActivityPage() {
               activityType = "settled";
             }
 
-            let amountColor = T.bright;
-            if (
-              expense.splitType === "SETTLEMENT" &&
-              settlementPayeeName &&
-              settlementPayeeId !== null
-            ) {
-              if (settlementPayeeId === user.id) amountColor = G;
-              else if (isYouPayer) amountColor = "#F87171";
-            } else {
-              if (isYouPayer) amountColor = "#F87171";
-              else {
-                const myPart = expense.expenseParticipants?.find(
-                  (p: { userId: string }) => p.userId === user.id
-                );
-                if (myPart) {
-                  if (myPart.amount < 0) amountColor = "#F87171";
-                  else if (myPart.amount > 0) amountColor = G;
-                }
-              }
-            }
-
             if (
               expense.splitType === "SETTLEMENT" &&
               settlementPayeeName
@@ -274,7 +253,7 @@ export default function GroupActivityPage() {
                     }}
                   >
                     {payerLabel} marked payment to {payeeLabel} as settled{" "}
-                    <span style={{ color: amountColor }}>({amountStr})</span>
+                    <span style={{ color: T.bright }}>({amountStr})</span>
                   </p>
                   <span
                     style={{
@@ -322,7 +301,7 @@ export default function GroupActivityPage() {
                   }}
                 >
                   {payerLabel} added {expense.name}{" "}
-                  <span style={{ color: amountColor }}>({amountStr})</span>
+                  <span style={{ color: T.bright }}>({amountStr})</span>
                 </p>
                 <span
                   style={{

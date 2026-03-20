@@ -11,14 +11,13 @@ import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useMarkAsPaid } from "@/features/groups/hooks/use-create-group";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useQueryClient, useQueries } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useQueries } from "@tanstack/react-query";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import ResolverSelector, { Option as TokenOption } from "./ResolverSelector";
 import { useOrganizedCurrencies, useGetExchangeRate, CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-import { useQuery, useQueries } from "@tanstack/react-query";
 import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
@@ -881,7 +880,7 @@ export function SettleDebtsModal({
     );
   }, [memberDebtRows, defaultCurrency]);
 
-  const balanceRateQueries = useQueries({
+  const memberDebtRateQueries = useQueries({
     queries: uniqueBalanceCurrencies.map((from) => ({
       queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
       queryFn: () => getExchangeRate(from, defaultCurrency ?? "USD"),
@@ -893,10 +892,10 @@ export function SettleDebtsModal({
   const balanceRates = useMemo(() => {
     const map: Record<string, number> = {};
     uniqueBalanceCurrencies.forEach((c, i) => {
-      map[c] = balanceRateQueries[i]?.data?.rate ?? 1;
+      map[c] = memberDebtRateQueries[i]?.data?.rate ?? 1;
     });
     return map;
-  }, [uniqueBalanceCurrencies, balanceRateQueries]);
+  }, [uniqueBalanceCurrencies, memberDebtRateQueries]);
 
   const convertBalanceAmount = (amount: number, fromCurrency: string): number => {
     if (!fromCurrency || fromCurrency === defaultCurrency) return amount;

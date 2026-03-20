@@ -47,7 +47,7 @@ function getActivityText(act: Activity, formatAmt: (amount: number, currency: st
           {act.invoice && (
             <>
               {" "}
-              <span style={{ color: A }}>
+              <span style={{ color: T.bright }}>
                 ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
               {act.invoice.recipient?.name && ` to ${act.invoice.recipient.name}`}
@@ -62,7 +62,7 @@ function getActivityText(act: Activity, formatAmt: (amount: number, currency: st
           {act.invoice && (
             <>
               {" "}
-              <span style={{ color: G }}>
+              <span style={{ color: T.bright }}>
                 ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
             </>
@@ -76,7 +76,7 @@ function getActivityText(act: Activity, formatAmt: (amount: number, currency: st
           {act.invoice && (
             <>
               {" "}
-              <span style={{ color: "#F87171" }}>
+              <span style={{ color: T.bright }}>
                 ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
             </>
@@ -90,7 +90,7 @@ function getActivityText(act: Activity, formatAmt: (amount: number, currency: st
           {act.invoice && (
             <>
               {" "}
-              <span style={{ color: G }}>
+              <span style={{ color: T.bright }}>
                 ({formatAmt(act.invoice.amount, act.invoice.currency)})
               </span>
             </>

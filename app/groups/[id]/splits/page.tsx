@@ -89,11 +89,13 @@ function ExpenseRow({
 
   const myShare = participants.find((p) => p.userId === currentUserId)?.amount ?? 0;
   const iAmPayer = expense.paidBy === currentUserId;
+  const isInvolved = iAmPayer || participants.some((p) => p.userId === currentUserId);
   const pending = participants.filter((p) => p.amount > 0).reduce((a, p) => a + p.amount, 0);
 
   const categoryStyle = getCategoryStyle(expense.category);
 
   const statusLine = (() => {
+    if (!isInvolved) return null;
     if (myShare > 0 && !iAmPayer) return { text: `you owe ${formatCurrency(myShare, expense.currency)}`, color: "#F87171" };
     if (iAmPayer && pending > 0) return { text: `owed ${formatCurrency(pending, expense.currency)}`, color: G };
     if (iAmPayer && pending === 0) return { text: "all settled ✓", color: G };
@@ -214,25 +216,29 @@ function ExpenseRow({
                       >
                         {formatCurrency(p.amount, expense.currency)}
                       </span>
-                      <Tag color={isSettled ? G : "#F87171"}>
-                        {isSettled ? "settled" : "pending"}
-                      </Tag>
+                      {isInvolved && (
+                        <Tag color={isSettled ? G : "#F87171"}>
+                          {isSettled ? "settled" : "pending"}
+                        </Tag>
+                      )}
                     </div>
                   </div>
                 );
               })}
             </div>
-          <div style={{ display: "flex", gap: 8, paddingTop: 16 }}>
-            <Btn variant="ghost" onClick={onSettle} className="splito-sbtn" style={{ padding: "8px 16px", fontSize: 12 }}>
-              <Icons.check /> Settle
-            </Btn>
-            <Btn variant="ghost" onClick={onNotify} className="splito-abtn" style={{ padding: "8px 16px", fontSize: 12 }}>
-              <Icons.bell /> Notify
-            </Btn>
-            <Btn variant="danger" onClick={onDelete} style={{ padding: "8px 14px", fontSize: 12 }}>
-              <Icons.trash size={14} /> Delete
-            </Btn>
-          </div>
+          {isInvolved && (
+            <div style={{ display: "flex", gap: 8, paddingTop: 16 }}>
+              <Btn variant="ghost" onClick={onSettle} className="splito-sbtn" style={{ padding: "8px 16px", fontSize: 12 }}>
+                <Icons.check /> Settle
+              </Btn>
+              <Btn variant="ghost" onClick={onNotify} className="splito-abtn" style={{ padding: "8px 16px", fontSize: 12 }}>
+                <Icons.bell /> Notify
+              </Btn>
+              <Btn variant="danger" onClick={onDelete} style={{ padding: "8px 14px", fontSize: 12 }}>
+                <Icons.trash size={14} /> Delete
+              </Btn>
+            </div>
+          )}
         </div>
       )}
     </div>
