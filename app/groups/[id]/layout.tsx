@@ -42,6 +42,8 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
   const [isAddExpenseModalOpen, setIsAddExpenseModalOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
+  const [settleSpecificAmount, setSettleSpecificAmount] = useState<number | undefined>(undefined);
+  const [settleSpecificMemberAmounts, setSettleSpecificMemberAmounts] = useState<Record<string, number> | undefined>(undefined);
   const [groupSettings, setGroupSettings] = useState({
     name: "",
     currency: "ETH",
@@ -174,11 +176,15 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
     openAddMember: () => setIsAddMemberModalOpen(true),
     openAddExpense: () => setIsAddExpenseModalOpen(true),
     openSettings: () => setIsSettingsModalOpen(true),
-    openSettle: (friendId?: string | null) => {
+    openSettle: (friendId?: string | null, specificAmount?: number, specificMemberAmounts?: Record<string, number>) => {
       setSettleFriendId(friendId ?? null);
+      setSettleSpecificAmount(specificAmount);
+      setSettleSpecificMemberAmounts(specificMemberAmounts);
       setIsSettleModalOpen(true);
     },
     settleFriendId,
+    settleSpecificAmount,
+    settleSpecificMemberAmounts,
     getSpecificDebtAmount,
     getSpecificDebtByCurrency,
     handleSettleFriendClick,
@@ -210,6 +216,8 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           onClose={() => {
             setIsSettleModalOpen(false);
             setSettleFriendId(null);
+            setSettleSpecificAmount(undefined);
+            setSettleSpecificMemberAmounts(undefined);
           }}
           balances={group.groupBalances}
           groupId={groupId}
@@ -217,6 +225,8 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           defaultCurrency={user?.currency || group.defaultCurrency}
           showIndividualView={false}
           defaultExpandedMemberId={settleFriendId}
+          specificAmount={settleSpecificAmount}
+          specificMemberAmounts={settleSpecificMemberAmounts}
         />
 
         <AddMemberModal
@@ -230,6 +240,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           onClose={() => setIsAddExpenseModalOpen(false)}
           groupId={groupId}
           members={group.groupUsers.map((m) => m.user)}
+          defaultCurrency={user?.currency || group?.defaultCurrency || "USD"}
         />
 
         {isSettingsModalOpen && (

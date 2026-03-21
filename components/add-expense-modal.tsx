@@ -43,6 +43,7 @@ interface AddExpenseModalProps {
   onClose: () => void;
   members: User[];
   groupId: string;
+  defaultCurrency?: string;
 }
 
 interface ExpenseFormData {
@@ -110,6 +111,7 @@ export function AddExpenseModal({
   onClose,
   members,
   groupId,
+  defaultCurrency = "USD",
 }: AddExpenseModalProps) {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const queryClient = useQueryClient();
@@ -150,7 +152,7 @@ export function AddExpenseModal({
     description: "",
     amount: "",
     splitType: "equal",
-    currency: "USD",
+    currency: defaultCurrency,
     currencyType: "FIAT",
     timeLockIn: false,
     paidBy: user?.id || "",
@@ -167,8 +169,11 @@ export function AddExpenseModal({
   const groupName = groupCtx?.group?.name ?? "Group";
 
   useEffect(() => {
-    if (isOpen) setStep(1);
-  }, [isOpen]);
+    if (isOpen) {
+      setStep(1);
+      setFormData((prev) => ({ ...prev, currency: defaultCurrency, currencyType: "FIAT" }));
+    }
+  }, [isOpen, defaultCurrency]);
 
   const allChainTokenOptions = useAllChainsTokens();
   const [resolver, setResolver] = useState<Option | undefined>(undefined);
@@ -184,7 +189,9 @@ export function AddExpenseModal({
   }, [user, members]);
 
   useEffect(() => {
-    const allMembers = members.map((m) => m.id);
+    const allMembers = members
+      .filter((m) => m.id !== formData.paidBy)
+      .map((m) => m.id);
 
     let newSplits: Split[] = [];
 
@@ -215,33 +222,47 @@ export function AddExpenseModal({
     }
 
     setSplits(newSplits);
-  }, [members, formData.amount, formData.splitType]);
+  }, [members, formData.amount, formData.splitType, formData.paidBy]);
 
   const updateCustomSplit = (id: string, amount: number) => {
-    setSplits((current) =>
-      current.map((split) =>
-        split.address === id ? { ...split, amount } : split
-      )
-    );
+    setSplits((current) => {
+      const total = Number(formData.amount);
+      const others = current.filter(
+        (s) => s.address !== id && s.address !== formData.paidBy
+      );
+      const remaining = total - amount;
+      const perOther = others.length > 0 ? remaining / others.length : 0;
+      return current.map((split) => {
+        if (split.address === id) return { ...split, amount };
+        if (split.address !== formData.paidBy) return { ...split, amount: perOther };
+        return split;
+      });
+    });
   };
 
   const updatePercentage = (id: string, percentage: number) => {
-    setPercentages((current) => ({
-      ...current,
-      [id]: percentage,
-    }));
+    setPercentages((current) => {
+      const otherIds = Object.keys(current).filter((k) => k !== id);
+      const remaining = 100 - percentage;
+      const perOther = otherIds.length > 0 ? remaining / otherIds.length : 0;
+      const updated: { [key: string]: number } = { ...current, [id]: percentage };
+      otherIds.forEach((k) => (updated[k] = perOther));
+      return updated;
+    });
 
-    setSplits((current) =>
-      current.map((split) =>
-        split.address === id
-          ? {
-              ...split,
-              amount: (Number(formData.amount) * percentage) / 100,
-              percentage: percentage,
-            }
-          : split
-      )
-    );
+    setSplits((current) => {
+      const otherSplits = current.filter((s) => s.address !== id && s.address !== formData.paidBy);
+      const remaining = 100 - percentage;
+      const perOther = otherSplits.length > 0 ? remaining / otherSplits.length : 0;
+      return current.map((split) => {
+        if (split.address === id) {
+          return { ...split, amount: (Number(formData.amount) * percentage) / 100, percentage };
+        } else if (split.address !== formData.paidBy) {
+          return { ...split, amount: (Number(formData.amount) * perOther) / 100, percentage: perOther };
+        }
+        return split;
+      });
+    });
   };
 
   const calculateDebts = (splits: Split[], paidBy: string): Debt[] => {
@@ -305,7 +326,7 @@ export function AddExpenseModal({
       currencyType: formData.currencyType,
       timeLockIn: formData.timeLockIn,
       paidBy: formData.paidBy,
-      splitType: formData.splitType.toUpperCase(),
+      splitType: formData.splitType === "custom" ? "EXACT" : formData.splitType.toUpperCase(),
       participants: splits.map((split) => ({
         userId: split.address,
         amount: split.amount,
@@ -366,14 +387,16 @@ export function AddExpenseModal({
   useEffect(() => {
     if (formData.splitType !== "percentage") return;
 
-    const allMembers = members.map((m) => m.id);
+    const allMembers = members
+      .filter((m) => m.id !== formData.paidBy)
+      .map((m) => m.id);
     const equalPercentage = 100 / allMembers.length;
 
     const initialPercentages = Object.fromEntries(
       allMembers.map((id) => [id, equalPercentage])
     );
     setPercentages(initialPercentages);
-  }, [members, formData.splitType]);
+  }, [members, formData.splitType, formData.paidBy]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -418,6 +441,12 @@ export function AddExpenseModal({
   };
 
   const isCrypto = formData.currencyType === "TOKEN";
+  const isStablecoin = isCrypto && (() => {
+    const id = formData.currency.toUpperCase();
+    const symbol = getCurrencySymbol(formData.currency).toUpperCase();
+    const STABLECOINS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "GUSD", "LUSD", "USDD", "SUSD"];
+    return STABLECOINS.some((s) => id.includes(s) || symbol.includes(s));
+  })();
   const canProceedStep1 = formData.name.trim() !== "";
   const canProceedStep2 = formData.currency !== "";
   const canProceedStep3 =
@@ -790,7 +819,7 @@ export function AddExpenseModal({
                       fontSize: 20,
                       fontWeight: 800,
                       marginRight: 10,
-                      minWidth: 24,
+                      flexShrink: 0,
                     }}
                   >
                     {getCurrencySymbol(formData.currency)}
@@ -1170,7 +1199,7 @@ export function AddExpenseModal({
                   </span>
                 </div>
               )}
-              {isCrypto && (
+              {isCrypto && !isStablecoin && (
                 <div>
                   <TimeLockToggle
                     value={formData.timeLockIn}

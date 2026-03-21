@@ -11,14 +11,13 @@ import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useMarkAsPaid } from "@/features/groups/hooks/use-create-group";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 import { useIsMobile } from "@/hooks/useIsMobile";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, useQuery, useQueries } from "@tanstack/react-query";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import ResolverSelector, { Option as TokenOption } from "./ResolverSelector";
 import { useOrganizedCurrencies, useGetExchangeRate, CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import { useAuthStore } from "@/stores/authStore";
-import { useQuery, useQueries } from "@tanstack/react-query";
 import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
@@ -36,6 +35,7 @@ interface SettleDebtsModalProps {
   specificAmount?: number;
   specificDebtByCurrency?: Record<string, number>;
   defaultExpandedMemberId?: string | null;
+  specificMemberAmounts?: Record<string, number>;
 }
 
 export function SettleDebtsModal({
@@ -50,6 +50,7 @@ export function SettleDebtsModal({
   specificAmount,
   specificDebtByCurrency,
   defaultExpandedMemberId,
+  specificMemberAmounts,
 }: SettleDebtsModalProps) {
   const user = useAuthStore((state) => state.user);
   const {
@@ -282,12 +283,12 @@ export function SettleDebtsModal({
     }
   }, [isOpen, groupId, showIndividualView, selectedFriendId, userStellarAddress]);
 
-  // Auto-expand the specified member row when modal opens
+  // Reset expanded row when modal opens
   useEffect(() => {
-    if (isOpen && defaultExpandedMemberId) {
-      setExpandedRowMemberId(defaultExpandedMemberId);
+    if (isOpen) {
+      setExpandedRowMemberId(null);
     }
-  }, [isOpen, defaultExpandedMemberId]);
+  }, [isOpen]);
 
   // Set the selected user based on selectedFriendId prop
   useEffect(() => {
@@ -821,17 +822,34 @@ export function SettleDebtsModal({
   const memberDebtRows = useMemo(() => {
     const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
     const sourceBalances = Array.isArray(balances) ? balances : [];
-    const rows = sourceBalances
-      .filter((b) => b.userId !== user?.id && b.amount < 0)
+    // Track debts per member per currency separately
+    // Only include debts that the current user specifically owes (b.firendId === user?.id)
+    const balanceMap = sourceBalances
+      .filter((b) => b.userId !== user?.id && b.amount < 0 && b.firendId === user?.id)
       .reduce((acc, b) => {
-        const current = acc.get(b.userId) || 0;
-        const rate = balanceRateMap[b.currency] ?? 1;
-        acc.set(b.userId, current + Math.abs(b.amount) * rate);
+        const existing = acc.get(b.userId) || [];
+        const entry = existing.find((e) => e.currency === b.currency);
+        if (entry) {
+          entry.amount += Math.abs(b.amount);
+        } else {
+          existing.push({ currency: b.currency, amount: Math.abs(b.amount) });
+        }
+        acc.set(b.userId, existing);
         return acc;
-      }, new Map<string, number>());
+      }, new Map<string, Array<{ currency: string; amount: number }>>());
 
-    return Array.from(rows.entries())
-      .map(([memberId, amount], index) => {
+    // Also add rows for members in specificMemberAmounts not already covered by balance data
+    // (these are debtors in the payer/creditor view)
+    if (specificMemberAmounts) {
+      Object.entries(specificMemberAmounts).forEach(([memberId, amount]) => {
+        if (amount > 0 && !balanceMap.has(memberId)) {
+          balanceMap.set(memberId, [{ currency: defaultCurrency || "USD", amount }]);
+        }
+      });
+    }
+
+    return Array.from(balanceMap.entries())
+      .map(([memberId, debts], index) => {
         const member = _members.find((m) => m.id === memberId);
         const initials = (member?.name || member?.email || "?")
           .split(" ")
@@ -840,20 +858,55 @@ export function SettleDebtsModal({
           .slice(0, 2)
           .toUpperCase();
         const color = palette[index % palette.length];
+        const primaryDebt = debts[0] ?? { amount: 0, currency: defaultCurrency || "USD" };
         return {
           memberId,
           name: member?.name || member?.email || "Member",
           initials,
           color,
-          amount,
+          debts,
+          amount: primaryDebt.amount,
+          currency: primaryDebt.currency,
         };
       })
       .sort((a, b) => b.amount - a.amount);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [balances, user?.id, _members, balanceRateMap]);
+  }, [balances, user?.id, _members, specificMemberAmounts, defaultCurrency]);
+
+  // Fetch exchange rates for balance currencies that differ from defaultCurrency
+  const uniqueBalanceCurrencies = useMemo(() => {
+    if (!defaultCurrency) return [];
+    return [...new Set(memberDebtRows.map((r) => r.currency))].filter(
+      (c) => c && c !== defaultCurrency
+    );
+  }, [memberDebtRows, defaultCurrency]);
+
+  const memberDebtRateQueries = useQueries({
+    queries: uniqueBalanceCurrencies.map((from) => ({
+      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
+      queryFn: () => getExchangeRate(from, defaultCurrency ?? "USD"),
+      staleTime: 1000 * 60 * 5,
+      retry: 1,
+    })),
+  });
+
+  const balanceRates = useMemo(() => {
+    const map: Record<string, number> = {};
+    uniqueBalanceCurrencies.forEach((c, i) => {
+      map[c] = memberDebtRateQueries[i]?.data?.rate ?? 1;
+    });
+    return map;
+  }, [uniqueBalanceCurrencies, memberDebtRateQueries]);
+
+  const convertBalanceAmount = (amount: number, fromCurrency: string): number => {
+    if (!fromCurrency || fromCurrency === defaultCurrency) return amount;
+    return amount * (balanceRates[fromCurrency] ?? 1);
+  };
 
   // Calculate the remaining total after currency conversion
-  const remainingTotal = memberDebtRows.reduce((sum, row) => sum + row.amount, 0);
+  const remainingTotal = memberDebtRows.reduce(
+    (sum, row) => sum + row.debts.reduce((s, d) => s + convertBalanceAmount(d.amount, d.currency), 0),
+    0
+  );
 
   const CURRENCY_FLAG: Record<string, string> = {
     USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵", THB: "🇹🇭",
@@ -873,7 +926,7 @@ export function SettleDebtsModal({
     ? Object.keys(organizedCurrencies.chainGroups)
     : ["stellar", "solana", "aptos", "base"];
 
-  const handleMarkAsPaid = (memberId: string, amount: number) => {
+  const handleMarkAsPaid = (memberId: string, amount: number, currency: string) => {
     if (!user || !groupId) return;
     markAsPaidMutation.mutate(
       {
@@ -882,7 +935,7 @@ export function SettleDebtsModal({
           payerId: memberId,
           payeeId: user.id,
           amount,
-          currency: defaultCurrency || "USD",
+          currency: currency || defaultCurrency || "USD",
           currencyType: "FIAT",
         },
       },
@@ -1014,7 +1067,14 @@ export function SettleDebtsModal({
                                 </p>
                               </div>
                               <p className="text-[#34D399] text-sm font-extrabold tabular-nums flex-shrink-0">
-                                +{formatCurrency(row.amount, defaultCurrency || "USD")}
+                                +{formatCurrency(
+                                  specificMemberAmounts?.[row.memberId] !== undefined
+                                    ? specificMemberAmounts[row.memberId]
+                                    : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
+                                      ? specificAmount
+                                      : row.debts.reduce((sum, d) => sum + convertBalanceAmount(d.amount, d.currency), 0),
+                                  defaultCurrency || "USD"
+                                )}
                               </p>
                               <span className="flex-shrink-0 text-white/40">
                                 {isExpanded ? (
@@ -1250,7 +1310,19 @@ export function SettleDebtsModal({
                                             border: "1.5px solid rgba(52,211,153,0.25)",
                                             color: "#34D399",
                                           }}
-                                          onClick={() => handleMarkAsPaid(row.memberId, row.amount)}
+                                          onClick={() => {
+                                            const displayedAmount =
+                                              specificMemberAmounts?.[row.memberId] !== undefined
+                                                ? specificMemberAmounts[row.memberId]
+                                                : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
+                                                  ? specificAmount
+                                                  : row.debts.reduce((sum, d) => sum + convertBalanceAmount(d.amount, d.currency), 0);
+                                            handleMarkAsPaid(
+                                              row.memberId,
+                                              displayedAmount,
+                                              memberBankCurrencies[row.memberId] || defaultCurrency || row.currency,
+                                            );
+                                          }}
                                         >
                                           {markAsPaidMutation.isPending ? "Marking…" : "✓ Mark as Paid"}
                                         </button>

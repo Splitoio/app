@@ -11,8 +11,10 @@ export type GroupLayoutContextValue = {
   openAddMember: () => void;
   openAddExpense: () => void;
   openSettings: () => void;
-  openSettle: (friendId?: string | null) => void;
+  openSettle: (friendId?: string | null, specificAmount?: number, specificMemberAmounts?: Record<string, number>) => void;
   settleFriendId: string | null;
+  settleSpecificAmount: number | undefined;
+  settleSpecificMemberAmounts: Record<string, number> | undefined;
   getSpecificDebtAmount: (friendId: string) => number;
   getSpecificDebtByCurrency: (friendId: string) => Record<string, number>;
   handleSettleFriendClick: (friendId: string) => void;
