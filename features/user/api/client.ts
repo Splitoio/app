@@ -46,3 +46,25 @@ export const getUser = async () => {
   const response = await apiClient.get("/users/me");
   return UserSchema.parse(response);
 };
+
+export type UserAcceptedToken = {
+  id: string;
+  tokenId: string;
+  chainId: string;
+  symbol: string;
+  isDefault: boolean;
+};
+
+export const getUserAcceptedTokens = async (): Promise<UserAcceptedToken[]> => {
+  const response = await apiClient.get("/users/accepted-tokens");
+  return response as UserAcceptedToken[];
+};
+
+export const addUserAcceptedToken = async (payload: { tokenId: string; chainId: string }): Promise<UserAcceptedToken> => {
+  const response = await apiClient.post("/users/accepted-tokens", payload);
+  return response as UserAcceptedToken;
+};
+
+export const removeUserAcceptedToken = async (id: string): Promise<void> => {
+  await apiClient.delete(`/users/accepted-tokens/${id}`);
+};

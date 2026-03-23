@@ -45,6 +45,7 @@ export interface SettingsPageContentProps {
   handleImageUpload: (file: File) => void;
   selectedCurrencies: string[];
   setSelectedCurrencies: (v: string[]) => void;
+  onSaveAcceptedTokens: () => void;
   isLoadingWallets: boolean;
   onLogout?: () => void;
   isLoggingOut?: boolean;
@@ -327,6 +328,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
     handleImageUpload,
     selectedCurrencies,
     setSelectedCurrencies,
+    onSaveAcceptedTokens,
     isLoadingWallets,
     onLogout,
     isLoggingOut = false,
@@ -470,6 +472,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
               <CurrencyDropdown
                 selectedCurrencies={selectedCurrencies}
                 setSelectedCurrencies={setSelectedCurrencies}
+                mode="single"
                 filterCurrencies={(currency: Currency) =>
                   currency.symbol !== "ETH" &&
                   currency.symbol !== "USDC" &&
@@ -477,6 +480,17 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
                 }
                 showFiatCurrencies={false}
               />
+              <button
+                onClick={onSaveAcceptedTokens}
+                style={{
+                  marginTop: 12, width: "100%", padding: "10px 0",
+                  background: A, border: "none",
+                  borderRadius: 12, color: "#0a0a0a", fontSize: 13, fontWeight: 800,
+                  cursor: "pointer", fontFamily: "inherit",
+                }}
+              >
+                Save
+              </button>
             </MobileCard>
           </>
         )}
@@ -659,6 +673,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
               <CurrencyDropdown
                 selectedCurrencies={selectedCurrencies}
                 setSelectedCurrencies={setSelectedCurrencies}
+                mode="single"
                 filterCurrencies={(currency: Currency) =>
                   currency.symbol !== "ETH" &&
                   currency.symbol !== "USDC" &&
@@ -666,6 +681,14 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
                 }
                 showFiatCurrencies={false}
               />
+              <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 14 }}>
+                <button
+                  onClick={onSaveAcceptedTokens}
+                  style={{ background: A, border: "none", borderRadius: 12, padding: "10px 22px", color: "#0a0a0a", fontWeight: 800, fontSize: 13, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  Save
+                </button>
+              </div>
             </Card>
           </>
         )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { useParams } from "next/navigation";
 import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
@@ -60,9 +60,13 @@ function InvoiceRow({
   onDelete,
   onReview,
   onClear,
+  onMarkPaid,
+  onReject,
   isPaying,
   isDeleting,
   isClearing,
+  isMarkingPaid,
+  isRejecting,
   setExpandedImage,
   formatAmt,
 }: {
@@ -74,9 +78,13 @@ function InvoiceRow({
   onDelete?: () => void;
   onReview?: () => void;
   onClear?: () => void;
+  onMarkPaid?: () => void;
+  onReject?: () => void;
   isPaying?: boolean;
   isDeleting?: boolean;
   isClearing?: boolean;
+  isMarkingPaid?: boolean;
+  isRejecting?: boolean;
   setExpandedImage?: (v: { url: string; description: string }) => void;
   formatAmt?: (amount: number, currency: string) => string;
 }) {
@@ -117,7 +125,7 @@ function InvoiceRow({
             <p className="text-[16px] font-extrabold font-mono" style={{ color: T.bright }}>
               {displayAmt(inv.amount, inv.currency)}
             </p>
-            <StatusPill status={inv.status} />
+            {inv.status !== "DRAFT" && <StatusPill status={inv.status} />}
           </div>
         </div>
 
@@ -152,7 +160,22 @@ function InvoiceRow({
               {isDeleting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Delete"}
             </button>
           )}
-          {isAdmin && onClear && (inv.status === "PAID" || inv.status === "APPROVED" || inv.status === "DECLINED") && (
+          {isAdmin && onMarkPaid && inv.status !== "PAID" && inv.status !== "CLEARED" && (
+            <button onClick={onMarkPaid} disabled={isMarkingPaid}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-bold transition-all hover:opacity-80 disabled:opacity-50"
+              style={{ background: "rgba(52,211,153,0.15)", color: "#34D399" }}>
+              {isMarkingPaid ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+              Mark paid
+            </button>
+          )}
+          {isAdmin && onReject && inv.status !== "DECLINED" && inv.status !== "PAID" && inv.status !== "CLEARED" && (
+            <button onClick={onReject} disabled={isRejecting}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-bold transition-all hover:opacity-80 disabled:opacity-50"
+              style={{ background: "rgba(248,113,113,0.15)", color: "#F87171" }}>
+              {isRejecting ? <Loader2 className="h-3 w-3 animate-spin" /> : "Reject"}
+            </button>
+          )}
+          {isAdmin && onClear && (inv.status === "DRAFT" || inv.status === "PAID" || inv.status === "APPROVED" || inv.status === "DECLINED") && (
             <button onClick={onClear} disabled={isClearing}
               className="rounded-lg px-3 py-1.5 text-[12px] font-semibold border transition-all hover:bg-white/5 disabled:opacity-50"
               style={{ borderColor: "rgba(255,255,255,0.1)", color: T.muted }}>
@@ -174,6 +197,9 @@ export default function OrganizationInvoicesPage() {
   const approveInvoiceMutation = useApproveInvoice();
   const declineInvoiceMutation = useDeclineInvoice();
   const clearInvoiceMutation = useClearInvoice();
+  const [clearingInvoiceId, setClearingInvoiceId] = React.useState<string | null>(null);
+  const [markingPaidInvoiceId, setMarkingPaidInvoiceId] = React.useState<string | null>(null);
+  const [rejectingInvoiceId, setRejectingInvoiceId] = React.useState<string | null>(null);
   const markPaidMutation = useMarkInvoiceAsPaid();
   const updateInvoiceMutation = useUpdateInvoice();
   const deleteInvoiceMutation = useDeleteInvoice();
@@ -307,8 +333,14 @@ export default function OrganizationInvoicesPage() {
                 onPay={() => markPaidMutation.mutate(inv.id, { onSuccess: () => toast.success("Marked as paid"), onError: () => toast.error("Failed") })}
                 onEdit={() => setInvoiceToEdit({ id: inv.id, amount: inv.amount, currency: inv.currency, dueDate: inv.dueDate, description: inv.description ?? null, imageUrl: inv.imageUrl ?? null })}
                 onDelete={() => deleteInvoiceMutation.mutate(inv.id, { onSuccess: () => toast.success("Deleted"), onError: () => toast.error("Failed to delete") })}
+                onClear={() => { setClearingInvoiceId(inv.id); clearInvoiceMutation.mutate(inv.id, { onSuccess: () => { setClearingInvoiceId(null); toast.success("Cleared"); }, onError: () => { setClearingInvoiceId(null); toast.error("Failed to clear"); } }); }}
+                onMarkPaid={() => { setMarkingPaidInvoiceId(inv.id); markPaidMutation.mutate(inv.id, { onSuccess: () => { setMarkingPaidInvoiceId(null); toast.success("Marked as paid"); }, onError: () => { setMarkingPaidInvoiceId(null); toast.error("Failed to mark as paid"); } }); }}
+                onReject={() => { setRejectingInvoiceId(inv.id); declineInvoiceMutation.mutate({ invoiceId: inv.id }, { onSuccess: () => { setRejectingInvoiceId(null); toast.success("Rejected"); }, onError: () => { setRejectingInvoiceId(null); toast.error("Failed to reject"); } }); }}
                 isPaying={markPaidMutation.isPending}
                 isDeleting={deleteInvoiceMutation.isPending}
+                isClearing={clearingInvoiceId === inv.id}
+                isMarkingPaid={markingPaidInvoiceId === inv.id}
+                isRejecting={rejectingInvoiceId === inv.id}
                 setExpandedImage={setExpandedImage}
                 formatAmt={(amount, currency) => formatCurrency(convert(amount, currency), defaultCurrency)}
               />
@@ -329,6 +361,12 @@ export default function OrganizationInvoicesPage() {
                 isAdmin={!!isAdmin}
                 userId={user?.id}
                 onReview={() => setInvoiceToReview(inv)}
+                onClear={() => { setClearingInvoiceId(inv.id); clearInvoiceMutation.mutate(inv.id, { onSuccess: () => { setClearingInvoiceId(null); toast.success("Cleared"); }, onError: () => { setClearingInvoiceId(null); toast.error("Failed to clear"); } }); }}
+                onMarkPaid={() => { setMarkingPaidInvoiceId(inv.id); markPaidMutation.mutate(inv.id, { onSuccess: () => { setMarkingPaidInvoiceId(null); toast.success("Marked as paid"); }, onError: () => { setMarkingPaidInvoiceId(null); toast.error("Failed to mark as paid"); } }); }}
+                onReject={() => { setRejectingInvoiceId(inv.id); declineInvoiceMutation.mutate({ invoiceId: inv.id }, { onSuccess: () => { setRejectingInvoiceId(null); toast.success("Rejected"); }, onError: () => { setRejectingInvoiceId(null); toast.error("Failed to reject"); } }); }}
+                isClearing={clearingInvoiceId === inv.id}
+                isMarkingPaid={markingPaidInvoiceId === inv.id}
+                isRejecting={rejectingInvoiceId === inv.id}
                 setExpandedImage={setExpandedImage}
                 formatAmt={(amount, currency) => formatCurrency(convert(amount, currency), defaultCurrency)}
               />
@@ -363,8 +401,8 @@ export default function OrganizationInvoicesPage() {
                       inv={inv}
                       isAdmin={!!isAdmin}
                       userId={user?.id}
-                      onClear={() => clearInvoiceMutation.mutate(inv.id, { onSuccess: () => toast.success("Cleared"), onError: () => toast.error("Failed to clear") })}
-                      isClearing={clearInvoiceMutation.isPending}
+                      onClear={() => { setClearingInvoiceId(inv.id); clearInvoiceMutation.mutate(inv.id, { onSuccess: () => { setClearingInvoiceId(null); toast.success("Cleared"); }, onError: () => { setClearingInvoiceId(null); toast.error("Failed to clear"); } }); }}
+                      isClearing={clearingInvoiceId === inv.id}
                       setExpandedImage={setExpandedImage}
                       formatAmt={(amount, currency) => formatCurrency(convert(amount, currency), defaultCurrency)}
                     />

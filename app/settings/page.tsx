@@ -6,7 +6,7 @@ import { useAuthStore } from "@/stores/authStore";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { signOut } from "@/lib/auth";
-import { useUpdateUser } from "@/features/user/hooks/use-update-profile";
+import { useUpdateUser, useGetUserAcceptedTokens, useAddUserAcceptedToken, useRemoveUserAcceptedToken } from "@/features/user/hooks/use-update-profile";
 import { asEnhancedUser } from "@/types/user";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import {
@@ -41,6 +41,9 @@ export default function SettingsPage() {
   const [initialPreferredCurrency, setInitialPreferredCurrency] =
     useState<string>("");
 
+  const { data: acceptedTokensData } = useGetUserAcceptedTokens();
+  const { mutate: addAcceptedToken } = useAddUserAcceptedToken();
+  const { mutate: removeAcceptedToken } = useRemoveUserAcceptedToken();
   const [selectedCurrencies, setSelectedCurrencies] = useState<string[]>([]);
 
   // State for wallets
@@ -100,6 +103,13 @@ export default function SettingsPage() {
       return "USD";
     }
   };
+
+  // Populate selectedCurrencies from loaded accepted tokens
+  useEffect(() => {
+    if (acceptedTokensData) {
+      setSelectedCurrencies(acceptedTokensData.map((t) => t.tokenId));
+    }
+  }, [acceptedTokensData]);
 
   // Load user data when available; use platform default currency when user has none set
   useEffect(() => {
@@ -385,6 +395,41 @@ export default function SettingsPage() {
     handleImageUpload,
     selectedCurrencies,
     setSelectedCurrencies,
+    onSaveAcceptedTokens: () => {
+      const saved = acceptedTokensData?.map((t) => t.tokenId) ?? [];
+      const added = selectedCurrencies.filter((id) => !saved.includes(id));
+      const removed = saved.filter((id) => !selectedCurrencies.includes(id));
+
+      const addPromises = added.map((tokenId) => {
+        const currency = allCurrencies.find((c) => c.id === tokenId);
+        if (!currency?.chainId) return Promise.resolve();
+        return new Promise<void>((resolve, reject) =>
+          addAcceptedToken({ tokenId, chainId: currency.chainId! }, {
+            onSuccess: () => resolve(),
+            onError: (e) => reject(e),
+          })
+        );
+      });
+
+      const removePromises = removed.map((tokenId) => {
+        const existing = acceptedTokensData?.find((t) => t.tokenId === tokenId);
+        if (!existing) return Promise.resolve();
+        return new Promise<void>((resolve, reject) =>
+          removeAcceptedToken(existing.id, {
+            onSuccess: () => resolve(),
+            onError: (e) => reject(e),
+          })
+        );
+      });
+
+      Promise.all([...addPromises, ...removePromises])
+        .then(() => {
+          if (added.length > 0 || removed.length > 0) {
+            toast.success("Payment preferences saved");
+          }
+        })
+        .catch((e) => toast.error(e?.message || "Failed to save payment preferences"));
+    },
     isLoadingWallets,
     onLogout: handleLogout,
     isLoggingOut: isLoggingOut,
