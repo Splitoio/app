@@ -57,12 +57,12 @@ export type UserAcceptedToken = {
 
 export const getUserAcceptedTokens = async (): Promise<UserAcceptedToken[]> => {
   const response = await apiClient.get("/users/accepted-tokens");
-  return response as UserAcceptedToken[];
+  return response as unknown as UserAcceptedToken[];
 };
 
 export const addUserAcceptedToken = async (payload: { tokenId: string; chainId: string }): Promise<UserAcceptedToken> => {
   const response = await apiClient.post("/users/accepted-tokens", payload);
-  return response as UserAcceptedToken;
+  return response as unknown as UserAcceptedToken;
 };
 
 export const removeUserAcceptedToken = async (id: string): Promise<void> => {
