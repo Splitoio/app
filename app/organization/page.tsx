@@ -127,6 +127,7 @@ export default function OrganizationDashboardPage() {
   ).length;
   const totalInvoicesForOrg = invoicesForOrg.length;
   const paymentsOverdue = invoicesForOrg.filter((i) => i.status === "OVERDUE" || i.status === "APPROVED").length;
+  const memberActiveInvoices = memberInvoices.filter((i) => i.status !== "PAID" && i.status !== "CLEARED" && i.status !== "DECLINED").length;
   const approvalRequestsCount = invoicesForOrg.filter((i) => i.status === "SENT").length;
   const approvalPastDueCount = invoicesForOrg.filter((i) => i.status === "SENT" && new Date(i.dueDate) < new Date()).length;
 
@@ -292,36 +293,45 @@ export default function OrganizationDashboardPage() {
               </div>
             </div>
             <div className="h-px mb-5" style={{ background: "rgba(255,255,255,0.07)" }} />
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-0">
-              {[
-                { label: "Members", value: String(memberCountForOrg), accent: T.bright },
-                { label: "Invoices", value: String(totalInvoicesForOrg), accent: paymentsOverdue > 0 ? "#F87171" : T.bright },
-                { label: "Streams", value: String(totalStreamsCount), accent: "#34D399" },
-                { label: "Contracts", value: String(contractsForOrg.length), accent: A },
-              ].flatMap((s, i) => {
-                const el = (
-                  <div
-                    key={s.label}
-                    className={cn(
-                      "min-w-0",
+            {isAdminOfSelectedOrg ? (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-0">
+                {[
+                  { label: "Members", value: String(memberCountForOrg), accent: T.bright },
+                  { label: "Invoices", value: String(totalInvoicesForOrg), accent: paymentsOverdue > 0 ? "#F87171" : T.bright },
+                  { label: "Streams", value: String(totalStreamsCount), accent: "#34D399" },
+                  { label: "Contracts", value: String(contractsForOrg.length), accent: A },
+                ].flatMap((s, i) => {
+                  const el = (
+                    <div key={s.label} className={cn("min-w-0",
                       (i === 1 || i === 3) ? "pl-4 sm:pl-6 border-l border-white/[0.07]" : "",
                       i === 2 ? "sm:pl-6 sm:border-l sm:border-white/[0.07]" : "",
                       (i === 0 || i === 2) ? "pr-4 sm:pr-6" : "",
-                    )}
-                  >
+                    )}>
+                      <p className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>{s.label}</p>
+                      <p className="text-[22px] sm:text-[24px] font-extrabold font-mono" style={{ color: s.accent }}>{s.value}</p>
+                    </div>
+                  );
+                  if (i === 2) return [(<div key="row-sep" className="col-span-2 sm:hidden h-px my-4" style={{ background: "rgba(255,255,255,0.07)" }} />), el];
+                  return [el];
+                })}
+              </div>
+            ) : (
+              <div className="grid grid-cols-3 gap-0">
+                {[
+                  { label: "Members", value: String(memberCountForOrg), accent: T.bright },
+                  { label: "Active Invoices", value: String(memberActiveInvoices), accent: memberActiveInvoices > 0 ? "#F87171" : T.bright },
+                  { label: "Contracts", value: String(myOrgContracts.length), accent: A },
+                ].map((s, i) => (
+                  <div key={s.label} className={cn("min-w-0",
+                    i > 0 ? "pl-4 sm:pl-6 border-l border-white/[0.07]" : "",
+                    i < 2 ? "pr-4 sm:pr-6" : "",
+                  )}>
                     <p className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>{s.label}</p>
                     <p className="text-[22px] sm:text-[24px] font-extrabold font-mono" style={{ color: s.accent }}>{s.value}</p>
                   </div>
-                );
-                if (i === 2) {
-                  return [
-                    <div key="row-sep" className="col-span-2 sm:hidden h-px my-4" style={{ background: "rgba(255,255,255,0.07)" }} />,
-                    el,
-                  ];
-                }
-                return [el];
-              })}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

@@ -231,9 +231,11 @@ function ExpenseRow({
               <Btn variant="ghost" onClick={onSettle} className="splito-sbtn" style={{ padding: "8px 16px", fontSize: 12 }}>
                 <Icons.check /> Settle
               </Btn>
-              <Btn variant="ghost" onClick={onNotify} className="splito-abtn" style={{ padding: "8px 16px", fontSize: 12 }}>
-                <Icons.bell /> Notify
-              </Btn>
+              {iAmPayer && (
+                <Btn variant="ghost" onClick={onNotify} className="splito-abtn" style={{ padding: "8px 16px", fontSize: 12 }}>
+                  <Icons.bell /> Notify
+                </Btn>
+              )}
               <Btn variant="danger" onClick={onDelete} style={{ padding: "8px 14px", fontSize: 12 }}>
                 <Icons.trash size={14} /> Delete
               </Btn>
