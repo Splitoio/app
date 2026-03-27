@@ -189,24 +189,22 @@ export function AddExpenseModal({
   }, [user, members]);
 
   useEffect(() => {
-    const allMembers = members
-      .filter((m) => m.id !== formData.paidBy)
-      .map((m) => m.id);
+    const allMemberIds = members.map((m) => m.id);
 
     let newSplits: Split[] = [];
 
     switch (formData.splitType) {
       case "equal":
-        const equalAmount = Number(formData.amount) / allMembers.length;
-        newSplits = allMembers.map((id) => ({
+        const equalAmount = Number(formData.amount) / allMemberIds.length;
+        newSplits = allMemberIds.map((id) => ({
           address: id,
           amount: equalAmount,
         }));
         break;
 
       case "percentage":
-        const equalPercentage = 100 / allMembers.length;
-        newSplits = allMembers.map((id) => ({
+        const equalPercentage = 100 / allMemberIds.length;
+        newSplits = allMemberIds.map((id) => ({
           address: id,
           amount: (Number(formData.amount) * equalPercentage) / 100,
           percentage: equalPercentage,
@@ -214,7 +212,7 @@ export function AddExpenseModal({
         break;
 
       case "custom":
-        newSplits = allMembers.map((id) => ({
+        newSplits = allMemberIds.map((id) => ({
           address: id,
           amount: 0,
         }));
@@ -227,15 +225,12 @@ export function AddExpenseModal({
   const updateCustomSplit = (id: string, amount: number) => {
     setSplits((current) => {
       const total = Number(formData.amount);
-      const others = current.filter(
-        (s) => s.address !== id && s.address !== formData.paidBy
-      );
+      const others = current.filter((s) => s.address !== id);
       const remaining = total - amount;
       const perOther = others.length > 0 ? remaining / others.length : 0;
       return current.map((split) => {
         if (split.address === id) return { ...split, amount };
-        if (split.address !== formData.paidBy) return { ...split, amount: perOther };
-        return split;
+        return { ...split, amount: perOther };
       });
     });
   };
@@ -251,16 +246,14 @@ export function AddExpenseModal({
     });
 
     setSplits((current) => {
-      const otherSplits = current.filter((s) => s.address !== id && s.address !== formData.paidBy);
+      const otherSplits = current.filter((s) => s.address !== id);
       const remaining = 100 - percentage;
       const perOther = otherSplits.length > 0 ? remaining / otherSplits.length : 0;
       return current.map((split) => {
         if (split.address === id) {
           return { ...split, amount: (Number(formData.amount) * percentage) / 100, percentage };
-        } else if (split.address !== formData.paidBy) {
-          return { ...split, amount: (Number(formData.amount) * perOther) / 100, percentage: perOther };
         }
-        return split;
+        return { ...split, amount: (Number(formData.amount) * perOther) / 100, percentage: perOther };
       });
     });
   };
@@ -387,13 +380,11 @@ export function AddExpenseModal({
   useEffect(() => {
     if (formData.splitType !== "percentage") return;
 
-    const allMembers = members
-      .filter((m) => m.id !== formData.paidBy)
-      .map((m) => m.id);
-    const equalPercentage = 100 / allMembers.length;
+    const allMemberIds = members.map((m) => m.id);
+    const equalPercentage = 100 / allMemberIds.length;
 
     const initialPercentages = Object.fromEntries(
-      allMembers.map((id) => [id, equalPercentage])
+      allMemberIds.map((id) => [id, equalPercentage])
     );
     setPercentages(initialPercentages);
   }, [members, formData.splitType, formData.paidBy]);
@@ -995,9 +986,7 @@ export function AddExpenseModal({
                       overflowY: "auto",
                     }}
                   >
-                    {members
-                      .filter((m) => m.id !== formData.paidBy)
-                      .map((member, index) => {
+                    {members.map((member, index) => {
                         const split = splits.find((s) => s.address === member.id);
                         const amount = split?.amount || 0;
                         const percentage = percentages[member.id] ?? 0;

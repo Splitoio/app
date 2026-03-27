@@ -18,7 +18,7 @@ function isPersonalRoute(pathname: string): boolean {
     .some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
 }
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const hasSessionCookie = Boolean(
     getSessionCookieValue((cookieName) => request.cookies.get(cookieName)?.value)

@@ -822,28 +822,34 @@ export function SettleDebtsModal({
   const memberDebtRows = useMemo(() => {
     const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
     const sourceBalances = Array.isArray(balances) ? balances : [];
-    // Track debts per member per currency separately
-    // Only include debts that the current user specifically owes (b.firendId === user?.id)
-    const balanceMap = sourceBalances
-      .filter((b) => b.userId !== user?.id && b.amount < 0 && b.firendId === user?.id)
-      .reduce((acc, b) => {
-        const existing = acc.get(b.userId) || [];
+
+    // Use user's own balance entries for a clean per-member view
+    // amount > 0 → user owes firendId ('owe')
+    // amount < 0 → firendId owes user ('owed')
+    const balanceMap = new Map<string, Array<{ currency: string; amount: number }>>();
+    const directionMap = new Map<string, "owe" | "owed">();
+
+    sourceBalances
+      .filter((b) => b.userId === user?.id && b.amount !== 0)
+      .forEach((b) => {
+        const memberId = b.firendId;
+        const existing = balanceMap.get(memberId) || [];
+        directionMap.set(memberId, b.amount > 0 ? "owe" : "owed");
+        const absAmount = Math.abs(b.amount);
         const entry = existing.find((e) => e.currency === b.currency);
         if (entry) {
-          entry.amount += Math.abs(b.amount);
+          entry.amount += absAmount;
         } else {
-          existing.push({ currency: b.currency, amount: Math.abs(b.amount) });
+          existing.push({ currency: b.currency, amount: absAmount });
         }
-        acc.set(b.userId, existing);
-        return acc;
-      }, new Map<string, Array<{ currency: string; amount: number }>>());
+        balanceMap.set(memberId, existing);
+      });
 
-    // Also add rows for members in specificMemberAmounts not already covered by balance data
-    // (these are debtors in the payer/creditor view)
     if (specificMemberAmounts) {
       Object.entries(specificMemberAmounts).forEach(([memberId, amount]) => {
-        if (amount > 0 && !balanceMap.has(memberId)) {
-          balanceMap.set(memberId, [{ currency: defaultCurrency || "USD", amount }]);
+        if (amount !== 0 && !balanceMap.has(memberId)) {
+          directionMap.set(memberId, amount > 0 ? "owed" : "owe");
+          balanceMap.set(memberId, [{ currency: defaultCurrency || "USD", amount: Math.abs(amount) }]);
         }
       });
     }
@@ -859,12 +865,14 @@ export function SettleDebtsModal({
           .toUpperCase();
         const color = palette[index % palette.length];
         const primaryDebt = debts[0] ?? { amount: 0, currency: defaultCurrency || "USD" };
+        const direction = directionMap.get(memberId) || "owe";
         return {
           memberId,
           name: member?.name || member?.email || "Member",
           initials,
           color,
           debts,
+          direction,
           amount: primaryDebt.amount,
           currency: primaryDebt.currency,
         };
@@ -902,11 +910,14 @@ export function SettleDebtsModal({
     return amount * (balanceRates[fromCurrency] ?? 1);
   };
 
-  // Calculate the remaining total after currency conversion
-  const remainingTotal = memberDebtRows.reduce(
-    (sum, row) => sum + row.debts.reduce((s, d) => s + convertBalanceAmount(d.amount, d.currency), 0),
-    0
-  );
+  // Calculate totals split by direction
+  const totalToPay = memberDebtRows
+    .filter((r) => r.direction === "owe")
+    .reduce((sum, row) => sum + row.debts.reduce((s, d) => s + convertBalanceAmount(d.amount, d.currency), 0), 0);
+  const totalToCollect = memberDebtRows
+    .filter((r) => r.direction === "owed")
+    .reduce((sum, row) => sum + row.debts.reduce((s, d) => s + convertBalanceAmount(d.amount, d.currency), 0), 0);
+  const remainingTotal = totalToPay + totalToCollect;
 
   const CURRENCY_FLAG: Record<string, string> = {
     USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵", THB: "🇹🇭",
@@ -926,14 +937,18 @@ export function SettleDebtsModal({
     ? Object.keys(organizedCurrencies.chainGroups)
     : ["stellar", "solana", "aptos", "base"];
 
-  const handleMarkAsPaid = (memberId: string, amount: number, currency: string) => {
+  const handleMarkAsPaid = (memberId: string, amount: number, currency: string, direction: "owe" | "owed") => {
     if (!user || !groupId) return;
+    // When user owes the member, user is the payer.
+    // When the member owes the user, the member is the payer.
+    const payerId = direction === "owe" ? user.id : memberId;
+    const payeeId = direction === "owe" ? memberId : user.id;
     markAsPaidMutation.mutate(
       {
         groupId,
         payload: {
-          payerId: memberId,
-          payeeId: user.id,
+          payerId,
+          payeeId,
           amount,
           currency: currency || defaultCurrency || "USD",
           currencyType: "FIAT",
@@ -1062,16 +1077,20 @@ export function SettleDebtsModal({
                                 <p className="text-white text-[13px] font-bold truncate">
                                   {row.name}
                                 </p>
-                                <p className="text-white/55 text-[11px] mt-0.5">
-                                  {defaultCurrency || "USD"} (Fiat)
+                                <p className="text-[11px] mt-0.5" style={{ color: row.direction === "owe" ? "#F8717188" : "rgba(255,255,255,0.55)" }}>
+                                  {row.direction === "owe" ? `You owe · ${defaultCurrency || "USD"}` : `Owes you · ${defaultCurrency || "USD"}`}
                                 </p>
                               </div>
-                              <p className="text-[#34D399] text-sm font-extrabold tabular-nums flex-shrink-0">
-                                +{formatCurrency(
+                              <p
+                                className="text-sm font-extrabold tabular-nums flex-shrink-0"
+                                style={{ color: row.direction === "owe" ? "#F87171" : "#34D399" }}
+                              >
+                                {row.direction === "owe" ? "-" : "+"}
+                                {formatCurrency(
                                   specificMemberAmounts?.[row.memberId] !== undefined
-                                    ? specificMemberAmounts[row.memberId]
+                                    ? Math.abs(specificMemberAmounts[row.memberId])
                                     : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
-                                      ? specificAmount
+                                      ? Math.abs(specificAmount)
                                       : row.debts.reduce((sum, d) => sum + convertBalanceAmount(d.amount, d.currency), 0),
                                   defaultCurrency || "USD"
                                 )}
@@ -1210,7 +1229,9 @@ export function SettleDebtsModal({
                                   return (
                                     <div>
                                       <p className="text-[12px] mb-3" style={{ color: "rgba(255,255,255,0.60)", lineHeight: 1.6 }}>
-                                        Ask {row.name.split(" ")[0]} to pay via their banking app, then mark as paid here.
+                                        {row.direction === "owe"
+                                          ? `Pay ${row.name.split(" ")[0]} via bank, then mark as paid here.`
+                                          : `Ask ${row.name.split(" ")[0]} to pay via their banking app, then mark as paid here.`}
                                       </p>
                                       <p className="text-[10px] font-bold tracking-[0.1em] uppercase mb-2" style={{ color: "#ccc" }}>
                                         They&apos;ll Pay In
@@ -1313,14 +1334,15 @@ export function SettleDebtsModal({
                                           onClick={() => {
                                             const displayedAmount =
                                               specificMemberAmounts?.[row.memberId] !== undefined
-                                                ? specificMemberAmounts[row.memberId]
+                                                ? Math.abs(specificMemberAmounts[row.memberId])
                                                 : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
-                                                  ? specificAmount
+                                                  ? Math.abs(specificAmount)
                                                   : row.debts.reduce((sum, d) => sum + convertBalanceAmount(d.amount, d.currency), 0);
                                             handleMarkAsPaid(
                                               row.memberId,
                                               displayedAmount,
                                               memberBankCurrencies[row.memberId] || defaultCurrency || row.currency,
+                                              row.direction,
                                             );
                                           }}
                                         >
@@ -1357,13 +1379,23 @@ export function SettleDebtsModal({
                     )}
                   </div>
 
-                  {/* Total to collect */}
-                  <div className="flex items-center justify-between pt-1 pb-1 px-0.5">
-                    <span className="text-white/90 text-[13px] font-semibold">Total to collect</span>
-                    <span className="text-[#34D399] text-[15px] font-extrabold tabular-nums">
-                      +{formatCurrency(remainingTotal, defaultCurrency || "USD")}
-                    </span>
-                  </div>
+                  {/* Totals by direction */}
+                  {totalToPay > 0 && (
+                    <div className="flex items-center justify-between pt-1 pb-1 px-0.5">
+                      <span className="text-white/90 text-[13px] font-semibold">Total to pay</span>
+                      <span className="text-[#F87171] text-[15px] font-extrabold tabular-nums">
+                        -{formatCurrency(totalToPay, defaultCurrency || "USD")}
+                      </span>
+                    </div>
+                  )}
+                  {totalToCollect > 0 && (
+                    <div className="flex items-center justify-between pt-1 pb-1 px-0.5">
+                      <span className="text-white/90 text-[13px] font-semibold">Total to collect</span>
+                      <span className="text-[#34D399] text-[15px] font-extrabold tabular-nums">
+                        +{formatCurrency(totalToCollect, defaultCurrency || "USD")}
+                      </span>
+                    </div>
+                  )}
 
                 </div>
 
