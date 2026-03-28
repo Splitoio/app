@@ -162,20 +162,22 @@ export default function GroupMembersPage() {
                 </div>
                 {!isCurrentUser ? (
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-shrink-0">
-                    <Btn
-                      onClick={() => openSettle(member.user.id)}
-                      variant="ghost"
-                      style={{
-                        padding: "6px 10px",
-                        fontSize: 11,
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 4,
-                        fontWeight: 700,
-                      }}
-                    >
-                      <Icons.wallet /> Settle
-                    </Btn>
+                    {netDebt > 0 && (
+                      <Btn
+                        onClick={() => openSettle(member.user.id)}
+                        variant="ghost"
+                        style={{
+                          padding: "6px 10px",
+                          fontSize: 11,
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          fontWeight: 700,
+                        }}
+                      >
+                        <Icons.wallet /> Settle
+                      </Btn>
+                    )}
                     <Btn
                       onClick={() =>
                         handleSendReminder(
