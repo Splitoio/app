@@ -256,6 +256,7 @@ export default function GroupSplitsPage() {
     openSettle,
     handleSendReminder,
     openAddExpense,
+    openAddMember,
   } = useGroupLayout();
   const defaultCurrency = user?.currency || "USD";
   const deleteExpenseMutation = useDeleteExpense(group?.id ?? "");
@@ -313,8 +314,74 @@ export default function GroupSplitsPage() {
 
   if (!group || !user) return null;
 
+  const members = group.groupUsers ?? [];
+  const MAX_VISIBLE = 5;
+  const visibleMembers = members.slice(0, MAX_VISIBLE);
+  const overflowCount = members.length - MAX_VISIBLE;
+
   return (
     <div className="space-y-6">
+      {/* Member strip */}
+      <div
+        className="flex items-center gap-3"
+        style={{ padding: "2px 0" }}
+      >
+        <div className="flex items-center -space-x-2">
+          {visibleMembers.map((gu) => (
+            <Avatar
+              key={gu.user.id}
+              init={(gu.user.name ?? "?")[0].toUpperCase()}
+              size={32}
+              color={getUserColor(gu.user.name || "?")}
+              style={{
+                border: "2px solid #0b0b0b",
+                boxSizing: "content-box",
+              }}
+            />
+          ))}
+          {overflowCount > 0 && (
+            <div
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: "50%",
+                background: "rgba(255,255,255,0.08)",
+                border: "2px solid #0b0b0b",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 11,
+                fontWeight: 700,
+                color: T.mid,
+                boxSizing: "content-box",
+              }}
+            >
+              +{overflowCount}
+            </div>
+          )}
+        </div>
+        <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
+          {members.length} member{members.length !== 1 ? "s" : ""}
+        </span>
+        <button
+          type="button"
+          onClick={openAddMember}
+          className="ml-auto flex items-center gap-1.5 rounded-xl transition-colors hover:bg-white/[0.06]"
+          style={{
+            padding: "7px 14px",
+            background: "rgba(255,255,255,0.04)",
+            border: "1px solid rgba(255,255,255,0.10)",
+            color: T.body,
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+            fontFamily: "inherit",
+          }}
+        >
+          <Icons.userPlus size={14} /> Add People
+        </button>
+      </div>
+
       {byDate.length === 0 ? (
         <div style={{ textAlign: "center", padding: "80px 20px" }}>
           <p style={{ fontSize: 48, marginBottom: 18 }}>💸</p>

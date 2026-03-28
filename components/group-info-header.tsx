@@ -255,16 +255,14 @@ export function GroupInfoHeader({
             );
           })}
         </div>
-        {pathname === `/groups/${groupId}/members` && isAdmin && (
-          <Btn
-            onClick={openAddMember}
-            variant="ghost"
-            style={{ padding: "8px 14px", fontSize: 12, flexShrink: 0}}
-            className="sm:!flex  !hidden"
-          >
-            <Icons.userPlus /> Add Member
-          </Btn>
-        )}
+        <Btn
+          onClick={openAddMember}
+          variant="ghost"
+          style={{ padding: "8px 14px", fontSize: 12, flexShrink: 0 }}
+          className="sm:!flex !hidden"
+        >
+          <Icons.userPlus /> Add Member
+        </Btn>
       </div>
     </div>
   );
