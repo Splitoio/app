@@ -108,11 +108,15 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
 
   const getSpecificDebtByCurrency = (friendId: string) => {
     if (!group || !user) return {};
-    const balance = group.groupBalances.find(
+    const balances = group.groupBalances.filter(
       (b) => b.userId === user.id && b.firendId === friendId
     );
     const debtByCurrency: Record<string, number> = {};
-    if (balance && balance.amount !== 0) debtByCurrency[balance.currency] = balance.amount;
+    balances.forEach((b) => {
+      if (b.amount !== 0) {
+        debtByCurrency[b.currency] = (debtByCurrency[b.currency] ?? 0) + b.amount;
+      }
+    });
     return debtByCurrency;
   };
 

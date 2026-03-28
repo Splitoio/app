@@ -374,8 +374,8 @@ export default function Page() {
   const { data: friends = [], isLoading: isFriendsLoading } = useGetFriends();
   const {
     data: analyticsData,
-    isLoading: isAnalyticsLoading,
-    error: analyticsError,
+    isLoading: _isAnalyticsLoading,
+    error: _analyticsError,
   } = useAnalytics();
   const {
     reminders,
@@ -402,43 +402,12 @@ export default function Page() {
     useConvertedBalanceTotal(youOwe, defaultCurrency);
   const { total: overallGetTotal, isLoading: overallGetLoading } =
     useConvertedBalanceTotal(youGet, defaultCurrency);
-  const owedThisMonth = Number(analyticsData?.owed) || 0;
-  const lentThisMonth = Number(analyticsData?.lent) || 0;
-  const settledThisMonth = Number(analyticsData?.settled) || 0;
-  const analyticsCurrency = analyticsData?.currency || defaultCurrency;
-  const { total: owedConverted, isLoading: owedConvLoading } =
-    useConvertedBalanceTotal(
-      owedThisMonth ? [{ amount: owedThisMonth, currency: analyticsCurrency }] : [],
-      defaultCurrency
-    );
-  const { total: lentConverted, isLoading: lentConvLoading } =
-    useConvertedBalanceTotal(
-      lentThisMonth ? [{ amount: lentThisMonth, currency: analyticsCurrency }] : [],
-      defaultCurrency
-    );
-  const { total: settledConverted, isLoading: settledConvLoading } =
-    useConvertedBalanceTotal(
-      settledThisMonth ? [{ amount: settledThisMonth, currency: analyticsCurrency }] : [],
-      defaultCurrency
-    );
+  // Monthly stats derived from group balances (currency-aware)
+  const _owedThisMonth = Number(analyticsData?.owed) || 0;
+  const _lentThisMonth = Number(analyticsData?.lent) || 0;
+  const _settledThisMonth = Number(analyticsData?.settled) || 0;
   const queryClient = useQueryClient();
 
-  // Add debug logging
-  useEffect(() => {
-    if (analyticsData) {
-      console.log("Analytics data in component:", analyticsData);
-    }
-    if (analyticsError) {
-      console.error("Analytics error in component:", analyticsError);
-      // Log the full error object for debugging
-      console.error("Full error object:", {
-        name: analyticsError.name,
-        message: analyticsError.message,
-        stack: analyticsError.stack,
-        cause: analyticsError.cause,
-      });
-    }
-  }, [analyticsData, analyticsError]);
 
   const handleSettleAllClick = () => {
     setSettleFriendId(null);
@@ -645,23 +614,23 @@ export default function Page() {
               Overall balance
             </p>
             <p className="text-[26px] font-extrabold tracking-[-0.02em] text-white mb-1">
-              {isGroupsLoading ? (
+              {isGroupsLoading || overallOweLoading || overallGetLoading ? (
                 <span className="flex items-center gap-2">
                   <Loader2 className="h-5 w-5 animate-spin text-white/50" />
                   Loading…
                 </span>
-              ) : youOwe.length > 0 ? (
-                <>
-                  Overall, you owe{" "}
-                  <span style={{ color: "#F87171" }}>
-                    {overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)}
-                  </span>
-                </>
-              ) : youGet.length > 0 ? (
+              ) : netOwed > 0 ? (
                 <>
                   Overall, you are owed{" "}
                   <span style={{ color: G }}>
-                    +{overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)}
+                    +{formatCurrency(netOwed, defaultCurrency)}
+                  </span>
+                </>
+              ) : netOwed < 0 ? (
+                <>
+                  Overall, you owe{" "}
+                  <span style={{ color: "#F87171" }}>
+                    {formatCurrency(Math.abs(netOwed), defaultCurrency)}
                   </span>
                 </>
               ) : (
@@ -671,9 +640,9 @@ export default function Page() {
             <div className="h-px my-[22px]" style={{ background: "rgba(255,255,255,0.07)" }} />
             <div className="grid grid-cols-3 gap-0">
               {[
-                ["You owed this month", isAnalyticsLoading || owedConvLoading ? "…" : formatCurrency(owedConverted, defaultCurrency)],
-                ["You lent this month", isAnalyticsLoading || lentConvLoading ? "…" : formatCurrency(lentConverted, defaultCurrency)],
-                ["You settled this month", isAnalyticsLoading || settledConvLoading ? "…" : formatCurrency(settledThisMonth === 0 ? 0 : settledConverted, defaultCurrency)],
+                ["You owe", overallOweLoading ? "…" : formatCurrency(overallOweTotal, defaultCurrency)],
+                ["You're owed", overallGetLoading ? "…" : formatCurrency(overallGetTotal, defaultCurrency)],
+                ["Settled", formatCurrency(0, defaultCurrency)],
               ].map(([label, value], i, arr) => (
                 <div
                   key={String(label)}

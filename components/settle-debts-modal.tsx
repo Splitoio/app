@@ -344,18 +344,15 @@ export function SettleDebtsModal({
   // Calculate total debts across all groups on mount and when data changes
   useEffect(() => {
     if (groupId && balances && typeof balances === 'object' && !Array.isArray(balances)) {
-      // We're in a group context with group balances - ONLY use group balances
       const totalOwed = calculateTotalDebtsFromBalances(balances as Record<string, number>);
       setTotalAmount(totalOwed.toFixed(2));
-    } 
-    // COMMENTED OUT: Individual friend debt calculation to focus only on group balances
-    // else if (friends) {
-    //   // We're in a general debt settlement context
-    //   const totalOwed = calculateTotalDebts(friends as FriendWithBalances[]);
-    //   setTotalAmount(totalOwed.toFixed(2));
-    // }
+    } else if (groupId && Array.isArray(balances) && user) {
+      const currencyMap = transformGroupBalancesToCurrencyMap(balances as GroupBalance[], user.id);
+      const totalOwed = calculateTotalDebtsFromBalances(currencyMap);
+      setTotalAmount(totalOwed.toFixed(2));
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally omit defaultCurrency to avoid re-running on currency change
-  }, [balanceData, balances, groupId]);
+  }, [balanceData, balances, groupId, user]);
 
   // Fetch available tokens
   // eslint-disable-next-line react-hooks/exhaustive-deps -- omit selectedToken to avoid loop (we only run when !selectedToken)
@@ -823,39 +820,35 @@ export function SettleDebtsModal({
     const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
     const sourceBalances = Array.isArray(balances) ? balances : [];
 
-    // Use user's own balance entries for a clean per-member view
-    // amount > 0 → user owes firendId ('owe')
-    // amount < 0 → firendId owes user ('owed')
-    const balanceMap = new Map<string, Array<{ currency: string; amount: number }>>();
-    const directionMap = new Map<string, "owe" | "owed">();
-
+    // Aggregate balances per member per currency first, keeping the sign
+    const rawMap = new Map<string, Record<string, number>>();
     sourceBalances
       .filter((b) => b.userId === user?.id && b.amount !== 0)
       .forEach((b) => {
         const memberId = b.firendId;
-        const existing = balanceMap.get(memberId) || [];
-        directionMap.set(memberId, b.amount > 0 ? "owe" : "owed");
-        const absAmount = Math.abs(b.amount);
-        const entry = existing.find((e) => e.currency === b.currency);
-        if (entry) {
-          entry.amount += absAmount;
-        } else {
-          existing.push({ currency: b.currency, amount: absAmount });
-        }
-        balanceMap.set(memberId, existing);
+        const curr = rawMap.get(memberId) || {};
+        curr[b.currency] = (curr[b.currency] ?? 0) + b.amount;
+        rawMap.set(memberId, curr);
       });
 
     if (specificMemberAmounts) {
       Object.entries(specificMemberAmounts).forEach(([memberId, amount]) => {
-        if (amount !== 0 && !balanceMap.has(memberId)) {
-          directionMap.set(memberId, amount > 0 ? "owed" : "owe");
-          balanceMap.set(memberId, [{ currency: defaultCurrency || "USD", amount: Math.abs(amount) }]);
+        if (amount !== 0 && !rawMap.has(memberId)) {
+          rawMap.set(memberId, { [defaultCurrency || "USD"]: -amount });
         }
       });
     }
 
-    return Array.from(balanceMap.entries())
-      .map(([memberId, debts], index) => {
+    // Derive direction from the net across all currencies, then store abs amounts
+    return Array.from(rawMap.entries())
+      .map(([memberId, currMap], index) => {
+        const netSigned = Object.values(currMap).reduce((s, v) => s + v, 0);
+        // positive net = user owes member ('owe'), negative = member owes user ('owed')
+        const direction: "owe" | "owed" = netSigned > 0 ? "owe" : "owed";
+        const debts = Object.entries(currMap)
+          .filter(([, amt]) => amt !== 0)
+          .map(([currency, amt]) => ({ currency, amount: Math.abs(amt) }));
+
         const member = _members.find((m) => m.id === memberId);
         const initials = (member?.name || member?.email || "?")
           .split(" ")
@@ -865,7 +858,6 @@ export function SettleDebtsModal({
           .toUpperCase();
         const color = palette[index % palette.length];
         const primaryDebt = debts[0] ?? { amount: 0, currency: defaultCurrency || "USD" };
-        const direction = directionMap.get(memberId) || "owe";
         return {
           memberId,
           name: member?.name || member?.email || "Member",

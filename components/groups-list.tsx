@@ -38,11 +38,13 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     return groupsData.filter((g) => g.name.toLowerCase().includes(q));
   }, [groupsData, searchQuery]);
 
-  // Aggregate owe/owed across all groups for net balance
-  const { totalOweItems, totalOwedItems } = useMemo(() => {
-    if (!user || !groupsData) return { totalOweItems: [] as { amount: number; currency: string }[], totalOwedItems: [] as { amount: number; currency: string }[] };
+  // Aggregate owe/owed across all groups for net balance + unsettled count
+  const { totalOweItems, totalOwedItems, unsettledCount, currencyCount } = useMemo(() => {
+    if (!user || !groupsData) return { totalOweItems: [] as { amount: number; currency: string }[], totalOwedItems: [] as { amount: number; currency: string }[], unsettledCount: 0, currencyCount: 0 };
     const oweItems: { amount: number; currency: string }[] = [];
     const owedItems: { amount: number; currency: string }[] = [];
+    let unsettled = 0;
+    const currenciesUsed = new Set<string>();
     groupsData.forEach((group) => {
       const balances = group.groupBalances || [];
       const userBalances = balances.filter((b) => b.userId === user.id);
@@ -50,18 +52,18 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
       userBalances.forEach((b) => {
         byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
       });
+      let groupHasBalance = false;
       Object.entries(byCurrency).forEach(([curr, amount]) => {
-        // amount > 0 = you owe, amount < 0 = owed to you
-        if (amount > 0) oweItems.push({ amount, currency: curr });
-        else if (amount < 0) owedItems.push({ amount: Math.abs(amount), currency: curr });
+        if (amount > 0) { oweItems.push({ amount, currency: curr }); groupHasBalance = true; currenciesUsed.add(curr); }
+        else if (amount < 0) { owedItems.push({ amount: Math.abs(amount), currency: curr }); groupHasBalance = true; currenciesUsed.add(curr); }
       });
+      if (groupHasBalance) unsettled++;
     });
-    return { totalOweItems: oweItems, totalOwedItems: owedItems };
+    return { totalOweItems: oweItems, totalOwedItems: owedItems, unsettledCount: unsettled, currencyCount: currenciesUsed.size };
   }, [groupsData, user]);
 
   const { total: totalOwe } = useConvertedBalanceTotal(totalOweItems, defaultCurrency);
   const { total: totalOwed } = useConvertedBalanceTotal(totalOwedItems, defaultCurrency);
-  const netBalance = totalOwed - totalOwe;
 
   // Helper function to get currency symbol from the currencies data
   const getCurrencySymbol = (currencyId: string): string => {
@@ -77,20 +79,8 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     return `${symbol}${amount.toFixed(decimals)}`;
   };
 
-  // Total spent across all groups (sum of all expense amounts, converted to default currency)
-  const totalSpentItems = useMemo(() => {
-    if (!groupsData) return [];
-    return groupsData.flatMap((g) =>
-      (Array.isArray((g as { expenses?: { amount: number; currency: string; splitType?: string }[] }).expenses)
-        ? (g as { expenses: { amount: number; currency: string; splitType?: string }[] }).expenses
-        : []
-      )
-        .filter((e) => e.splitType !== "SETTLEMENT")
-        .map((e) => ({ amount: e.amount, currency: e.currency }))
-    );
-  }, [groupsData]);
-  const { total: totalSpent } = useConvertedBalanceTotal(totalSpentItems, defaultCurrency);
-  const totalSpentFormatted = formatCurrency(totalSpent, defaultCurrency);
+  const totalOweFormatted = formatCurrency(totalOwe, defaultCurrency);
+  const totalOwedFormatted = formatCurrency(totalOwed, defaultCurrency);
 
   useEffect(() => {
     if (error) {
@@ -228,23 +218,17 @@ export function GroupsList({ searchQuery = "" }: { searchQuery?: string }) {
     );
   }
 
-  // Summary stats: net balance formatted (use default currency symbol)
-  const netBalanceFormatted = (() => {
-    if (netBalance > 0) return formatCurrency(netBalance, defaultCurrency);
-    if (netBalance < 0) return `-${formatCurrency(Math.abs(netBalance), defaultCurrency)}`;
-    return formatCurrency(0, defaultCurrency);
-  })();
-  const netBalanceColor = netBalance > 0 ? G : netBalance < 0 ? "#F87171" : T.muted;
-
   return React.createElement(GroupsListContent, {
     filteredGroups,
     user,
     defaultCurrency,
     formatCurrency,
     getCurrencySymbol,
-    netBalanceFormatted,
-    netBalanceColor,
-    totalSpentFormatted,
+    totalOweFormatted,
+    totalOwedFormatted,
+    unsettledCount,
+    totalGroupsCount: groupsData.length,
+    currencyCount,
     showDeleteModal,
     setShowDeleteModal,
     groupToDelete,

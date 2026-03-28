@@ -78,9 +78,9 @@ export default function GroupMembersPage() {
       .reduce((a: number, e: { amount: number; currency: string }) => a + convert(e.amount, e.currency), 0);
     const youAreOwed = (group.groupBalances ?? [])
       .filter(
-        (b: { userId: string; amount: number }) => b.userId === user.id && b.amount > 0
+        (b: { userId: string; amount: number }) => b.userId === user.id && b.amount < 0
       )
-      .reduce((a: number, b: { amount: number; currency: string }) => a + convert(b.amount, b.currency), 0);
+      .reduce((a: number, b: { amount: number; currency: string }) => a + convert(Math.abs(b.amount), b.currency), 0);
     const expenseCount = (group.expenses ?? []).filter(
       (e: { splitType?: string }) => e.splitType !== "SETTLEMENT"
     ).length;
@@ -106,14 +106,18 @@ export default function GroupMembersPage() {
             )
             .reduce((a: number, e: { amount: number; currency: string }) => a + convert(e.amount, e.currency), 0);
           const debtByCurrency = getSpecificDebtByCurrency(member.user.id);
-          const owes = Object.entries(debtByCurrency).reduce(
+          const netDebt = Object.entries(debtByCurrency).reduce(
             (sum, [currency, amount]) => sum + convert(amount, currency),
             0
           );
-          const owesDisplay =
-            owes > 0
-              ? { text: `owes ${formatAmount(owes)}`, color: "#F87171" }
-              : { text: "all clear ✓", color: G };
+          // netDebt > 0 = you owe them, netDebt < 0 = they owe you
+          const balanceDisplay = isCurrentUser
+            ? null
+            : netDebt > 0
+              ? { text: `you owe ${formatAmount(netDebt)}`, color: "#F87171" }
+              : netDebt < 0
+                ? { text: `owes you ${formatAmount(Math.abs(netDebt))}`, color: G }
+                : { text: "all clear ✓", color: G };
 
           return (
             <div
@@ -144,10 +148,16 @@ export default function GroupMembersPage() {
                       fontWeight: 500,
                     }}
                   >
-                    Paid {formatAmount(paid)} ·{" "}
-                    <span style={{ color: owesDisplay.color, fontWeight: 600 }}>
-                      {owesDisplay.text}
-                    </span>
+                    {isCurrentUser ? (
+                      `Paid ${formatAmount(paid)}`
+                    ) : (
+                      <>
+                        Paid {formatAmount(paid)} ·{" "}
+                        <span style={{ color: balanceDisplay!.color, fontWeight: 600 }}>
+                          {balanceDisplay!.text}
+                        </span>
+                      </>
+                    )}
                   </p>
                 </div>
                 {!isCurrentUser ? (
@@ -216,6 +226,7 @@ export default function GroupMembersPage() {
         })}
       </Card>
 
+      {/* TODO: Group spend breakdown — hidden until data is accurate
       <Card style={{ padding: "22px" }}>
         <SectionLabel>Group spend breakdown</SectionLabel>
         <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 18 }}>
@@ -258,6 +269,7 @@ export default function GroupMembersPage() {
           ))}
         </div>
       </Card>
+      */}
     </div>
   );
 }

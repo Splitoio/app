@@ -163,6 +163,7 @@ export function AddExpenseModal({
   const [lockPrice, setLockPrice] = useState(true);
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
+  const [selectedParticipants, setSelectedParticipants] = useState<Set<string>>(new Set());
   const expenseMutation = useCreateExpense(groupId);
 
   const groupCtx = useGroupLayoutOptional();
@@ -172,8 +173,9 @@ export function AddExpenseModal({
     if (isOpen) {
       setStep(1);
       setFormData((prev) => ({ ...prev, currency: defaultCurrency, currencyType: "FIAT" }));
+      setSelectedParticipants(new Set(members.map((m) => m.id)));
     }
-  }, [isOpen, defaultCurrency]);
+  }, [isOpen, defaultCurrency, members]);
 
   const allChainTokenOptions = useAllChainsTokens();
   const [resolver, setResolver] = useState<Option | undefined>(undefined);
@@ -188,6 +190,15 @@ export function AddExpenseModal({
     }
   }, [user, members]);
 
+  const toggleParticipant = (id: string) => {
+    setSelectedParticipants((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
   useEffect(() => {
     const allMemberIds = members.map((m) => m.id);
 
@@ -195,10 +206,11 @@ export function AddExpenseModal({
 
     switch (formData.splitType) {
       case "equal":
-        const equalAmount = Number(formData.amount) / allMemberIds.length;
+        const activeIds = allMemberIds.filter((id) => selectedParticipants.has(id));
+        const equalAmount = activeIds.length > 0 ? Number(formData.amount) / activeIds.length : 0;
         newSplits = allMemberIds.map((id) => ({
           address: id,
-          amount: equalAmount,
+          amount: selectedParticipants.has(id) ? equalAmount : 0,
         }));
         break;
 
@@ -220,7 +232,7 @@ export function AddExpenseModal({
     }
 
     setSplits(newSplits);
-  }, [members, formData.amount, formData.splitType, formData.paidBy]);
+  }, [members, formData.amount, formData.splitType, formData.paidBy, selectedParticipants]);
 
   const updateCustomSplit = (id: string, amount: number) => {
     setSplits((current) => {
@@ -320,10 +332,12 @@ export function AddExpenseModal({
       timeLockIn: formData.timeLockIn,
       paidBy: formData.paidBy,
       splitType: formData.splitType === "custom" ? "EXACT" : formData.splitType.toUpperCase(),
-      participants: splits.map((split) => ({
-        userId: split.address,
-        amount: split.amount,
-      })),
+      participants: splits
+        .filter((split) => split.amount > 0)
+        .map((split) => ({
+          userId: split.address,
+          amount: split.amount,
+        })),
       groupId: groupId,
     };
 
@@ -444,7 +458,11 @@ export function AddExpenseModal({
     formData.amount !== "" &&
     Number(formData.amount) > 0 &&
     formData.paidBy !== "";
-  const canSubmit = validateSplits();
+  const equalOnlySelf =
+    formData.splitType === "equal" &&
+    (selectedParticipants.size === 0 ||
+      (selectedParticipants.size === 1 && user?.id != null && selectedParticipants.has(user.id)));
+  const canSubmit = validateSplits() && !equalOnlySelf;
 
   // Only allow tokens (with chainId) as resolver
   const handleResolverChange = (option: Option | undefined) => {
@@ -1015,6 +1033,7 @@ export function AddExpenseModal({
                         return (
                           <div
                             key={member.id}
+                            onClick={isEqual ? () => toggleParticipant(member.id) : undefined}
                             style={{
                               display: "flex",
                               alignItems: "center",
@@ -1022,6 +1041,8 @@ export function AddExpenseModal({
                               padding: "14px 18px",
                               borderBottom: "1px solid rgba(255,255,255,0.06)",
                               gap: 12,
+                              cursor: isEqual ? "pointer" : undefined,
+                              userSelect: isEqual ? "none" : undefined,
                             }}
                           >
                             <div
@@ -1031,8 +1052,34 @@ export function AddExpenseModal({
                                 gap: 12,
                                 minWidth: 0,
                                 flex: 1,
+                                opacity: isEqual && !selectedParticipants.has(member.id) ? 0.4 : 1,
+                                transition: "opacity 0.2s",
                               }}
                             >
+                              {isEqual && (
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); toggleParticipant(member.id); }}
+                                  style={{
+                                    width: 22,
+                                    height: 22,
+                                    borderRadius: 6,
+                                    border: `2px solid ${selectedParticipants.has(member.id) ? A : "rgba(255,255,255,0.2)"}`,
+                                    background: selectedParticipants.has(member.id) ? A : "transparent",
+                                    cursor: "pointer",
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    flexShrink: 0,
+                                    transition: "all 0.2s",
+                                    padding: 0,
+                                  }}
+                                >
+                                  {selectedParticipants.has(member.id) && (
+                                    <span style={{ color: "#0a0a0a", fontSize: 13, fontWeight: 800, lineHeight: 1 }}>✓</span>
+                                  )}
+                                </button>
+                              )}
                               <div
                                 style={{
                                   width: 36,

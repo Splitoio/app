@@ -30,7 +30,7 @@ type ExpenseWithParticipants = {
   expenseDate: Date | string;
   createdAt: Date | string;
   splitType?: string;
-  expenseParticipants?: { userId: string; amount: number }[];
+  expenseParticipants?: { userId: string; amount: number; isPaid?: boolean }[];
 };
 
 const CATEGORY_STYLES: Record<string, { bg: string; icon: string }> = {
@@ -83,20 +83,23 @@ function ExpenseRow({
     expense.paidBy === currentUserId ? (currentUserName || "You") : (paidByUser?.name ?? "Someone");
 
   const participants = expense.expenseParticipants ?? [];
-  const oweCount = participants.filter((p) => p.amount > 0).length;
-  const settledCount = 0;
-  const settledLabel = `${settledCount}/${oweCount} settled`;
+  const owingParticipants = participants.filter((p) => p.amount > 0);
+  const settledCount = owingParticipants.filter((p) => p.isPaid).length;
+  const settledLabel = `${settledCount}/${owingParticipants.length} settled`;
 
-  const myShare = participants.find((p) => p.userId === currentUserId)?.amount ?? 0;
+  const myParticipant = participants.find((p) => p.userId === currentUserId);
+  const myShare = myParticipant?.amount ?? 0;
+  const myIsPaid = myParticipant?.isPaid ?? false;
   const iAmPayer = expense.paidBy === currentUserId;
   const isInvolved = iAmPayer || participants.some((p) => p.userId === currentUserId);
-  const pending = participants.filter((p) => p.amount > 0).reduce((a, p) => a + p.amount, 0);
+  const pending = participants.filter((p) => p.amount > 0 && !p.isPaid).reduce((a, p) => a + p.amount, 0);
 
   const categoryStyle = getCategoryStyle(expense.category);
 
   const statusLine = (() => {
     if (!isInvolved) return null;
-    if (myShare > 0 && !iAmPayer) return { text: `you owe ${formatCurrency(myShare, expense.currency)}`, color: "#F87171" };
+    if (myShare > 0 && !iAmPayer && !myIsPaid) return { text: `you owe ${formatCurrency(myShare, expense.currency)}`, color: "#F87171" };
+    if (myShare > 0 && !iAmPayer && myIsPaid) return { text: "paid ✓", color: G };
     if (iAmPayer && pending > 0) return { text: `owed ${formatCurrency(pending, expense.currency)}`, color: G };
     if (iAmPayer && pending === 0) return { text: "all settled ✓", color: G };
     return null;
@@ -185,7 +188,7 @@ function ExpenseRow({
               .map((p) => {
                 const u = groupUsers.find((gu) => gu.user.id === p.userId)?.user;
                 const name = p.userId === currentUserId ? (currentUserName || "You") : (u?.name ?? "Someone");
-                const isSettled = false;
+                const isSettled = !!p.isPaid;
                 return (
                   <div
                     key={p.userId}
@@ -363,23 +366,6 @@ export default function GroupSplitsPage() {
         <span style={{ fontSize: 12, color: T.muted, fontWeight: 500 }}>
           {members.length} member{members.length !== 1 ? "s" : ""}
         </span>
-        <button
-          type="button"
-          onClick={openAddMember}
-          className="ml-auto flex items-center gap-1.5 rounded-xl transition-colors hover:bg-white/[0.06]"
-          style={{
-            padding: "7px 14px",
-            background: "rgba(255,255,255,0.04)",
-            border: "1px solid rgba(255,255,255,0.10)",
-            color: T.body,
-            fontSize: 12,
-            fontWeight: 700,
-            cursor: "pointer",
-            fontFamily: "inherit",
-          }}
-        >
-          <Icons.userPlus size={14} /> Add People
-        </button>
       </div>
 
       {byDate.length === 0 ? (

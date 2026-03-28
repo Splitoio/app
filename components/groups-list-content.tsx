@@ -15,7 +15,7 @@ type GroupItem = {
   color?: string | null;
   groupBalances?: { userId: string; currency: string; amount: number }[];
   groupUsers?: { user: { id: string; name?: string | null } }[];
-  expenses?: { amount: number; currency: string; splitType?: string }[];
+  expenses?: { amount: number; currency: string; splitType?: string; paidBy?: string }[];
   updatedAt: Date;
 };
 
@@ -50,7 +50,7 @@ function GroupBalanceCell({
   const { total: owedTotal, isLoading: loadOwed } = useConvertedBalanceTotal(owedItems, defaultCurrency);
 
   const expenseItems = (group.expenses || [])
-    .filter((e) => e.splitType !== "SETTLEMENT")
+    .filter((e) => e.splitType !== "SETTLEMENT" && e.paidBy === user?.id)
     .map((e) => ({
       amount: Math.abs(e.amount),
       currency: e.currency,
@@ -90,7 +90,7 @@ function GroupBalanceCell({
           fontWeight: 500,
         }}
       >
-        {loadSpent ? "…" : formatCurrency(totalSpent ?? 0, defaultCurrency)} spent
+        {loadSpent ? "…" : formatCurrency(totalSpent ?? 0, defaultCurrency)} paid
       </p>
     </div>
   );
@@ -276,9 +276,11 @@ export interface GroupsListContentProps {
   defaultCurrency: string;
   formatCurrency: (amount: number, currency: string) => string;
   getCurrencySymbol: (id: string) => string;
-  netBalanceFormatted: string;
-  netBalanceColor: string;
-  totalSpentFormatted: string;
+  totalOweFormatted: string;
+  totalOwedFormatted: string;
+  unsettledCount: number;
+  totalGroupsCount: number;
+  currencyCount: number;
   showDeleteModal: boolean;
   setShowDeleteModal: (v: boolean) => void;
   groupToDelete: { id: string; name: string } | null;
@@ -295,9 +297,11 @@ export function GroupsListContent(props: GroupsListContentProps) {
     user,
     defaultCurrency,
     formatCurrency,
-    netBalanceFormatted,
-    netBalanceColor,
-    totalSpentFormatted,
+    totalOweFormatted,
+    totalOwedFormatted,
+    unsettledCount,
+    totalGroupsCount,
+    currencyCount,
     showDeleteModal,
     setShowDeleteModal,
     groupToDelete,
@@ -314,11 +318,11 @@ export function GroupsListContent(props: GroupsListContentProps) {
       <div className="sm:hidden">
         {/* Stats row */}
         <div className="grid grid-cols-3 gap-2 sm:gap-[10px] mb-4 sm:mb-5">
-          {[
-            ["GROUPS", String(filteredGroups.length), "#e8e8e8"],
-            ["SPENT", totalSpentFormatted, "#e8e8e8"],
-            ["SETTLED", netBalanceFormatted, netBalanceColor],
-          ].map(([label, value, color]) => (
+          {([
+            { label: "UNSETTLED", value: `${unsettledCount} of ${totalGroupsCount}`, color: unsettledCount > 0 ? "#FBBF24" : G, sub: unsettledCount === 0 ? "all clear" : `group${unsettledCount !== 1 ? "s" : ""}` },
+            { label: "YOU OWE", value: totalOweFormatted, color: totalOweFormatted !== formatCurrency(0, defaultCurrency) ? "#F87171" : T.muted, sub: undefined },
+            { label: "OWED TO YOU", value: totalOwedFormatted, color: totalOwedFormatted !== formatCurrency(0, defaultCurrency) ? G : T.muted, sub: currencyCount > 1 ? `in ${currencyCount} currencies` : undefined },
+          ] as { label: string; value: string; color: string; sub?: string }[]).map(({ label, value, color, sub }) => (
             <div
               key={label}
               className="rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-3 text-center"
@@ -329,6 +333,7 @@ export function GroupsListContent(props: GroupsListContentProps) {
               <p className="text-sm font-extrabold truncate tabular-nums" style={{ color, fontFamily: "var(--font-dm-mono,monospace)" }}>
                 {value}
               </p>
+              {sub && <p className="text-[9px] mt-0.5 truncate" style={{ color: T.dim }}>{sub}</p>}
             </div>
           ))}
         </div>
@@ -372,13 +377,14 @@ export function GroupsListContent(props: GroupsListContentProps) {
         {/* Stats row */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginBottom: 26 }}>
           {([
-            ["Groups", String(filteredGroups.length), "#e8e8e8"],
-            ["Total spent", totalSpentFormatted, "#e8e8e8"],
-            ["Net balance", netBalanceFormatted, netBalanceColor],
-          ] as [string, string, string][]).map(([label, value, color]) => (
+            { label: "Unsettled", value: `${unsettledCount} of ${totalGroupsCount}`, color: unsettledCount > 0 ? "#FBBF24" : G, sub: unsettledCount === 0 ? "all clear" : `group${unsettledCount !== 1 ? "s" : ""}` },
+            { label: "You owe", value: totalOweFormatted, color: totalOweFormatted !== formatCurrency(0, defaultCurrency) ? "#F87171" : T.muted, sub: undefined },
+            { label: "Owed to you", value: totalOwedFormatted, color: totalOwedFormatted !== formatCurrency(0, defaultCurrency) ? G : T.muted, sub: currencyCount > 1 ? `in ${currencyCount} currencies` : undefined },
+          ] as { label: string; value: string; color: string; sub?: string }[]).map(({ label, value, color, sub }) => (
             <Card key={label} style={{ padding: "18px 20px" }}>
               <p style={{ color: T.muted, fontSize: 11, marginBottom: 8, fontWeight: 700, letterSpacing: "0.05em" }}>{label}</p>
               <p style={{ color, fontSize: 22, fontWeight: 800, fontFamily: "var(--font-dm-mono,monospace)", letterSpacing: "-0.02em" }}>{value}</p>
+              {sub && <p style={{ color: T.dim, fontSize: 11, marginTop: 4 }}>{sub}</p>}
             </Card>
           ))}
         </div>
