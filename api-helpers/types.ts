@@ -90,7 +90,6 @@ export interface Group {
   userId: string;
   description?: string | null;
   image?: string | null;
-  defaultCurrency: string;
   createdAt: Date;
   updatedAt: Date;
   createdBy: User;

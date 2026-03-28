@@ -36,7 +36,6 @@ interface GroupData {
   userId: string;
   description?: string | null;
   image?: string | null;
-  defaultCurrency: string;
   createdAt: string;
   updatedAt: string;
   lockPrice: boolean;

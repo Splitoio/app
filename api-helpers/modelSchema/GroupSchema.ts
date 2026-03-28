@@ -10,7 +10,7 @@ export const GroupSchema = z.object({
   userId: z.string(),
   description: z.string().nullable(),
   image: z.string().nullable(),
-  defaultCurrency: z.string(),
+  color: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   type: z.enum(["PERSONAL", "BUSINESS"]).default("PERSONAL"),

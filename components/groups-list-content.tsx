@@ -12,6 +12,7 @@ import { formatRelativeTime } from "@/lib/utils";
 type GroupItem = {
   id: string;
   name: string;
+  color?: string | null;
   groupBalances?: { userId: string; currency: string; amount: number }[];
   groupUsers?: { user: { id: string; name?: string | null } }[];
   expenses?: { amount: number; currency: string; splitType?: string }[];
@@ -120,6 +121,8 @@ function GroupMobileCard({
   const isEmpty = expenseCount === 0;
   const subtitle = `${memberCount} ${memberCount === 1 ? "person" : "people"} · ${expenseCount} expense${expenseCount !== 1 ? "s" : ""} · ${ago}`;
 
+  const groupColor = group.color || null;
+
   return (
     <motion.div variants={slideUp}>
       <Link href={`/groups/${group.id}`}>
@@ -128,9 +131,25 @@ function GroupMobileCard({
           style={{
             background: "rgba(255,255,255,0.04)",
             borderColor: "rgba(255,255,255,0.08)",
+            borderLeft: groupColor ? `3px solid ${groupColor}` : undefined,
           }}
         >
-          <GroupAvatar items={avatarItems} size={44} radius={14} />
+          {groupColor ? (
+            <div
+              style={{
+                padding: 2,
+                borderRadius: 16,
+                background: `${groupColor}18`,
+                border: `1.5px solid ${groupColor}40`,
+                boxShadow: `0 0 12px ${groupColor}25`,
+                flexShrink: 0,
+              }}
+            >
+              <GroupAvatar items={avatarItems} size={44} radius={14} />
+            </div>
+          ) : (
+            <GroupAvatar items={avatarItems} size={44} radius={14} />
+          )}
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 mb-1">
               <p
@@ -183,6 +202,7 @@ function GroupDesktopRow({
   const expenseCount = Array.isArray(group.expenses) ? group.expenses.length : 0;
   const ago = formatRelativeTime(group.updatedAt instanceof Date ? group.updatedAt : new Date(group.updatedAt));
   const isEmpty = expenseCount === 0;
+  const groupColor = group.color || null;
 
   return (
     <motion.div variants={slideUp}>
@@ -195,11 +215,27 @@ function GroupDesktopRow({
             gap: 16,
             padding: "16px 24px",
             borderBottom: isLast ? "none" : "1px solid rgba(255,255,255,0.06)",
+            borderLeft: groupColor ? `3px solid ${groupColor}` : undefined,
             cursor: "pointer",
             transition: "background 0.15s",
           }}
         >
-          <GroupAvatar items={avatarItems} size={52} radius={17} />
+          {groupColor ? (
+            <div
+              style={{
+                padding: 2,
+                borderRadius: 19,
+                background: `${groupColor}18`,
+                border: `1.5px solid ${groupColor}40`,
+                boxShadow: `0 0 14px ${groupColor}25`,
+                flexShrink: 0,
+              }}
+            >
+              <GroupAvatar items={avatarItems} size={52} radius={17} />
+            </div>
+          ) : (
+            <GroupAvatar items={avatarItems} size={52} radius={17} />
+          )}
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 5 }}>
               <p

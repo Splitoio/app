@@ -56,8 +56,8 @@ export type DetailGroup = z.infer<typeof DetailGroupSchema>;
 export const createGroup = async (payload: {
   name: string;
   description?: string;
-  currency?: string;
   imageUrl?: string;
+  color?: string;
   type?: "PERSONAL" | "BUSINESS";
 }) => {
   const response = await apiClient.post("/groups", payload);
@@ -168,16 +168,12 @@ export const updateGroup = async (
   payload: {
     name?: string;
     description?: string;
-    currency?: string;
     imageUrl?: string;
     lockPrice?: boolean;
   }
 ) => {
-  // Only include fields that are defined
   const filteredPayload: any = {};
   if (payload.name !== undefined) filteredPayload.name = payload.name;
-  if (payload.currency !== undefined)
-    filteredPayload.currency = payload.currency;
   if (payload.lockPrice !== undefined)
     filteredPayload.lockPrice = payload.lockPrice;
   if (payload.imageUrl !== undefined)

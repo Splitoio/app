@@ -148,8 +148,8 @@ export const useUpdateGroup = () => {
       payload: {
         name?: string;
         description?: string;
-        currency?: string;
         imageUrl?: string;
+        lockPrice?: boolean;
       };
     }) => updateGroup(groupId, payload),
     onSuccess: (_, variables) => {

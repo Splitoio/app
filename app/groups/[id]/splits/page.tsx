@@ -253,11 +253,11 @@ export default function GroupSplitsPage() {
   const {
     group,
     formatCurrency,
-    defaultCurrency,
     openSettle,
     handleSendReminder,
     openAddExpense,
   } = useGroupLayout();
+  const defaultCurrency = user?.currency || "USD";
   const deleteExpenseMutation = useDeleteExpense(group?.id ?? "");
 
   const expenses = (group?.expenses ?? []) as ExpenseWithParticipants[];

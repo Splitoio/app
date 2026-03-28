@@ -23,7 +23,6 @@ export type GroupLayoutContextValue = {
   markAsPaidMutation: { mutate: (variables: unknown, options?: unknown) => void; isPending: boolean };
   isSending: boolean;
   formatCurrency: (amount: number, currencyId: string) => string;
-  defaultCurrency: string;
 };
 
 const GroupLayoutContext = createContext<GroupLayoutContextValue | null>(null);

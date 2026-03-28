@@ -48,7 +48,7 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
         amount: "0", // Amount is not stored in the group anymore
         members: "", // Members are now in a different format
         splitType: "equal", // Not sure if this is stored in the API
-        currency: group.defaultCurrency || "USD",
+        currency: "USD",
         paidBy: "", // Not sure if this is stored in the API
         imageUrl: group.image || "",
         lockPrice: group.lockPrice ?? false,
@@ -120,13 +120,11 @@ export default function EditGroupPage({ params }: { params: { id: string } }) {
     const payload: {
       name: string;
       description: string;
-      currency: string;
       imageUrl?: string;
       lockPrice: boolean;
     } = {
       name: formData.name,
       description: formData.description,
-      currency: formData.currency,
       lockPrice: formData.lockPrice,
     };
 

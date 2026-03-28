@@ -33,7 +33,8 @@ export function GroupInfoHeader({
   const [_isSettling, setIsSettling] = useState(false);
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
-  const { defaultCurrency, openAddMember, isAdmin } = useGroupLayout();
+  const { openAddMember, isAdmin } = useGroupLayout();
+  const defaultCurrency = user?.currency || "USD";
 
   // Compute balance arrays (use empty when no group so hooks are unconditional)
   const balancesByCurrency = (() => {

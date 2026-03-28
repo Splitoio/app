@@ -37,11 +37,11 @@ export default function GroupMembersPage() {
     openSettle,
     handleSendReminder,
     formatCurrency,
-    defaultCurrency,
     getSpecificDebtByCurrency,
   } = useGroupLayout();
+  const defaultCurrency = user?.currency || "USD";
 
-  // Collect all unique currencies from expenses and balances that differ from defaultCurrency
+  // Collect all unique currencies from expenses and balances
   const allCurrencies = useMemo(() => {
     const currencies = new Set<string>();
     (group?.expenses ?? []).forEach((e: { currency: string }) => currencies.add(e.currency));

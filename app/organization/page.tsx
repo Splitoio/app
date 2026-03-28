@@ -87,8 +87,8 @@ export default function OrganizationDashboardPage() {
   });
 
   // User's personal currency takes priority; analytics data is in the org's own currency
-  const orgCurrency = user?.currency || selectedOrg?.defaultCurrency || "USD";
-  const analyticsCurrency = selectedOrg?.defaultCurrency || "USD";
+  const orgCurrency = user?.currency || "USD";
+  const analyticsCurrency = user?.currency || "USD";
 
   const uniqueCurrenciesOrg = Array.from(
     new Set([

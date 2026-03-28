@@ -79,7 +79,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (group) {
-      setGroupSettings((prev) => ({ ...prev, name: group.name, currency: user?.currency || group.defaultCurrency || "USD" }));
+      setGroupSettings((prev) => ({ ...prev, name: group.name, currency: user?.currency || "USD" }));
     }
   }, [group]);
 

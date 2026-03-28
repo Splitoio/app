@@ -18,8 +18,6 @@ import { toast } from "sonner";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import axios from "axios";
-import CurrencyDropdown from "@/components/currency-dropdown";
-import type { Currency } from "@/features/currencies/api/client";
 import TimeLockToggle from "@/components/ui/TimeLockToggle";
 import {
   GroupLayoutProvider,
@@ -46,7 +44,6 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
   const [settleSpecificMemberAmounts, setSettleSpecificMemberAmounts] = useState<Record<string, number> | undefined>(undefined);
   const [groupSettings, setGroupSettings] = useState({
     name: "",
-    currency: "ETH",
     lockPrice: true,
     memberEmail: "",
   });
@@ -67,7 +64,6 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
       setGroupSettings((prev) => ({
         ...prev,
         name: group.name,
-        currency: group.defaultCurrency || "ETH",
       }));
     }
   }, [group]);
@@ -138,7 +134,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
     updateGroupMutation.mutate(
       {
         groupId,
-        payload: { name: groupSettings.name, currency: groupSettings.currency },
+        payload: { name: groupSettings.name },
       },
       {
         onSuccess: () => {
@@ -193,7 +189,6 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
     markAsPaidMutation: markAsPaidMutation as GroupLayoutContextValue["markAsPaidMutation"],
     isSending,
     formatCurrency,
-    defaultCurrency: user?.currency || group?.defaultCurrency || "USD",
   };
 
   return (
@@ -222,7 +217,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           balances={group.groupBalances}
           groupId={groupId}
           members={group.groupUsers.map((u) => u.user)}
-          defaultCurrency={user?.currency || group.defaultCurrency}
+          defaultCurrency={user?.currency || "USD"}
           showIndividualView={false}
           defaultExpandedMemberId={settleFriendId}
           specificAmount={settleSpecificAmount}
@@ -240,7 +235,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           onClose={() => setIsAddExpenseModalOpen(false)}
           groupId={groupId}
           members={group.groupUsers.map((m) => m.user)}
-          defaultCurrency={user?.currency || group?.defaultCurrency || "USD"}
+          defaultCurrency={user?.currency || "USD"}
         />
 
         {isSettingsModalOpen && (
@@ -270,31 +265,6 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
                         setGroupSettings((prev) => ({ ...prev, name: e.target.value }))
                       }
                       className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20 focus:outline-none focus:border-white/40"
-                    />
-                  </div>
-                  <div>
-                    <label
-                      htmlFor="currency"
-                      className="block text-mobile-base sm:text-base text-white/80 mb-2"
-                    >
-                      Default Currency
-                    </label>
-                    <CurrencyDropdown
-                      selectedCurrencies={
-                        groupSettings.currency ? [groupSettings.currency] : []
-                      }
-                      setSelectedCurrencies={(currencies) =>
-                        setGroupSettings((prev) => ({
-                          ...prev,
-                          currency: currencies[0] || "",
-                        }))
-                      }
-                      mode="single"
-                      showFiatCurrencies={true}
-                      filterCurrencies={(currency: Currency) =>
-                        currency.symbol !== "ETH" && currency.symbol !== "USDC"
-                      }
-                      disableChainCurrencies={true}
                     />
                   </div>
                   <div className="flex items-center justify-between">

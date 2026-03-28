@@ -49,7 +49,8 @@ const DOT_COLORS: Record<string, string> = {
 
 export default function GroupActivityPage() {
   const { user } = useAuthStore();
-  const { group, formatCurrency, defaultCurrency } = useGroupLayout();
+  const { group, formatCurrency } = useGroupLayout();
+  const defaultCurrency = user?.currency || "USD";
 
   // Fetch exchange rates for all unique expense currencies that differ from defaultCurrency
   const expenseCurrencies = useMemo(() => {

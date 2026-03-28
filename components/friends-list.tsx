@@ -197,7 +197,7 @@ export function FriendsList({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (gu: any) => gu.user ?? { id: "", name: null }
           )}
-          defaultCurrency={user?.currency || selectedGroup.defaultCurrency || "USD"}
+          defaultCurrency={user?.currency || "USD"}
           defaultExpandedMemberId={selectedFriendId}
         />
       )}

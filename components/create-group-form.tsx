@@ -17,8 +17,6 @@ import { fadeIn, scaleIn } from "@/utils/animations";
 import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
-import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
-import CurrencyDropdown from "./currency-dropdown";
 import { Card, Avatar, GroupAvatar, A, T, Icons } from "@/lib/splito-design";
 
 const GROUP_COLORS = [
@@ -46,8 +44,6 @@ interface Member {
   exists: boolean;
 }
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
-
 export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const { address } = useWallet();
   const { user } = useAuthStore();
@@ -58,37 +54,27 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
   const router = useRouter();
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [groupColor, setGroupColor] = useState(GROUP_COLORS[0]);
   const [formData, setFormData] = useState({
     name: "",
     memberEmail: "",
-    currency: "",
-    currencyType: "FIAT" as "FIAT" | "TOKEN",
-    chainId: undefined as string | undefined,
-    tokenId: undefined as string | undefined,
   });
 
-  // State for tracking added members
   const [members, setMembers] = useState<Member[]>([]);
-  const { data: allCurrencies } = useGetAllCurrencies();
 
   useEffect(() => {
     if (isOpen) setStep(1);
   }, [isOpen]);
 
-  // Check if user exists by email
   const checkUserExists = async (email: string): Promise<Member | null> => {
     try {
       setIsCheckingEmail(true);
-
       const response = await apiClient.post("/users/friends/invite", {
         email,
         sendInviteEmail: false,
       });
-
       const userData = response.data || response;
-
       return {
         id: userData.id || Date.now().toString(),
         email: userData.email || email,
@@ -98,7 +84,6 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
       };
     } catch (error) {
       console.error("Error checking user:", error);
-      // Even if API fails, allow adding by email as a potential shadow user
       return {
         id: Date.now().toString(),
         email: email,
@@ -110,22 +95,15 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
     }
   };
 
-
-  // Add members to a group after creation
   const inviteMembers = async (groupId: string) => {
     const invitationPromises = members.map((member) =>
       addMembersMutation
-        .mutateAsync({
-          groupId,
-          memberIdentifier: member.email,
-        })
+        .mutateAsync({ groupId, memberIdentifier: member.email })
         .catch((error) => {
           console.error(`Failed to add member ${member.email}:`, error);
           return null;
         })
     );
-
-    // Also add members as friends
     const friendPromises = members.map((member) =>
       addFriendMutation
         .mutateAsync(member.email)
@@ -134,10 +112,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
           return null;
         })
     );
-
     try {
       await Promise.all([...invitationPromises, ...friendPromises]);
-      console.log(`Successfully invited members to group ${groupId} and added as friends`);
     } catch (error) {
       console.error("Error inviting members or adding friends:", error);
     }
@@ -145,54 +121,30 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
     if (!formData.name.trim()) {
       toast.error("Please enter a group name");
       return;
     }
-    const defaultCurrency = formData.currencyType === "FIAT" ? formData.currency || "USD" : "USD";
-    const payload: Record<string, unknown> = {
+    const payload = {
       name: formData.name,
-      currency: defaultCurrency,
+      color: groupColor,
     };
-    createGroupMutation.mutate(
-      payload as { name: string; currency?: string },
-      {
-        onSuccess: async (data) => {
-          if (formData.currencyType === "TOKEN" && formData.tokenId && formData.chainId && data?.id) {
-            try {
-              await apiClient.post(`/groups/${data.id}/accepted-tokens`, {
-                tokenId: formData.tokenId,
-                chainId: formData.chainId,
-                isDefault: true,
-              });
-            } catch (err) {
-              toast.error("Failed to set accepted token for this group");
-              console.error(err);
-            }
-          }
-          if (members.length > 0) {
-            await inviteMembers(data.id);
-          }
-          setFormData({
-            name: "",
-            memberEmail: "",
-            currency: "",
-            currencyType: "FIAT",
-            chainId: undefined,
-            tokenId: undefined,
-          });
-          setMembers([]);
-          toast.success("Group created successfully!");
-          onClose();
-          router.push(`/groups/${data.id}`);
-        },
-        onError: (error) => {
-          toast.error("Failed to create group");
-          console.error(error);
-        },
-      }
-    );
+    createGroupMutation.mutate(payload, {
+      onSuccess: async (data) => {
+        if (members.length > 0) {
+          await inviteMembers(data.id);
+        }
+        setFormData({ name: "", memberEmail: "" });
+        setMembers([]);
+        toast.success("Group created successfully!");
+        onClose();
+        router.push(`/groups/${data.id}`);
+      },
+      onError: (error) => {
+        toast.error("Failed to create group");
+        console.error(error);
+      },
+    });
   };
 
   const handleAddMember = async (e: React.FormEvent) => {
@@ -203,56 +155,19 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
       toast.error("Please enter a valid email address (e.g. name@example.com)");
       return;
     }
-
-    // Check if email already exists in members list (case insensitive)
     if (members.some((member) => member.email.toLowerCase() === email)) {
       toast.error("This member has already been added");
       return;
     }
-
-    // Check if user exists in system
     const userCheck = await checkUserExists(email);
-
     if (userCheck) {
-      // Add the user to the members list
-      setMembers([
-        ...members,
-        {
-          ...userCheck,
-          id: userCheck.id || Date.now().toString(),
-        },
-      ]);
+      setMembers([...members, { ...userCheck, id: userCheck.id || Date.now().toString() }]);
     }
-
-
-    // Clear the input
-    setFormData((prev) => ({
-      ...prev,
-      memberEmail: "",
-    }));
+    setFormData((prev) => ({ ...prev, memberEmail: "" }));
   };
 
   const removeMember = (memberId: string) => {
     setMembers(members.filter((member) => member.id !== memberId));
-  };
-
-  const handleCurrencySelect = (currencies: string[]) => {
-    const currencyId = currencies[0] || "";
-    const currency = allCurrencies?.currencies?.find((c: { id: string; type?: string; chainId?: string | null }) => c.id === currencyId);
-    setFormData((prev) => {
-      const next = { ...prev, currency: currencyId };
-      if (currency) {
-        next.currencyType = currency.type === "FIAT" ? "FIAT" : "TOKEN";
-        if (next.currencyType === "TOKEN") {
-          next.chainId = currency.chainId ?? undefined;
-          next.tokenId = currency.id;
-        } else {
-          next.chainId = undefined;
-          next.tokenId = undefined;
-        }
-      }
-      return next;
-    });
   };
 
   const inp = {
@@ -331,14 +246,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               >
               Create Group
               </p>
-              <div
-                style={{
-                  display: "flex",
-                  gap: 5,
-                  marginTop: 12,
-                }}
-              >
-                {[1, 2, 3, 4].map((s) => (
+              <div style={{ display: "flex", gap: 5, marginTop: 12 }}>
+                {[1, 2, 3].map((s) => (
                   <div
                     key={s}
                     style={{
@@ -347,8 +256,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       borderRadius: 99,
                       background: step >= s ? groupColor : "#2a2a2a",
                       transition: "background 0.3s",
-                      boxShadow:
-                        step >= s ? `0 0 8px ${groupColor}88` : "none",
+                      boxShadow: step >= s ? `0 0 8px ${groupColor}88` : "none",
                     }}
                   />
                 ))}
@@ -379,16 +287,10 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
             onSubmit={handleSubmit}
             style={{ display: "flex", flexDirection: "column", gap: 18 }}
           >
-            {/* Step 1: Name + vibe + color */}
+            {/* Step 1: Name + color */}
             {step === 1 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                <p
-                  style={{
-                    color: T.muted,
-                    fontSize: 14,
-                    lineHeight: 1.5,
-                  }}
-                >
+                <p style={{ color: T.muted, fontSize: 14, lineHeight: 1.5 }}>
                   Name your group and give it a vibe.
                 </p>
                 <div style={{ display: "flex", justifyContent: "center" }}>
@@ -416,12 +318,10 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 </div>
                 <div>
                   <label style={lbl}>Group name</label>
-                <input
-                  type="text"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData((prev) => ({ ...prev, name: e.target.value }))
-                  }
+                  <input
+                    type="text"
+                    value={formData.name}
+                    onChange={(e) => setFormData((prev) => ({ ...prev, name: e.target.value }))}
                     placeholder="e.g. Japan Trip, Roommates…"
                     style={inp}
                     autoFocus
@@ -429,13 +329,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 </div>
                 <div>
                   <label style={lbl}>Color</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {GROUP_COLORS.map((c) => (
                       <button
                         key={c}
@@ -446,14 +340,10 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                           height: 30,
                           borderRadius: "50%",
                           background: c,
-                          border:
-                            groupColor === c
-                              ? "3px solid #fff"
-                              : "3px solid transparent",
+                          border: groupColor === c ? "3px solid #fff" : "3px solid transparent",
                           cursor: "pointer",
                           transition: "all 0.2s",
-                          boxShadow:
-                            groupColor === c ? `0 0 14px ${c}88` : "none",
+                          boxShadow: groupColor === c ? `0 0 14px ${c}88` : "none",
                         }}
                       />
                     ))}
@@ -481,142 +371,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               </div>
             )}
 
-            {/* Step 2: Default settlement currency — same as add expense modal */}
+            {/* Step 2: Add friends */}
             {step === 2 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div
-                  style={{
-                    background: "rgba(255,255,255,0.04)",
-                    borderRadius: 14,
-                    padding: "14px 16px",
-                    border: "1px solid rgba(255,255,255,0.07)",
-                  }}
-                >
-                  <p
-                    style={{
-                      color: T.mid,
-                      fontSize: 12,
-                      marginBottom: 2,
-                      fontWeight: 600,
-                    }}
-                  >
-                    Group default
-                  </p>
-                  <p
-                    style={{
-                      color: T.body,
-                      fontSize: 13,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {formData.currency || "USD"}{" "}
-                    <span style={{ color: T.sub, fontWeight: 400 }}>
-                      — change below if needed
-                    </span>
-                  </p>
-                </div>
-                <div>
-                  <label style={lbl}>Default settlement currency</label>
-                  <CurrencyDropdown
-                    selectedCurrencies={formData.currency ? [formData.currency] : []}
-                    setSelectedCurrencies={handleCurrencySelect}
-                    showFiatCurrencies={true}
-                    disableChainCurrencies={false}
-                    mode="single"
-                    placeholder="Select currency..."
-                  />
-                </div>
-                {formData.currencyType === "FIAT" && formData.currency && (
-                  <div
-                    style={{
-                      background: "rgba(52,211,153,0.06)",
-                      border: "1px solid rgba(52,211,153,0.15)",
-                      borderRadius: 14,
-                      padding: "12px 16px",
-                      display: "flex",
-                      gap: 10,
-                    }}
-                  >
-                    <span style={{ color: "#34D399", fontSize: 14 }}>ℹ</span>
-                    <p
-                      style={{
-                        color: "#34D399aa",
-                        fontSize: 12,
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Fiat amounts will be converted to the group&apos;s settlement
-                      currency at time of settling.
-                    </p>
-                  </div>
-                )}
-                {formData.currencyType === "TOKEN" && formData.currency && (
-                  <div
-                    style={{
-                      background: "rgba(52,211,153,0.06)",
-                      border: "1px solid rgba(52,211,153,0.15)",
-                      borderRadius: 14,
-                      padding: "12px 16px",
-                      display: "flex",
-                      gap: 10,
-                    }}
-                  >
-                    <span style={{ color: "#34D399", fontSize: 14 }}>ℹ</span>
-                    <p
-                      style={{
-                        color: "#34D399aa",
-                        fontSize: 12,
-                        lineHeight: 1.6,
-                      }}
-                    >
-                      Members will be prompted to settle via blockchain.
-                    </p>
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 8 }}>
-                  <button
-                    type="button"
-                    onClick={() => setStep(1)}
-                    style={{
-                      flex: 1,
-                      padding: 13,
-                      background: "rgba(255,255,255,0.05)",
-                      color: T.body,
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      borderRadius: 14,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                    }}
-                  >
-                    ← Back
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setStep(3)}
-                    style={{
-                      flex: 2,
-                      padding: 13,
-                      background: groupColor,
-                      color: "#0a0a0a",
-                      border: "none",
-                      borderRadius: 14,
-                      fontSize: 14,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    Continue →
-                  </button>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Add friends */}
-            {step === 3 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
                 <p style={{ color: T.muted, fontSize: 14 }}>
                   Add friends to this group.
@@ -640,10 +396,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     placeholder="Invite by email (e.g. friend@email.com)"
                     value={formData.memberEmail}
                     onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        memberEmail: e.target.value,
-                      }))
+                      setFormData((prev) => ({ ...prev, memberEmail: e.target.value }))
                     }
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
@@ -675,19 +428,16 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       height: 36,
                       borderRadius: 10,
                       background:
-                        formData.memberEmail.trim() &&
-                        isValidEmail(formData.memberEmail.trim())
+                        formData.memberEmail.trim() && isValidEmail(formData.memberEmail.trim())
                           ? A
                           : "rgba(255,255,255,0.05)",
                       color:
-                        formData.memberEmail.trim() &&
-                        isValidEmail(formData.memberEmail.trim())
+                        formData.memberEmail.trim() && isValidEmail(formData.memberEmail.trim())
                           ? "#0a0a0a"
                           : T.sub,
                       border: "none",
                       cursor:
-                        formData.memberEmail.trim() &&
-                        isValidEmail(formData.memberEmail.trim())
+                        formData.memberEmail.trim() && isValidEmail(formData.memberEmail.trim())
                           ? "pointer"
                           : "default",
                       display: "flex",
@@ -698,11 +448,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                     {isCheckingEmail ? (
                       <motion.div
                         animate={{ rotate: 360 }}
-                        transition={{
-                          duration: 1,
-                          repeat: Infinity,
-                          ease: "linear",
-                        }}
+                        transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                         style={{
                           width: 14,
                           height: 14,
@@ -717,19 +463,10 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                   </button>
                 </div>
                 {members.length > 0 && (
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 8,
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {members.map((member, i) => {
-                      const init = (member.name || member.email)
-                        .slice(0, 2)
-                        .toUpperCase();
-                      const color =
-                        MEMBER_COLORS[i % MEMBER_COLORS.length];
+                      const init = (member.name || member.email).slice(0, 2).toUpperCase();
+                      const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
                       return (
                         <div
                           key={member.id}
@@ -743,18 +480,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                             padding: "5px 10px 5px 5px",
                           }}
                         >
-                          <Avatar
-                            init={init}
-                            color={color}
-                            size={22}
-                          />
-                          <span
-                            style={{
-                              fontSize: 12,
-                              color,
-                              fontWeight: 700,
-                            }}
-                          >
+                          <Avatar init={init} color={color} size={22} />
+                          <span style={{ fontSize: 12, color, fontWeight: 700 }}>
                             {(member.name || member.email).split(" ")[0] ||
                               (member.name || member.email).slice(0, 8)}
                           </span>
@@ -781,60 +508,30 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 )}
                 <Card style={{ maxHeight: 220, overflowY: "auto" }}>
                   {members.length === 0 ? (
-                    <div
-                      style={{
-                        padding: 24,
-                        textAlign: "center",
-                        color: T.sub,
-                        fontSize: 13,
-                      }}
-                    >
+                    <div style={{ padding: 24, textAlign: "center", color: T.sub, fontSize: 13 }}>
                       Add members by entering their email above.
                     </div>
                   ) : (
                     members.map((member, idx) => {
-                      const init = (member.name || member.email)
-                        .slice(0, 2)
-                        .toUpperCase();
-                      const color =
-                        MEMBER_COLORS[idx % MEMBER_COLORS.length];
+                      const init = (member.name || member.email).slice(0, 2).toUpperCase();
+                      const color = MEMBER_COLORS[idx % MEMBER_COLORS.length];
                       return (
                         <div
-                            key={member.id}
+                          key={member.id}
                           style={{
                             display: "flex",
                             alignItems: "center",
                             gap: 12,
                             padding: "13px 18px",
-                            borderBottom:
-                              idx < members.length - 1
-                                ? "1px solid rgba(255,255,255,0.05)"
-                                : "none",
+                            borderBottom: idx < members.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none",
                           }}
                         >
-                          <Avatar
-                            init={init}
-                            color={color}
-                            size={36}
-                          />
+                          <Avatar init={init} color={color} size={36} />
                           <div style={{ flex: 1, minWidth: 0 }}>
-                            <p
-                              style={{
-                                fontSize: 13,
-                                fontWeight: 700,
-                                color: T.bright,
-                              }}
-                            >
+                            <p style={{ fontSize: 13, fontWeight: 700, color: T.bright }}>
                               {member.name || member.email}
                             </p>
-                            <p
-                              style={{
-                                fontSize: 12,
-                                color: T.sub,
-                              }}
-                            >
-                              {member.email}
-                            </p>
+                            <p style={{ fontSize: 12, color: T.sub }}>{member.email}</p>
                           </div>
                           <div
                             style={{
@@ -849,15 +546,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                               boxShadow: `0 0 10px ${color}44`,
                             }}
                           >
-                            <svg
-                              width="10"
-                              height="10"
-                              viewBox="0 0 24 24"
-                              fill="none"
-                              stroke="#0a0a0a"
-                              strokeWidth="3"
-                              strokeLinecap="round"
-                            >
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#0a0a0a" strokeWidth="3" strokeLinecap="round">
                               <path d="M20 6L9 17l-5-5" />
                             </svg>
                           </div>
@@ -869,37 +558,24 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     type="button"
-                    onClick={() => setStep(2)}
+                    onClick={() => setStep(1)}
                     style={{
-                      flex: 1,
-                      padding: 13,
-                      background: "rgba(255,255,255,0.05)",
-                      color: T.body,
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      borderRadius: 14,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
+                      flex: 1, padding: 13, background: "rgba(255,255,255,0.05)",
+                      color: T.body, border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14, fontSize: 14, fontWeight: 700,
+                      cursor: "pointer", fontFamily: "inherit",
                     }}
                   >
                     ←
                   </button>
                   <button
                     type="button"
-                    onClick={() => setStep(4)}
+                    onClick={() => setStep(3)}
                     style={{
-                      flex: 2,
-                      padding: 13,
-                      background: groupColor,
-                      color: "#0a0a0a",
-                      border: "none",
-                      borderRadius: 14,
-                      fontSize: 14,
-                      fontWeight: 800,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
-                      transition: "all 0.2s",
+                      flex: 2, padding: 13, background: groupColor,
+                      color: "#0a0a0a", border: "none", borderRadius: 14,
+                      fontSize: 14, fontWeight: 800, cursor: "pointer",
+                      fontFamily: "inherit", transition: "all 0.2s",
                     }}
                   >
                     Continue →
@@ -908,8 +584,8 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
               </div>
             )}
 
-            {/* Step 4: Review */}
-            {step === 4 && (
+            {/* Step 3: Review */}
+            {step === 3 && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <p style={{ color: T.muted, fontSize: 14 }}>
                   Review your group before creating.
@@ -927,8 +603,7 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                 >
                   <div
                     style={{
-                      padding: 3,
-                      borderRadius: 18,
+                      padding: 3, borderRadius: 18,
                       background: `${groupColor}22`,
                       border: `2px solid ${groupColor}44`,
                       boxShadow: `0 0 20px ${groupColor}33`,
@@ -944,162 +619,80 @@ export function CreateGroupForm({ isOpen, onClose }: CreateGroupFormProps) {
                       ]}
                       size={58}
                       radius={14}
-                                  />
-                                </div>
+                    />
+                  </div>
                   <div>
-                    <p
-                      style={{
-                        fontSize: 19,
-                        fontWeight: 800,
-                        color: "#fff",
-                        letterSpacing: "-0.02em",
-                      }}
-                    >
+                    <p style={{ fontSize: 19, fontWeight: 800, color: "#fff", letterSpacing: "-0.02em" }}>
                       {formData.name || "New Group"}
                     </p>
-                    <p
-                      style={{
-                        fontSize: 13,
-                        color: T.mid,
-                        marginTop: 4,
-                      }}
-                    >
-                      {members.length + 1} member
-                      {members.length !== 0 ? "s" : ""}
+                    <p style={{ fontSize: 13, color: T.mid, marginTop: 4 }}>
+                      {members.length + 1} member{members.length !== 0 ? "s" : ""}
                     </p>
                   </div>
-                                </div>
-                <div>
-                  <p
-                    style={{
-                      color: T.sub,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      marginBottom: 8,
-                      letterSpacing: "0.05em",
-                    }}
-                  >
-                    DEFAULT SETTLEMENT
-                  </p>
-                  <CurrencyDropdown
-                    selectedCurrencies={formData.currency ? [formData.currency] : []}
-                    setSelectedCurrencies={handleCurrencySelect}
-                    showFiatCurrencies={true}
-                    disableChainCurrencies={false}
-                    mode="single"
-                    placeholder="Select currency..."
-                  />
                 </div>
                 <div>
                   <label style={lbl}>Members</label>
-                  <div
-                    style={{
-                      display: "flex",
-                      gap: 6,
-                      flexWrap: "wrap",
-                    }}
-                  >
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <div
                       style={{
-                        display: "flex",
-                        alignItems: "center",
-                        gap: 6,
-                        background: `${groupColor}14`,
-                        border: `1px solid ${groupColor}33`,
-                        borderRadius: 99,
-                        padding: "5px 12px 5px 5px",
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: `${groupColor}14`, border: `1px solid ${groupColor}33`,
+                        borderRadius: 99, padding: "5px 12px 5px 5px",
                       }}
                     >
                       <Avatar init="Y" color={groupColor} size={24} />
-                      <span
-                        style={{
-                          fontSize: 12,
-                          color: groupColor,
-                          fontWeight: 700,
-                        }}
-                      >
-                        You
-                      </span>
+                      <span style={{ fontSize: 12, color: groupColor, fontWeight: 700 }}>You</span>
                     </div>
                     {members.map((m, i) => {
                       const color = MEMBER_COLORS[i % MEMBER_COLORS.length];
-                      const init = (m.name || m.email)
-                        .slice(0, 2)
-                        .toUpperCase();
+                      const init = (m.name || m.email).slice(0, 2).toUpperCase();
                       return (
                         <div
                           key={m.id}
                           style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            background: `${color}14`,
-                            border: `1px solid ${color}33`,
-                            borderRadius: 99,
-                            padding: "5px 12px 5px 5px",
+                            display: "flex", alignItems: "center", gap: 6,
+                            background: `${color}14`, border: `1px solid ${color}33`,
+                            borderRadius: 99, padding: "5px 12px 5px 5px",
                           }}
                         >
                           <Avatar init={init} color={color} size={24} />
-                          <span
-                            style={{
-                              fontSize: 12,
-                              color,
-                              fontWeight: 700,
-                            }}
-                          >
-                            {(m.name || m.email).split(" ")[0] ||
-                              (m.name || m.email).slice(0, 8)}
+                          <span style={{ fontSize: 12, color, fontWeight: 700 }}>
+                            {(m.name || m.email).split(" ")[0] || (m.name || m.email).slice(0, 8)}
                           </span>
                         </div>
                       );
                     })}
                   </div>
-              </div>
+                </div>
                 <div style={{ display: "flex", gap: 8 }}>
                   <button
                     type="button"
-                    onClick={() => setStep(3)}
+                    onClick={() => setStep(2)}
                     style={{
-                      flex: 1,
-                      padding: 13,
-                      background: "rgba(255,255,255,0.05)",
-                      color: T.body,
-                      border: "1px solid rgba(255,255,255,0.09)",
-                      borderRadius: 14,
-                      fontSize: 14,
-                      fontWeight: 700,
-                      cursor: "pointer",
-                      fontFamily: "inherit",
+                      flex: 1, padding: 13, background: "rgba(255,255,255,0.05)",
+                      color: T.body, border: "1px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14, fontSize: 14, fontWeight: 700,
+                      cursor: "pointer", fontFamily: "inherit",
                     }}
                   >
                     ← Back
                   </button>
-              <button
-                type="submit"
-                disabled={createGroupMutation.isPending}
+                  <button
+                    type="submit"
+                    disabled={createGroupMutation.isPending}
                     style={{
-                      flex: 2,
-                      padding: 13,
-                      background: createGroupMutation.isPending
-                        ? "rgba(255,255,255,0.05)"
-                        : groupColor,
+                      flex: 2, padding: 13,
+                      background: createGroupMutation.isPending ? "rgba(255,255,255,0.05)" : groupColor,
                       color: createGroupMutation.isPending ? "#555" : "#0a0a0a",
-                      border: "none",
-                      borderRadius: 14,
-                      fontSize: 14,
-                      fontWeight: 800,
-                      cursor: createGroupMutation.isPending
-                        ? "default"
-                        : "pointer",
+                      border: "none", borderRadius: 14, fontSize: 14, fontWeight: 800,
+                      cursor: createGroupMutation.isPending ? "default" : "pointer",
                       fontFamily: "inherit",
                       boxShadow: `0 0 24px ${groupColor}44`,
                       transition: "all 0.2s",
                     }}
                   >
-                    {createGroupMutation.isPending
-                      ? "Creating…"
-                      : "Create Group ✓"}
-              </button>
+                    {createGroupMutation.isPending ? "Creating…" : "Create Group ✓"}
+                  </button>
                 </div>
               </div>
             )}
