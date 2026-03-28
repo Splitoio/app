@@ -68,3 +68,60 @@ export const addUserAcceptedToken = async (payload: { tokenId: string; chainId: 
 export const removeUserAcceptedToken = async (id: string): Promise<void> => {
   await apiClient.delete(`/users/accepted-tokens/${id}`);
 };
+
+// ─── Settlement Preference ───────────────────────────────────────────────────
+
+export interface SettlementPreference {
+  chainId: string;
+  chain: {
+    id: string;
+    name: string;
+    currency: string;
+    logoUrl: string | null;
+  };
+  tokens: Array<{
+    id: string;
+    tokenId: string;
+    token: {
+      id: string;
+      name: string;
+      symbol: string;
+      decimals: number;
+      type: string;
+      logoUrl: string | null;
+      chainId: string;
+    };
+  }>;
+  wallet: {
+    id: string;
+    address: string;
+    chainId: string;
+    isDefault: boolean;
+    chain: { id: string; name: string };
+  } | null;
+}
+
+export const getSettlementPreference = async (): Promise<SettlementPreference | null> => {
+  const response = await apiClient.get("/users/settlement-preference");
+  return response as unknown as SettlementPreference | null;
+};
+
+export const saveSettlementPreference = async (payload: {
+  tokenIds: string[];
+  chainId: string;
+  walletAddress: string;
+}): Promise<SettlementPreference> => {
+  const response = await apiClient.put("/users/settlement-preference", payload);
+  return response as unknown as SettlementPreference;
+};
+
+export const removeSettlementPreference = async (): Promise<void> => {
+  await apiClient.delete("/users/settlement-preference");
+};
+
+export const updateSettlementWallet = async (payload: {
+  walletAddress: string;
+}): Promise<unknown> => {
+  const response = await apiClient.patch("/users/settlement-preference/wallet", payload);
+  return response;
+};

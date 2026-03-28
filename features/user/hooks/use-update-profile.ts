@@ -1,8 +1,12 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useMutation } from "@tanstack/react-query";
-import { getUser, updateUser, getUserAcceptedTokens, addUserAcceptedToken, removeUserAcceptedToken } from "../api/client";
+import {
+  getUser, updateUser, getUserAcceptedTokens, addUserAcceptedToken, removeUserAcceptedToken,
+  getSettlementPreference, saveSettlementPreference, removeSettlementPreference, updateSettlementWallet,
+} from "../api/client";
 import { toast } from "sonner";
+import { WALLET_QUERY_KEYS } from "@/features/wallets/hooks/use-wallets";
 
 export const useUpdateUser = () => {
   const queryClient = useQueryClient();
@@ -50,5 +54,51 @@ export const useRemoveUserAcceptedToken = () => {
   return useMutation({
     mutationFn: removeUserAcceptedToken,
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ACCEPTED_TOKENS_KEY }),
+  });
+};
+
+// ─── Settlement Preference hooks ─────────────────────────────────────────────
+
+const SETTLEMENT_PREF_KEY = ["settlement-preference"];
+
+export const useGetSettlementPreference = () => {
+  return useQuery({
+    queryKey: SETTLEMENT_PREF_KEY,
+    queryFn: getSettlementPreference,
+    staleTime: 0,
+  });
+};
+
+export const useSaveSettlementPreference = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: saveSettlementPreference,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
+      queryClient.invalidateQueries({ queryKey: ACCEPTED_TOKENS_KEY });
+      queryClient.invalidateQueries({ queryKey: [WALLET_QUERY_KEYS.WALLETS] });
+    },
+  });
+};
+
+export const useRemoveSettlementPreference = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: removeSettlementPreference,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
+      queryClient.invalidateQueries({ queryKey: ACCEPTED_TOKENS_KEY });
+    },
+  });
+};
+
+export const useUpdateSettlementWallet = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: updateSettlementWallet,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
+      queryClient.invalidateQueries({ queryKey: [WALLET_QUERY_KEYS.WALLETS] });
+    },
   });
 };
