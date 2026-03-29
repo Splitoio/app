@@ -110,7 +110,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const handleSettingsSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     updateGroupMutation.mutate(
-      { groupId: organizationId, payload: { name: groupSettings.name, currency: groupSettings.currency } },
+      { groupId: organizationId, payload: { name: groupSettings.name } },
       {
         onSuccess: () => {
           toast.success("Organization settings updated");

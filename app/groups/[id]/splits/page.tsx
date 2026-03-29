@@ -336,10 +336,7 @@ export default function GroupSplitsPage() {
               init={(gu.user.name ?? "?")[0].toUpperCase()}
               size={32}
               color={getUserColor(gu.user.name || "?")}
-              style={{
-                border: "2px solid #0b0b0b",
-                boxSizing: "content-box",
-              }}
+              className="border-2 border-[#0b0b0b] box-content"
             />
           ))}
           {overflowCount > 0 && (

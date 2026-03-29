@@ -191,7 +191,6 @@ export default function CreateGroupPage() {
         {
           name: formData.name,
           description: formData.description,
-          currency: formData.currency,
           imageUrl: imageUrl,
         },
         {
