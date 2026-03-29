@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useCreateContract } from "@/features/business/hooks/use-contracts";
-import { Loader2, Check, ChevronRight, ChevronLeft } from "lucide-react";
+import { Loader2, Check, ChevronRight, ChevronLeft, CalendarIcon } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn } from "@/utils/animations";
@@ -10,6 +10,9 @@ import CurrencyDropdown from "@/components/currency-dropdown";
 import type { Currency } from "@/features/currencies/api/client";
 import { cn } from "@/lib/utils";
 import { isValidEmail } from "@/utils/validation";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 interface CreateContractModalProps {
   isOpen: boolean;
@@ -76,19 +79,19 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
       toast.error("Start date is required");
       return false;
     }
-    if (!form.endDate) return true;
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const start = new Date(form.startDate);
     start.setHours(0, 0, 0, 0);
+    if (start.getTime() < today.getTime()) {
+      toast.error("Start date cannot be in the past");
+      return false;
+    }
+    if (!form.endDate) return true;
     const end = new Date(form.endDate);
     end.setHours(0, 0, 0, 0);
     if (end.getTime() <= start.getTime()) {
       toast.error("End date must be after the start date");
-      return false;
-    }
-    if (end.getTime() <= today.getTime()) {
-      toast.error("End date must be after today");
       return false;
     }
     return true;
@@ -278,10 +281,20 @@ export function CreateContractModal({ isOpen, onClose, organizationId, onSuccess
             {step === 3 && (
               <>
                 <Field label="Start date *">
-                  <Input type="date" value={form.startDate} onChange={(v) => set("startDate", v)} />
+                  <DatePicker
+                    value={form.startDate}
+                    onChange={(v) => set("startDate", v)}
+                    placeholder="Pick a start date"
+                    disableBefore={new Date()}
+                  />
                 </Field>
                 <Field label="End date (optional)">
-                  <Input type="date" value={form.endDate} onChange={(v) => set("endDate", v)} />
+                  <DatePicker
+                    value={form.endDate}
+                    onChange={(v) => set("endDate", v)}
+                    placeholder="Pick an end date"
+                    disableBefore={form.startDate ? new Date(form.startDate + "T00:00:00") : new Date()}
+                  />
                 </Field>
                 <Field label="Notice period (days)">
                   <Input
@@ -393,5 +406,61 @@ function Input({
       step={step}
       className="w-full h-10 bg-white/5 border border-white/10 rounded-lg px-3 text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-white/30 [color-scheme:dark]"
     />
+  );
+}
+
+function DatePicker({
+  value,
+  onChange,
+  placeholder,
+  disableBefore,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  disableBefore?: Date;
+}) {
+  const [open, setOpen] = useState(false);
+  const selected = value ? new Date(value + "T00:00:00") : undefined;
+
+  const disabledMatcher = disableBefore
+    ? { before: disableBefore }
+    : undefined;
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          className={cn(
+            "w-full h-10 bg-white/5 border border-white/10 rounded-lg px-3 text-sm flex items-center gap-2 focus:outline-none focus:border-white/30 transition-colors",
+            selected ? "text-white" : "text-white/30"
+          )}
+        >
+          <CalendarIcon className="h-4 w-4 text-white/40 shrink-0" />
+          {selected ? format(selected, "dd MMM yyyy") : (placeholder ?? "Pick a date")}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="dark w-auto p-0 border-white/10" align="start">
+        <Calendar
+          mode="single"
+          selected={selected}
+          onSelect={(date) => {
+            if (date) {
+              const yyyy = date.getFullYear();
+              const mm = String(date.getMonth() + 1).padStart(2, "0");
+              const dd = String(date.getDate()).padStart(2, "0");
+              onChange(`${yyyy}-${mm}-${dd}`);
+            } else {
+              onChange("");
+            }
+            setOpen(false);
+          }}
+          disabled={disabledMatcher}
+          defaultMonth={selected ?? disableBefore ?? new Date()}
+          className="rounded-lg"
+        />
+      </PopoverContent>
+    </Popover>
   );
 }

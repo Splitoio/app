@@ -229,9 +229,9 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
             <ResolverSelector value={resolver} onChange={handleResolverChange} />
           </div>
 
-          {/* Invite members */}
+          {/* Invite admins */}
           <div>
-            <label style={labelStyle}>Invite Members</label>
+            <label style={labelStyle}>Invite Admins</label>
             <div className="flex gap-2">
               <input
                 type="email"
