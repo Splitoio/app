@@ -55,12 +55,10 @@ const CURRENCY_FLAG: Record<string, string> = {
 };
 
 const CHAIN_META: Record<string, { color: string; icon: string; label: string }> = {
-  aptos:    { color: "#22D3EE", icon: "\u2B21",     label: "Aptos" },
-  ethereum: { color: "#818CF8", icon: "\u25C6",     label: "Ethereum" },
-  base:     { color: "#3B82F6", icon: "\u{1F535}",  label: "Base" },
-  solana:   { color: "#A78BFA", icon: "\u25CE",     label: "Solana" },
   stellar:  { color: "#34D399", icon: "\u2726",     label: "Stellar" },
-  polygon:  { color: "#A855F7", icon: "\u2B1F",     label: "Polygon" },
+  solana:   { color: "#A78BFA", icon: "\u25CE",     label: "Solana" },
+  base:     { color: "#3B82F6", icon: "\u{1F535}",  label: "Base" },
+  aptos:    { color: "#22D3EE", icon: "\u2B21",     label: "Aptos" },
 };
 
 function getChainMeta(chainId: string) {

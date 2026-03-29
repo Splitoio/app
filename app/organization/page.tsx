@@ -9,7 +9,7 @@ import { useGetAllOrganizations } from "@/features/business/hooks/use-organizati
 import { useGetInvoicesByOrganization, useGetOrganizationAnalytics } from "@/features/business/hooks/use-invoices";
 import { useGetContractsByOrganization, useGetMyContracts } from "@/features/business/hooks/use-contracts";
 import { useGetStreamsByOrganization } from "@/features/business/hooks/use-streams";
-import { Loader2, FileText, TrendingUp, ChevronsUpDown, Plus, Clock, AlertCircle, ChevronRight } from "lucide-react";
+import { Loader2, FileText, ChevronsUpDown, Plus, AlertCircle, ChevronRight } from "lucide-react";
 import { formatCurrency } from "@/utils/formatters";
 import { useQueries } from "@tanstack/react-query";
 import { getExchangeRate } from "@/features/currencies/api/client";
@@ -604,22 +604,19 @@ export default function OrganizationDashboardPage() {
                 </Card>
 
                 {/* Stats: third column */}
-                <div className="flex flex-col gap-3">
+                <div className="flex flex-col gap-0 rounded-2xl overflow-hidden" style={{ border: "1px solid rgba(255,255,255,0.08)" }}>
                   {[
-                    { label: "Expense this month", value: formatCurrency(expenseThisMonth, orgCurrency), icon: Clock, iconColor: "#F87171", bg: "rgba(248,113,113,0.08)", border: "rgba(248,113,113,0.15)", sub: "From approved/paid invoices" },
-                    { label: "Total paid", value: formatCurrency(totalPaid, orgCurrency), icon: FileText, iconColor: T.muted, bg: "rgba(255,255,255,0.04)", border: "rgba(255,255,255,0.08)", sub: "All time (invoices)" },
-                    { label: "Expected inflow", value: formatCurrency(totalInflow, orgCurrency), icon: TrendingUp, iconColor: "#34D399", bg: "rgba(52,211,153,0.10)", border: "rgba(52,211,153,0.25)", sub: "From income streams" },
-                  ].map((stat) => (
-                    <div key={stat.label} className="rounded-2xl p-4 flex-1 min-h-0"
-                      style={{ background: stat.bg, border: `1px solid ${stat.border}` }}>
-                      <div className="flex items-center gap-2 mb-2">
-                        <stat.icon className="h-4 w-4 flex-shrink-0" style={{ color: stat.iconColor }} />
-                        <span className="text-[12px] font-semibold truncate" style={{ color: T.muted }}>{stat.label}</span>
-                      </div>
-                      <p className="text-[20px] font-extrabold font-mono" style={{ color: stat.iconColor === T.muted ? T.bright : stat.iconColor }}>
+                    { label: "Expense this month", value: formatCurrency(expenseThisMonth, orgCurrency), sub: "Approved & paid invoices" },
+                    { label: "Total paid", value: formatCurrency(totalPaid, orgCurrency), sub: "All time" },
+                    { label: "Expected inflow", value: formatCurrency(totalInflow, orgCurrency), sub: "Income streams" },
+                  ].map((stat, i, arr) => (
+                    <div key={stat.label} className="px-5 py-4 flex-1 min-h-0"
+                      style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : undefined }}>
+                      <p className="text-[11px] font-semibold tracking-[0.04em] uppercase mb-1.5" style={{ color: T.dim }}>{stat.label}</p>
+                      <p className="text-[20px] font-extrabold font-mono tracking-tight" style={{ color: T.bright }}>
                         {stat.value}
                       </p>
-                      <p className="text-[11px] mt-1" style={{ color: T.sub }}>{stat.sub}</p>
+                      <p className="text-[11px] mt-1" style={{ color: T.muted }}>{stat.sub}</p>
                     </div>
                   ))}
                 </div>

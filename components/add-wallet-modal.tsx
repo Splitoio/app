@@ -33,23 +33,19 @@ interface AddWalletModalProps {
 
 // Fallback chains in case API fails (matching design artifact)
 const FALLBACK_CHAINS = [
-  { id: "aptos", name: "Aptos", enabled: true },
-  { id: "ethereum", name: "Ethereum", enabled: true },
-  { id: "base", name: "Base", enabled: true },
-  { id: "solana", name: "Solana", enabled: true },
   { id: "stellar", name: "Stellar", enabled: true },
-  { id: "polygon", name: "Polygon", enabled: true },
+  { id: "solana", name: "Solana", enabled: true },
+  { id: "base", name: "Base", enabled: true },
+  { id: "aptos", name: "Aptos", enabled: true },
 ];
 
 // Chain metadata for styling (matching design artifact)
 const getChainMeta = (chainId: string) => {
   const metaMap: Record<string, { color: string; icon: string }> = {
-    aptos: { color: "#22D3EE", icon: "⬡" },
-    ethereum: { color: "#818CF8", icon: "◆" },
-    base: { color: "#3B82F6", icon: "🔵" },
-    solana: { color: "#A78BFA", icon: "◎" },
     stellar: { color: "#34D399", icon: "✦" },
-    polygon: { color: "#A855F7", icon: "⬟" },
+    solana: { color: "#A78BFA", icon: "◎" },
+    base: { color: "#3B82F6", icon: "🔵" },
+    aptos: { color: "#22D3EE", icon: "⬡" },
   };
   return metaMap[chainId] || { color: "#666", icon: "◆" };
 };
@@ -126,14 +122,10 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
         );
         return;
       }
-    } else if (
-      selectedChain.id === "ethereum" ||
-      selectedChain.id === "polygon"
-    ) {
-      // Ethereum-compatible addresses are 42 characters including 0x prefix
+    } else if (selectedChain.id === "base") {
       if (!/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
         toast.error(
-          "Invalid Ethereum address format. Addresses should start with 0x and be 42 characters long."
+          "Invalid Base address format. Addresses should start with 0x and be 42 characters long."
         );
         return;
       }

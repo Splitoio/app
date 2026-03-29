@@ -80,21 +80,14 @@ const CHAIN_DISPLAY: Record<string, { name: string; icon: string; color: string 
   Stellar: { name: "Stellar", icon: "✦", color: "#34D399" },
   solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
   Solana: { name: "Solana", icon: "◎", color: "#A78BFA" },
-  aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
-  Aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
   base: { name: "Base", icon: "🔵", color: "#3B82F6" },
   Base: { name: "Base", icon: "🔵", color: "#3B82F6" },
-  ethereum: { name: "Ethereum", icon: "◆", color: "#818CF8" },
-  Ethereum: { name: "Ethereum", icon: "◆", color: "#818CF8" },
-  polygon: { name: "Polygon", icon: "⬟", color: "#A855F7" },
-  Polygon: { name: "Polygon", icon: "⬟", color: "#A855F7" },
-  // Numeric chain IDs (string keys)
-  "1": { name: "Ethereum", icon: "◆", color: "#818CF8" },
-  "137": { name: "Polygon", icon: "⬟", color: "#A855F7" },
+  aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
+  Aptos: { name: "Aptos", icon: "⬡", color: "#22D3EE" },
   "8453": { name: "Base", icon: "🔵", color: "#3B82F6" },
 };
 
-const CHAIN_ORDER = ["Stellar", "Solana", "Aptos", "Base", "Ethereum", "Polygon"];
+const CHAIN_ORDER = ["Stellar", "Solana", "Base", "Aptos"];
 
 function getChainDisplay(chainId: string): { name: string; icon: string; color: string } {
   const key = chainId.toString();

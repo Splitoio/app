@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useParams } from "next/navigation";
-import { Plus, Pencil, Trash2, Loader2, CheckCircle2, Clock, Download, Eye, FileSignature } from "lucide-react";
+import { Plus, Trash2, Loader2, CheckCircle2, Clock, Download, Eye, FileSignature } from "lucide-react";
 import {
   useGetContractsByOrganization,
   useRevokeContract,
@@ -11,7 +11,7 @@ import { useOrganizationOrg } from "@/contexts/organization-org-context";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { downloadContract } from "@/utils/contract-download";
-import { EditContractModal } from "@/components/edit-contract-modal";
+
 import { ContractDetailModal } from "@/components/contract-detail-modal";
 import { ContractGateModal } from "@/components/contract-gate-modal";
 import { Contract } from "@/features/business/api/client";
@@ -21,7 +21,7 @@ import { useQueries } from "@tanstack/react-query";
 import { getExchangeRate } from "@/features/currencies/api/client";
 import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
-import { cn } from "@/lib/utils";
+
 
 function ContractStatusBadge({ contract }: { contract: Contract }) {
   const isSigned = !!contract.signedAt;
@@ -73,7 +73,7 @@ export default function OrganizationContractsPage() {
   });
   const convert = (amount: number, currency: string) => amount * (rateMap[currency] ?? 1);
   const revokeContractMutation = useRevokeContract();
-  const [contractToEdit, setContractToEdit] = useState<Contract | null>(null);
+
   const [contractToRevoke, setContractToRevoke] = useState<Contract | null>(null);
   const [contractToView, setContractToView] = useState<Contract | null>(null);
   const [contractToSign, setContractToSign] = useState<Contract | null>(null);
@@ -106,8 +106,6 @@ export default function OrganizationContractsPage() {
   };
 
   const signed = contracts.filter((c) => !!c.signedAt && c.status !== "REVOKED");
-  const pending = contracts.filter((c) => !c.signedAt && c.status !== "REVOKED");
-  const revoked = contracts.filter((c) => c.status === "REVOKED");
 
   return (
     <div className="w-full space-y-5 sm:space-y-6">
@@ -153,27 +151,6 @@ export default function OrganizationContractsPage() {
               <Plus className="h-4 w-4" /> Create contract
             </button>
           )}
-        </div>
-      )}
-
-      {/* ── Summary hero ── */}
-      {!isContractsLoading && contracts.length > 0 && (
-        <div
-          className="rounded-2xl sm:rounded-3xl border border-white/[0.09] p-5 sm:p-7 mb-5 sm:mb-6"
-          style={{ background: "linear-gradient(135deg, #141414 0%, #0f0f0f 100%)", boxShadow: "0 8px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.04)" }}
-        >
-          <div className="grid grid-cols-3 gap-0">
-            {[
-              { label: "Total", value: String(contracts.length), accent: T.bright },
-              { label: "Signed", value: String(signed.length), accent: G },
-              { label: "Pending", value: String(pending.length), accent: "#22D3EE" },
-            ].map((s, i, arr) => (
-              <div key={s.label} className={cn("min-w-0 text-center", i > 0 ? "pl-4 sm:pl-6 border-l border-white/[0.07]" : "", i < arr.length - 1 ? "pr-4 sm:pr-6" : "")}>
-                <p className="text-[10px] font-semibold tracking-[0.06em] uppercase mb-1.5" style={{ color: T.dim }}>{s.label}</p>
-                <p className="text-[22px] sm:text-[24px] font-extrabold font-mono" style={{ color: s.accent }}>{s.value}</p>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -243,29 +220,18 @@ export default function OrganizationContractsPage() {
                         <Eye className="h-3 w-3" /> View & sign
                       </button>
                     )}
-                    {isAdmin && (
-                      <>
-                        <button type="button" onClick={() => setContractToView(c)}
-                          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold border transition-all hover:bg-white/5"
-                          style={{ borderColor: "rgba(255,255,255,0.1)", color: T.muted }}>
-                          <Eye className="h-3 w-3" /> View
-                        </button>
-                        {!isRevoked && (
-                          <>
-                            <button type="button" onClick={() => setContractToEdit(c)}
-                              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold border transition-all hover:bg-white/5"
-                              style={{ borderColor: "rgba(255,255,255,0.1)", color: T.muted }}>
-                              <Pencil className="h-3 w-3" /> Edit
-                            </button>
-                            <button type="button" onClick={() => setContractToRevoke(c)}
-                              disabled={revokeContractMutation.isPending}
-                              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all hover:bg-red-500/10 disabled:opacity-50"
-                              style={{ color: "#F87171" }}>
-                              <Trash2 className="h-3 w-3" /> Revoke
-                            </button>
-                          </>
-                        )}
-                      </>
+                    <button type="button" onClick={() => setContractToView(c)}
+                      className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold border transition-all hover:bg-white/5"
+                      style={{ borderColor: "rgba(255,255,255,0.1)", color: T.muted }}>
+                      <Eye className="h-3 w-3" /> View
+                    </button>
+                    {isAdmin && !isRevoked && (
+                      <button type="button" onClick={() => setContractToRevoke(c)}
+                        disabled={revokeContractMutation.isPending}
+                        className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-all hover:bg-red-500/10 disabled:opacity-50"
+                        style={{ color: "#F87171" }}>
+                        <Trash2 className="h-3 w-3" /> Revoke
+                      </button>
                     )}
                   </div>
                 </div>
@@ -276,7 +242,6 @@ export default function OrganizationContractsPage() {
         </div>
       )}
 
-      <EditContractModal isOpen={!!contractToEdit} onClose={() => setContractToEdit(null)} contract={contractToEdit} onSuccess={() => setContractToEdit(null)} />
       <ContractDetailModal isOpen={!!contractToView} onClose={() => setContractToView(null)} contract={contractToView} />
       <ContractGateModal isOpen={!!contractToSign} onClose={() => setContractToSign(null)} contract={contractToSign} />
 

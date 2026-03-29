@@ -638,14 +638,13 @@ export function SettleDebtsModal({
   // Helper to get the correct wallet address based on selected chain
   const getUserWalletAddress = () => {
     if (selectedChain === 'aptos') {
-      // Get sender address from connected Aptos wallet, not from saved wallets
-      // Convert to string to ensure type compatibility
       return aptosWallet?.account?.address?.toString() || null;
     } else if (selectedChain === 'stellar') {
-      // First try to get from connected wallet, then fallback to saved address
       return address || userStellarAddress;
+    } else if (selectedChain === 'solana' || selectedChain === 'base') {
+      const chainWallet = wallets.find(w => w.chainId === selectedChain);
+      return chainWallet?.address || null;
     }
-    // Add more chains as needed
     return null;
   };
 
@@ -654,57 +653,47 @@ export function SettleDebtsModal({
     if (selectedChain === 'aptos') {
       return aptosWallet.connected && aptosWallet.account?.address;
     } else if (selectedChain === 'stellar') {
-      // For Stellar, check if the wallet is connected AND we have an address
       return walletConnected && wallet && (address || userStellarAddress);
+    } else if (selectedChain === 'solana' || selectedChain === 'base') {
+      const chainWallet = wallets.find(w => w.chainId === selectedChain);
+      return !!chainWallet?.address;
     }
     return false;
   };
 
   // Helper to check if we can proceed with settlement
   const canProceedWithSettlement = () => {
-    const _result = {
-      aptos: selectedChain === 'aptos' ? {
-        connected: aptosWallet.connected,
-        hasAddress: !!aptosWallet.account?.address,
-        canProceed: aptosWallet.connected && aptosWallet.account?.address
-      } : null,
-      stellar: selectedChain === 'stellar' ? {
-        walletConnected,
-        hasWallet: !!wallet,
-        address,
-        userStellarAddress,
-        hasAnyAddress: !!(address || userStellarAddress),
-        canProceed: walletConnected && wallet && (address || userStellarAddress)
-      } : null
-    };
     if (selectedChain === 'aptos') {
-      // For Aptos, need wallet connected and address available
       return aptosWallet.connected && aptosWallet.account?.address;
     } else if (selectedChain === 'stellar') {
-      // For Stellar, need wallet connected and address (either from connected wallet or saved settings)
       return walletConnected && wallet && (address || userStellarAddress);
+    } else if (selectedChain === 'solana' || selectedChain === 'base') {
+      const chainWallet = wallets.find(w => w.chainId === selectedChain);
+      return !!chainWallet?.address;
     }
     return false;
   };
 
   const handleSettleOne = async (settleWith: User) => {
     const userWalletAddress = getUserWalletAddress();
+    const chainLabel = selectedChain ? selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1) : "chain";
     
-    // Check wallet connection first
     if (!canProceedWithSettlement()) {
       if (selectedChain === 'aptos') {
         toast.error("Please connect your Aptos wallet first.");
-        // Don't call connectWallet() for Aptos - user should use the WalletSelector component
         return;
-      } else {
+      } else if (selectedChain === 'stellar') {
         toast.error("Please connect your Stellar wallet first.");
         connectWallet();
+        return;
+      } else {
+        toast.error(`Please add your ${chainLabel} wallet address in settings first.`);
         return;
       }
     }
     
     if (!userWalletAddress) {
-      toast.error(`Please connect your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet or add your wallet address in settings first.`);
+      toast.error(`Please connect your ${chainLabel} wallet or add your wallet address in settings first.`);
       return;
     }
     
@@ -741,22 +730,24 @@ export function SettleDebtsModal({
 
   const handleSettleAll = async () => {
     const userWalletAddress = getUserWalletAddress();
+    const chainLabel = selectedChain ? selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1) : "chain";
     
-    // Check wallet connection first
     if (!canProceedWithSettlement()) {
       if (selectedChain === 'aptos') {
         toast.error("Please connect your Aptos wallet first.");
-        // Don't call connectWallet() for Aptos - user should use the WalletSelector component
         return;
-      } else {
+      } else if (selectedChain === 'stellar') {
         toast.error("Please connect your Stellar wallet first.");
         connectWallet();
+        return;
+      } else {
+        toast.error(`Please add your ${chainLabel} wallet address in settings first.`);
         return;
       }
     }
     
     if (!userWalletAddress) {
-      toast.error(`Please connect your ${selectedChain === 'aptos' ? 'Aptos' : 'Stellar'} wallet or add your wallet address in settings first.`);
+      toast.error(`Please connect your ${chainLabel} wallet or add your wallet address in settings first.`);
       return;
     }
     
@@ -921,13 +912,13 @@ export function SettleDebtsModal({
   const SETTLE_CHAIN_META: Record<string, { icon: string; color: string }> = {
     stellar: { icon: "✦", color: "#34D399" },
     solana:  { icon: "◎", color: "#A78BFA" },
-    aptos:   { icon: "⬡", color: "#22D3EE" },
     base:    { icon: "🔵", color: "#3B82F6" },
+    aptos:   { icon: "⬡", color: "#22D3EE" },
   };
 
   const availableChains = organizedCurrencies?.chainGroups
     ? Object.keys(organizedCurrencies.chainGroups)
-    : ["stellar", "solana", "aptos", "base"];
+    : ["stellar", "solana", "base", "aptos"];
 
   const handleMarkAsPaid = (memberId: string, amount: number, currency: string, direction: "owe" | "owed") => {
     if (!user || !groupId) return;
@@ -1172,10 +1163,15 @@ export function SettleDebtsModal({
                                                 className="w-full py-3 rounded-[14px] bg-white/[0.06] border border-white/10 text-white text-sm font-semibold hover:bg-white/[0.1] transition-colors"
                                                 onClick={connectWallet}
                                               >
-                                                Connect {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} Wallet
+                                                Connect Stellar Wallet
                                               </button>
                                             )}
-                                            {selectedChain && !getUserWalletAddress() && (
+                                            {(selectedChain === "solana" || selectedChain === "base") && (
+                                              <p className="text-xs text-amber-400 mt-2 text-center">
+                                                Add your {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} wallet address in Settings → Wallet first.
+                                              </p>
+                                            )}
+                                            {selectedChain && selectedChain !== "solana" && selectedChain !== "base" && !getUserWalletAddress() && (
                                               <p className="text-xs text-red-400 mt-2 text-center">
                                                 Please connect your {selectedChain} wallet or add it in settings first.
                                               </p>
@@ -1615,6 +1611,11 @@ export function SettleDebtsModal({
                 {!canProceedWithSettlement() && (
                   <div className="mt-4">
                     {selectedChain === 'aptos' && <ShadcnWalletSelector />}
+                    {(selectedChain === 'solana' || selectedChain === 'base') && (
+                      <p className="text-xs text-amber-400 text-center py-2">
+                        Add your {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} wallet address in Settings → Wallet first.
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -1643,14 +1644,16 @@ export function SettleDebtsModal({
                     )}
                   </button>
                 ) : (
-                  selectedChain === 'stellar' && (
-                    <button
-                      className="w-full mt-5 h-11 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/[0.1] transition-colors"
-                      onClick={connectWallet}
-                    >
-                      <span>Connect Stellar Wallet</span>
-                    </button>
-                  )
+                  <>
+                    {selectedChain === 'stellar' && (
+                      <button
+                        className="w-full mt-5 h-11 rounded-xl bg-white/[0.06] border border-white/10 text-white text-sm font-semibold flex items-center justify-center gap-2 hover:bg-white/[0.1] transition-colors"
+                        onClick={connectWallet}
+                      >
+                        <span>Connect Stellar Wallet</span>
+                      </button>
+                    )}
+                  </>
                 )}
               </motion.div>
             )}

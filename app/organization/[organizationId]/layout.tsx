@@ -1,6 +1,6 @@
 "use client";
 
-import { useParams, usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useParams, usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import { useAuthStore } from "@/stores/authStore";
@@ -23,7 +23,7 @@ import { AddInvoiceModal } from "@/components/add-invoice-modal";
 import { EditInvoiceModal, type InvoiceForEdit } from "@/components/edit-invoice-modal";
 import { AddMemberModal } from "@/components/add-member-modal";
 import { CreateContractModal } from "@/components/create-contract-modal";
-import { useGetContractById, useGetMyContracts } from "@/features/business/hooks/use-contracts";
+import { useGetMyContracts } from "@/features/business/hooks/use-contracts";
 import { ContractGateModal } from "@/components/contract-gate-modal";
 import { ReceiptImageModal } from "@/components/receipt-image-modal";
 import { useDeleteGroup, useUpdateGroup } from "@/features/groups/hooks/use-create-group";
@@ -41,11 +41,8 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const organizationId = params?.organizationId as string;
   const router = useRouter();
-  const searchParams = useSearchParams();
+
   const isSettingsPage = pathname?.endsWith("/settings");
-  const contractIdFromUrl = searchParams.get("contractId");
-  const openInvoiceFromUrl = searchParams.get("openInvoice");
-  const { data: contractForInvoice } = useGetContractById(contractIdFromUrl && openInvoiceFromUrl === "1" ? contractIdFromUrl : null);
   const { user } = useAuthStore();
   const { data: group, isLoading } = useGetGroupById(organizationId, { type: "BUSINESS" });
   const { data: myContracts = [] } = useGetMyContracts();
@@ -62,7 +59,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [declineInvoiceId, setDeclineInvoiceId] = useState<string | null>(null);
   const [declineNote, setDeclineNote] = useState("");
-  const [groupSettings, setGroupSettings] = useState({ name: "", currency: user?.currency || "USD" });
+  const [groupSettings, setGroupSettings] = useState({ name: "" });
   const [expandedImage, setExpandedImage] = useState<{ url: string; description: string } | null>(null);
   const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceForEdit | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
@@ -79,19 +76,10 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (group) {
-      setGroupSettings((prev) => ({ ...prev, name: group.name, currency: user?.currency || "USD" }));
+      setGroupSettings((prev) => ({ ...prev, name: group.name }));
     }
   }, [group]);
 
-  useEffect(() => {
-    if (openInvoiceFromUrl === "1" && contractIdFromUrl) {
-      setIsAddInvoiceModalOpen(true);
-      const u = new URL(window.location.href);
-      u.searchParams.delete("openInvoice");
-      u.searchParams.delete("contractId");
-      router.replace(u.pathname + u.search, { scroll: false });
-    }
-  }, [openInvoiceFromUrl, contractIdFromUrl, router]);
 
   if (isSettingsPage) {
     return <>{children}</>;
@@ -302,7 +290,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
           {children}
         </div>
 
-        <AddInvoiceModal isOpen={isAddInvoiceModalOpen} onClose={() => setIsAddInvoiceModalOpen(false)} organizationId={organizationId} initialContract={contractForInvoice ?? undefined} />
+        <AddInvoiceModal isOpen={isAddInvoiceModalOpen} onClose={() => setIsAddInvoiceModalOpen(false)} organizationId={organizationId} />
         <CreateContractModal isOpen={isCreateContractModalOpen} onClose={() => setIsCreateContractModalOpen(false)} organizationId={organizationId} onSuccess={() => {}} />
         <AddMemberModal isOpen={isAddMemberModalOpen} onClose={() => setIsAddMemberModalOpen(false)} groupId={organizationId} label="Admin" />
 
@@ -381,10 +369,6 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
                       className="w-full rounded-xl outline-none font-medium"
                       style={{ padding: "12px 14px", background: "rgba(255,255,255,0.05)", border: "1.5px solid rgba(255,255,255,0.09)", color: T.bright, fontSize: 14 }}
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Default Currency</label>
-                    <CurrencyDropdown selectedCurrencies={groupSettings.currency ? [groupSettings.currency] : []} setSelectedCurrencies={(currencies) => setGroupSettings((prev) => ({ ...prev, currency: currencies[0] || "" }))} mode="single" showFiatCurrencies={true} filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"} disableChainCurrencies={true} />
                   </div>
                   <div className="flex justify-end gap-3 mt-6">
                     <Btn variant="ghost" onClick={() => setIsSettingsModalOpen(false)}>Cancel</Btn>

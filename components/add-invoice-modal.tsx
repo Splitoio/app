@@ -1,11 +1,10 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import Image from "next/image";
 import { useCreateInvoice } from "@/features/business/hooks/use-invoices";
 import { useUploadFile } from "@/features/files/hooks/use-balances";
-import { useGetMyContracts } from "@/features/business/hooks/use-contracts";
-import type { Contract } from "@/features/business/api/client";
+
 import { Loader2, Camera, X } from "lucide-react";
 import { toast } from "sonner";
 import { motion, AnimatePresence } from "framer-motion";
@@ -17,37 +16,19 @@ interface AddInvoiceModalProps {
   isOpen: boolean;
   onClose: () => void;
   organizationId: string;
-  initialContract?: Contract | null;
 }
 
-export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContract }: AddInvoiceModalProps) {
+export function AddInvoiceModal({ isOpen, onClose, organizationId }: AddInvoiceModalProps) {
   const createInvoiceMutation = useCreateInvoice();
   const uploadFileMutation = useUploadFile();
-  const { data: myContracts = [] } = useGetMyContracts();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const contractsForOrg = myContracts.filter((c) => c.organizationId === organizationId);
 
   const [formData, setFormData] = useState({
     amount: "",
     currency: "USD",
     description: "",
     imageUrl: "" as string,
-    contractId: "" as string,
   });
-
-  useEffect(() => {
-    if (!isOpen) return;
-    if (initialContract) {
-      setFormData((p) => ({
-        ...p,
-        contractId: initialContract.id,
-        amount: initialContract.compensationAmount != null ? String(initialContract.compensationAmount) : p.amount,
-        currency: initialContract.compensationCurrency ?? p.currency,
-      }));
-    } else {
-      setFormData((p) => ({ ...p, contractId: "" }));
-    }
-  }, [isOpen, initialContract]);
 
   const handleImageChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,12 +58,11 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
         dueDate,
         description: formData.description || undefined,
         imageUrl: formData.imageUrl || undefined,
-        contractId: formData.contractId || undefined,
       },
       {
         onSuccess: () => {
           toast.success("Invoice raised");
-          setFormData({ amount: "", currency: "USD", description: "", imageUrl: "", contractId: "" });
+          setFormData({ amount: "", currency: "USD", description: "", imageUrl: "" });
           onClose();
         },
         onError: (err: { message?: string }) => {
@@ -90,19 +70,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
         },
       }
     );
-  };
-
-  const onContractSelect = (contract: Contract | null) => {
-    if (!contract) {
-      setFormData((p) => ({ ...p, contractId: "" }));
-      return;
-    }
-    setFormData((p) => ({
-      ...p,
-      contractId: contract.id,
-      amount: contract.compensationAmount != null ? String(contract.compensationAmount) : p.amount,
-      currency: contract.compensationCurrency ?? p.currency,
-    }));
   };
 
   return (
@@ -141,33 +108,6 @@ export function AddInvoiceModal({ isOpen, onClose, organizationId, initialContra
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Contract link */}
-              {contractsForOrg.length > 0 && (
-                <div>
-                  <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
-                    Link to contract
-                  </label>
-                  <select
-                    value={formData.contractId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      const c = id ? contractsForOrg.find((x) => x.id === id) ?? null : null;
-                      onContractSelect(c);
-                    }}
-                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors appearance-none"
-                    style={{ color: formData.contractId ? T.bright : T.dim }}
-                  >
-                    <option value="" style={{ background: "#141414" }}>None</option>
-                    {contractsForOrg.map((c) => (
-                      <option key={c.id} value={c.id} style={{ background: "#141414" }}>
-                        {c.title || "Contract"}
-                        {c.compensationAmount != null ? ` · ${c.compensationCurrency} ${c.compensationAmount}` : ""}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
               {/* Amount + Currency */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
