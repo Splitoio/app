@@ -262,6 +262,7 @@ export const ContractSchema = z.object({
   noticePeriodDays: z.number().nullable().optional(),
   specialClause: z.string().nullable().optional(),
   signedAt: z.coerce.date().nullable().optional(),
+  signerName: z.string().nullable().optional(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
   organization: z.object({ id: z.string(), name: z.string() }).optional(),

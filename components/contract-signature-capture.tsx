@@ -8,6 +8,7 @@ export interface ContractSignatureCaptureProps {
   onSign: (payload: { signatureDataUrl: string; signerName: string }) => void;
   isPending?: boolean;
   disabled?: boolean;
+  bare?: boolean;
 }
 
 type Mode = "type" | "draw";
@@ -16,6 +17,7 @@ export function ContractSignatureCapture({
   onSign,
   isPending = false,
   disabled = false,
+  bare = false,
 }: ContractSignatureCaptureProps) {
   const [mode, setMode] = useState<Mode>("type");
   const [signerName, setSignerName] = useState("");
@@ -124,7 +126,7 @@ export function ContractSignatureCapture({
   const canSubmit = signerName.trim().length > 0 && (mode === "type" || true);
 
   return (
-    <div className="rounded-xl border border-white/20 bg-white/[0.03] p-5 mb-6">
+    <div className={bare ? "" : "rounded-xl border border-white/20 bg-white/[0.03] p-5 mb-6"}>
       <p className="text-white/80 text-sm font-medium mb-3">Your full name (for the audit trail)</p>
       <input
         type="text"
