@@ -5,7 +5,7 @@ import { useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
-import { useDeleteExpense } from "@/features/expenses/hooks/use-create-expense";
+import { useDeleteExpense, useMarkParticipantAsPaid } from "@/features/expenses/hooks/use-create-expense";
 import { getExchangeRate } from "@/features/currencies/api/client";
 import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
 import {
@@ -64,6 +64,7 @@ function ExpenseRow({
   onNotify,
   onSettle,
   onDelete,
+  onMarkAsPaid,
   isLast,
 }: {
   expense: ExpenseWithParticipants;
@@ -74,6 +75,7 @@ function ExpenseRow({
   onNotify: () => void;
   onSettle: () => void;
   onDelete: () => void;
+  onMarkAsPaid: (userId: string) => void;
   isLast: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -224,6 +226,27 @@ function ExpenseRow({
                           {isSettled ? "settled" : "pending"}
                         </Tag>
                       )}
+                      {iAmPayer && !isSettled && p.userId !== currentUserId && (
+                        <button
+                          type="button"
+                          onClick={() => onMarkAsPaid(p.userId)}
+                          style={{
+                            background: "rgba(34,211,153,0.1)",
+                            border: "1px solid rgba(34,211,153,0.25)",
+                            borderRadius: 8,
+                            padding: "4px 10px",
+                            fontSize: 11,
+                            fontWeight: 700,
+                            color: G,
+                            cursor: "pointer",
+                            whiteSpace: "nowrap",
+                            fontFamily: "inherit",
+                            transition: "all 0.15s",
+                          }}
+                        >
+                          Mark paid
+                        </button>
+                      )}
                     </div>
                   </div>
                 );
@@ -263,6 +286,7 @@ export default function GroupSplitsPage() {
   } = useGroupLayout();
   const defaultCurrency = user?.currency || "USD";
   const deleteExpenseMutation = useDeleteExpense(group?.id ?? "");
+  const markPaidMutation = useMarkParticipantAsPaid(group?.id ?? "");
 
   const expenses = (group?.expenses ?? []) as ExpenseWithParticipants[];
   const nonSettlement = useMemo(
@@ -406,6 +430,10 @@ export default function GroupSplitsPage() {
                   }}
                   onSettle={() => {
                     openSettle();
+                  }}
+                  onMarkAsPaid={(userId) => {
+                    if (markPaidMutation.isPending) return;
+                    markPaidMutation.mutate({ expenseId: expense.id, userId });
                   }}
                   onDelete={() => {
                     if (!group?.id) {

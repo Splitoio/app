@@ -5,6 +5,7 @@ import {
   deleteExpense,
   getExpenses,
   getLegacyExpenses,
+  markParticipantAsPaid,
   EnhancedExpensePayload,
   UpdateExpensePayload,
 } from "../api/client";
@@ -74,6 +75,25 @@ export const useUpdateExpense = (groupId: string) => {
     onError: (error: Error) => {
       console.error("Error updating expense:", error);
       toast.error(error.message || "Failed to update expense");
+    },
+  });
+};
+
+export const useMarkParticipantAsPaid = (groupId: string) => {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ expenseId, userId }: { expenseId: string; userId: string }) =>
+      markParticipantAsPaid(expenseId, userId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.GROUPS, groupId] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.EXPENSES] });
+      queryClient.invalidateQueries({ queryKey: [QueryKeys.BALANCES] });
+      toast.success("Marked as paid");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to mark as paid");
     },
   });
 };

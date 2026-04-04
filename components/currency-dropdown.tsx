@@ -123,6 +123,7 @@ type Props = {
   mode?: "single" | "multi";
   placeholder?: string;
   disableChainCurrencies?: boolean;
+  compact?: boolean;
 };
 
 export default function CurrencyDropdown({
@@ -133,6 +134,7 @@ export default function CurrencyDropdown({
   mode = "multi",
   placeholder,
   disableChainCurrencies = false,
+  compact = false,
 }: Props) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -591,11 +593,23 @@ export default function CurrencyDropdown({
       : null;
 
   return (
-    <div className="relative" ref={triggerRef}>
+    <div className="relative" ref={triggerRef} style={compact ? { flexShrink: 0 } : undefined}>
       <button
         type="button"
         onClick={() => toggleDropdown("currency")}
-        style={{
+        style={compact ? {
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          background: "rgba(255,255,255,0.08)",
+          border: `1px solid ${isOpen ? "rgba(255,255,255,0.25)" : "rgba(255,255,255,0.1)"}`,
+          borderRadius: 10,
+          padding: "8px 10px",
+          cursor: "pointer",
+          transition: "all 0.2s",
+          fontFamily: "inherit",
+          whiteSpace: "nowrap",
+        } : {
           display: "flex",
           alignItems: "center",
           justifyContent: "space-between",
@@ -610,7 +624,23 @@ export default function CurrencyDropdown({
           fontFamily: "inherit",
         }}
       >
-        {mode === "single" ? (
+        {compact ? (
+          <>
+            <span style={{ fontSize: 15 }} aria-hidden>
+              {selected && selected.type === "FIAT" && getCurrencyFlag(selected)
+                ? getCurrencyFlag(selected)
+                : "💱"}
+            </span>
+            <span style={{ color: T.bright, fontSize: 14, fontWeight: 700 }}>
+              {isLoadingCurrencies
+                ? "…"
+                : selected
+                  ? selected.type === "FIAT" ? selected.id : selected.symbol
+                  : placeholder || "Currency"}
+            </span>
+            <span style={{ color: T.muted, fontSize: 10, marginLeft: 2 }}>▾</span>
+          </>
+        ) : mode === "single" ? (
           <div
             style={{
               display: "flex",
@@ -739,19 +769,21 @@ export default function CurrencyDropdown({
             )}
           </div>
         )}
-        <span
-          style={{
-            color: T.muted,
-            fontSize: 12,
-            transition: "transform 0.2s",
-            display: "inline-block",
-            transform: isOpen ? "rotate(180deg)" : "none",
-            marginLeft: 8,
-            flexShrink: 0,
-          }}
-        >
-          ▾
-        </span>
+        {!compact && (
+          <span
+            style={{
+              color: T.muted,
+              fontSize: 12,
+              transition: "transform 0.2s",
+              display: "inline-block",
+              transform: isOpen ? "rotate(180deg)" : "none",
+              marginLeft: 8,
+              flexShrink: 0,
+            }}
+          >
+            ▾
+          </span>
+        )}
       </button>
 
       {typeof document !== "undefined" &&

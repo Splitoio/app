@@ -78,3 +78,8 @@ export const deleteExpense = async (groupId: string, expenseId: string) => {
   const response = await apiClient.delete(`/groups/${groupId}/expenses/${expenseId}`);
   return response.data;
 };
+
+export const markParticipantAsPaid = async (expenseId: string, userId: string) => {
+  const response = await apiClient.patch(`/expenses/${expenseId}/participants/${userId}/mark-paid`);
+  return response.data;
+};

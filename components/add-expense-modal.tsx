@@ -146,7 +146,7 @@ export function AddExpenseModal({
     return `${symbol}${amount}`;
   };
 
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3>(1);
   const [formData, setFormData] = useState<ExpenseFormData>({
     name: "",
     description: "",
@@ -452,12 +452,16 @@ export function AddExpenseModal({
     const STABLECOINS = ["USDC", "USDT", "DAI", "BUSD", "TUSD", "FRAX", "USDP", "GUSD", "LUSD", "USDD", "SUSD"];
     return STABLECOINS.some((s) => id.includes(s) || symbol.includes(s));
   })();
-  const canProceedStep1 = formData.name.trim() !== "";
-  const canProceedStep2 = formData.currency !== "";
-  const canProceedStep3 =
+  const canProceedStep1 =
+    formData.currency !== "" &&
     formData.amount !== "" &&
     Number(formData.amount) > 0 &&
     formData.paidBy !== "";
+  const canProceedStep2 = validateSplits() && !(
+    formData.splitType === "equal" &&
+    (selectedParticipants.size === 0 ||
+      (selectedParticipants.size === 1 && user?.id != null && selectedParticipants.has(user.id)))
+  );
   const equalOnlySelf =
     formData.splitType === "equal" &&
     (selectedParticipants.size === 0 ||
@@ -625,7 +629,7 @@ export function AddExpenseModal({
             </p>
             <p style={{ color: T.mid, fontSize: 12, marginTop: 3 }}>{groupName}</p>
             <div style={{ display: "flex", gap: 5, marginTop: 12 }}>
-              {[1, 2, 3, 4].map((s) => (
+              {[1, 2, 3].map((s) => (
               <div
                 key={s}
                   style={{
@@ -662,180 +666,34 @@ export function AddExpenseModal({
         </div>
 
         <form onSubmit={handleSubmit}>
-          {/* Step 1: Description + Category */}
-            {step === 1 && (
+          {/* Step 1: Amount + Currency + Paid by */}
+          {step === 1 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div>
-                <label style={lbl}>Description</label>
-                  <input
-                  placeholder="e.g. Dinner, Hotel, Taxi…"
-                    value={formData.name}
-                    onChange={(e) =>
-                      setFormData((prev) => ({ ...prev, name: e.target.value }))
-                    }
-                  style={inp}
-                  autoFocus
-                  />
-                </div>
-                <div>
-                <label style={lbl}>Category</label>
+                <label style={lbl}>Amount</label>
                 <div
                   style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(5, 1fr)",
-                    gap: 8,
-                  }}
-                >
-                  {CATEGORY_OPTIONS.map(({ emoji, api }) => {
-                    const sel = formData.categoryEmoji === emoji;
-                    return (
-                      <button
-                        key={emoji + api}
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            category: api,
-                            categoryEmoji: emoji,
-                          }))
-                        }
-                        style={{
-                          background: sel ? `${A}15` : "rgba(255,255,255,0.04)",
-                          border: `1.5px solid ${sel ? A + "44" : "rgba(255,255,255,0.08)"}`,
-                          borderRadius: 14,
-                          padding: "12px 0",
-                          fontSize: 20,
-                          cursor: "pointer",
-                          transition: "all 0.2s",
-                          boxShadow: sel ? `0 0 12px ${A}22` : "none",
-                        }}
-                      >
-                        {emoji}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-              <PrimaryBtn
-                onClick={() => setStep(2)}
-                disabled={!canProceedStep1}
-                style={{ flex: "none" }}
-              >
-                {canProceedStep1 ? "Continue →" : "Enter a description"}
-              </PrimaryBtn>
-            </div>
-          )}
-
-          {/* Step 2: Spent in (currency) */}
-          {step === 2 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-              <div
-                style={{
-                  background: "rgba(255,255,255,0.04)",
-                  borderRadius: 14,
-                  padding: "14px 16px",
-                  border: "1px solid rgba(255,255,255,0.07)",
-                }}
-              >
-                <p
-                  style={{
-                    color: T.mid,
-                    fontSize: 12,
-                    marginBottom: 2,
-                    fontWeight: 600,
-                  }}
-                >
-                  Group default
-                </p>
-                <p
-                  style={{
-                    color: T.body,
-                    fontSize: 13,
-                    fontWeight: 700,
-                  }}
-                >
-                  {formData.currency || "USD"}{" "}
-                  <span style={{ color: T.sub, fontWeight: 400 }}>
-                    — change below if needed
-                  </span>
-                </p>
-              </div>
-              <div>
-                <label style={lbl}>Spent in</label>
-                  <CurrencyDropdown
-                    selectedCurrencies={
-                      formData.currency ? [formData.currency] : []
-                    }
-                    setSelectedCurrencies={handleCurrencySelect}
-                    showFiatCurrencies={true}
-                    disableChainCurrencies={false}
-                    mode="single"
-                    placeholder="Select currency..."
-                  />
-                </div>
-              {formData.currencyType === "FIAT" && formData.currency && (
-                <div
-                  style={{
-                    background: "rgba(52,211,153,0.06)",
-                    border: "1px solid rgba(52,211,153,0.15)",
-                    borderRadius: 14,
-                    padding: "12px 16px",
-                    display: "flex",
-                    gap: 10,
-                  }}
-                >
-                  <span style={{ color: "#34D399", fontSize: 14 }}>ℹ</span>
-                  <p
-                    style={{
-                      color: "#34D399aa",
-                      fontSize: 12,
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Fiat amounts will be converted to the group&apos;s settlement
-                    currency at time of settling.
-                  </p>
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 8 }}>
-                <StepBackBtn onClick={() => setStep(1)} />
-                <PrimaryBtn onClick={() => setStep(3)}>Continue →</PrimaryBtn>
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Amount + Paid by */}
-          {step === 3 && (
-            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                <div>
-                <label style={lbl}>
-                  Amount{" "}
-                  <span style={{ color: A }}>({formData.currency || "USD"})</span>
-                </label>
-                <div
-                  style={{
-                    display: "flex",
-                    alignItems: "center",
                     background: "rgba(255,255,255,0.05)",
                     border: "1.5px solid rgba(255,255,255,0.09)",
                     borderRadius: 14,
-                    padding: "14px 16px",
+                    overflow: "hidden",
                   }}
                 >
-                  <span
-                    style={{
-                      color: A,
-                      fontSize: 20,
-                      fontWeight: 800,
-                      marginRight: 10,
-                      flexShrink: 0,
-                    }}
-                  >
-                    {getCurrencySymbol(formData.currency)}
+                  <div style={{ display: "flex", alignItems: "center", padding: "14px 16px" }}>
+                    <span
+                      style={{
+                        color: A,
+                        fontSize: 20,
+                        fontWeight: 800,
+                        marginRight: 10,
+                        flexShrink: 0,
+                      }}
+                    >
+                      {getCurrencySymbol(formData.currency)}
                     </span>
                     <input
                       type="number"
-                    placeholder="0.00"
+                      placeholder="0.00"
                       value={formData.amount}
                       onChange={(e) =>
                         setFormData((prev) => ({
@@ -843,19 +701,33 @@ export function AddExpenseModal({
                           amount: e.target.value,
                         }))
                       }
-                    style={{
-                      background: "none",
-                      border: "none",
-                      color: "#fff",
-                      fontSize: 26,
-                      fontWeight: 800,
-                      outline: "none",
-                      width: "100%",
-                      fontFamily: "inherit",
-                    }}
-                    autoFocus
+                      style={{
+                        background: "none",
+                        border: "none",
+                        color: "#fff",
+                        fontSize: 26,
+                        fontWeight: 800,
+                        outline: "none",
+                        width: "100%",
+                        fontFamily: "inherit",
+                      }}
+                      autoFocus
                     />
                   </div>
+                  <div style={{ height: 1, background: "rgba(255,255,255,0.07)" }} />
+                  <div style={{ padding: "4px 6px" }}>
+                    <CurrencyDropdown
+                      selectedCurrencies={
+                        formData.currency ? [formData.currency] : []
+                      }
+                      setSelectedCurrencies={handleCurrencySelect}
+                      showFiatCurrencies={true}
+                      disableChainCurrencies={false}
+                      mode="single"
+                      placeholder="Select currency..."
+                    />
+                  </div>
+                </div>
                 </div>
                 <div>
                 <label style={lbl}>PAID BY</label>
@@ -934,20 +806,18 @@ export function AddExpenseModal({
                   })}
                 </div>
                 </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <StepBackBtn onClick={() => setStep(2)} />
-                <PrimaryBtn
-                  onClick={() => setStep(4)}
-                  disabled={!canProceedStep3}
-                  >
-                    Continue →
-                </PrimaryBtn>
-                </div>
+              <PrimaryBtn
+                onClick={() => setStep(2)}
+                disabled={!canProceedStep1}
+                style={{ flex: "none" }}
+              >
+                {canProceedStep1 ? "Continue →" : "Enter amount & select payer"}
+              </PrimaryBtn>
             </div>
           )}
 
-          {/* Step 4: Split method + participants (excluding payer) + Lock In + submit */}
-          {step === 4 && (
+          {/* Step 2: Split method + participants (excluding payer) + Lock In */}
+          {step === 2 && (
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
               <div>
                 <label style={lbl}>SPLIT METHOD</label>
@@ -1256,36 +1126,102 @@ export function AddExpenseModal({
                 </div>
               )}
               <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
-                <StepBackBtn onClick={() => setStep(3)} />
+                <StepBackBtn onClick={() => setStep(1)} />
+                <PrimaryBtn
+                  onClick={() => setStep(3)}
+                  disabled={!canProceedStep2}
+                >
+                  Continue →
+                </PrimaryBtn>
+                </div>
+            </div>
+            )}
+
+          {/* Step 3: Description + Category + Submit */}
+          {step === 3 && (
+            <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                <div>
+                <label style={lbl}>Description</label>
+                  <input
+                  placeholder="e.g. Dinner, Hotel, Taxi…"
+                    value={formData.name}
+                    onChange={(e) =>
+                      setFormData((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                  style={inp}
+                  autoFocus
+                  />
+                </div>
+                <div>
+                <label style={lbl}>Category</label>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(5, 1fr)",
+                    gap: 8,
+                  }}
+                >
+                  {CATEGORY_OPTIONS.map(({ emoji, api }) => {
+                    const sel = formData.categoryEmoji === emoji;
+                    return (
+                      <button
+                        key={emoji + api}
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            category: api,
+                            categoryEmoji: emoji,
+                          }))
+                        }
+                        style={{
+                          background: sel ? `${A}15` : "rgba(255,255,255,0.04)",
+                          border: `1.5px solid ${sel ? A + "44" : "rgba(255,255,255,0.08)"}`,
+                          borderRadius: 14,
+                          padding: "12px 0",
+                          fontSize: 20,
+                          cursor: "pointer",
+                          transition: "all 0.2s",
+                          boxShadow: sel ? `0 0 12px ${A}22` : "none",
+                        }}
+                      >
+                        {emoji}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <StepBackBtn onClick={() => setStep(2)} />
                 <button
                     type="submit"
-                  disabled={!canSubmit || expenseMutation.isPending}
+                  disabled={!canSubmit || !formData.name.trim() || expenseMutation.isPending}
                   style={{
                     flex: 2,
                     padding: 13,
                     background:
-                      !canSubmit || expenseMutation.isPending
+                      !canSubmit || !formData.name.trim() || expenseMutation.isPending
                         ? "rgba(255,255,255,0.05)"
                         : A,
                     color:
-                      !canSubmit || expenseMutation.isPending ? "#555" : "#0a0a0a",
+                      !canSubmit || !formData.name.trim() || expenseMutation.isPending ? "#555" : "#0a0a0a",
                     border: "none",
                     borderRadius: 14,
                     fontSize: 14,
                     fontWeight: 800,
                     cursor:
-                      canSubmit && !expenseMutation.isPending
+                      canSubmit && formData.name.trim() && !expenseMutation.isPending
                         ? "pointer"
                         : "default",
                     fontFamily: "inherit",
                     transition: "all 0.2s",
                   }}
                 >
-                  {expenseMutation.isPending ? "Adding…" : "Add Expense ✓"}
+                  {expenseMutation.isPending ? "Adding…" : !formData.name.trim() ? "Enter a description" : "Add Expense ✓"}
                 </button>
-                </div>
+              </div>
             </div>
-            )}
+          )}
           </form>
             </motion.div>
           </div>
