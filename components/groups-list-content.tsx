@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2, AlertTriangle, X, CheckCircle } from "lucide-react";
@@ -64,6 +64,37 @@ function GroupBalanceCell({
   const color = net > 0 ? G : net < 0 ? "#F87171" : T.dim;
   const prefix = net > 0 ? "+" : net < 0 ? "-" : "±";
   const isMobile = variant === "mobile";
+
+  // #region agent log
+  useEffect(() => {
+    if (!user?.id) return;
+    const bal = group.groupBalances || [];
+    const ub = bal.filter((b) => b.userId === user.id);
+    const bc: Record<string, number> = {};
+    ub.forEach((b) => {
+      bc[b.currency] = (bc[b.currency] ?? 0) + b.amount;
+    });
+    fetch("http://127.0.0.1:7660/ingest/2772b0cc-df03-41e9-90e6-6be9025e849d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "64e217" },
+      body: JSON.stringify({
+        sessionId: "64e217",
+        runId: "pre-fix",
+        hypothesisId: "H2-H4",
+        location: "groups-list-content.tsx:GroupBalanceCell",
+        message: "Dashboard group cell",
+        data: {
+          groupId: group.id.slice(0, 8),
+          byCurrency: bc,
+          oweTotalConv: oweTotal,
+          owedTotalConv: owedTotal,
+          netConv: net,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }, [group.id, group.groupBalances, user?.id, oweTotal, owedTotal, net]);
+  // #endregion
 
   return (
     <div

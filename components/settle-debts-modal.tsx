@@ -830,15 +830,24 @@ export function SettleDebtsModal({
       });
     }
 
-    // Derive direction from the net across all currencies, then store abs amounts
+    // Direction must use converted net (same semantics as dashboard). Raw multi-currency sums are meaningless (e.g. USD + INR).
+    const def = defaultCurrency || "USD";
     return Array.from(rawMap.entries())
       .map(([memberId, currMap], index) => {
-        const netSigned = Object.values(currMap).reduce((s, v) => s + v, 0);
-        // positive net = user owes member ('owe'), negative = member owes user ('owed')
-        const direction: "owe" | "owed" = netSigned > 0 ? "owe" : "owed";
+        let netConvertedSigned = 0;
+        for (const [currency, amt] of Object.entries(currMap)) {
+          if (amt === 0) continue;
+          const rate = balanceRateMap[currency];
+          if (rate === undefined || !Number.isFinite(rate)) {
+            netConvertedSigned = Number.NaN;
+            break;
+          }
+          netConvertedSigned += amt * rate;
+        }
+        const direction: "owe" | "owed" = netConvertedSigned > 1e-6 ? "owe" : "owed";
         const debts = Object.entries(currMap)
           .filter(([, amt]) => amt !== 0)
-          .map(([currency, amt]) => ({ currency, amount: Math.abs(amt) }));
+          .map(([currency, amt]) => ({ currency, signed: amt, amount: Math.abs(amt) }));
 
         const member = _members.find((m) => m.id === memberId);
         const initials = (member?.name || member?.email || "?")
@@ -848,7 +857,7 @@ export function SettleDebtsModal({
           .slice(0, 2)
           .toUpperCase();
         const color = palette[index % palette.length];
-        const primaryDebt = debts[0] ?? { amount: 0, currency: defaultCurrency || "USD" };
+        const primaryDebt = debts[0] ?? { amount: 0, currency: def, signed: 0 };
         return {
           memberId,
           name: member?.name || member?.email || "Member",
@@ -856,12 +865,69 @@ export function SettleDebtsModal({
           color,
           debts,
           direction,
-          amount: primaryDebt.amount,
-          currency: primaryDebt.currency,
+          netConvertedSigned,
+          amount: Math.abs(netConvertedSigned),
+          currency: def,
         };
       })
+      .filter(
+        (row) =>
+          Number.isFinite(row.netConvertedSigned) && Math.abs(row.netConvertedSigned) > 1e-6,
+      )
       .sort((a, b) => b.amount - a.amount);
-  }, [balances, user?.id, _members, specificMemberAmounts, defaultCurrency]);
+  }, [balances, user?.id, _members, specificMemberAmounts, defaultCurrency, balanceRateMap]);
+
+  // #region agent log
+  useEffect(() => {
+    if (!isOpen || !user?.id) return;
+    const sourceBalances = Array.isArray(balances) ? balances : [];
+    const myRows = sourceBalances.filter((b) => b.userId === user.id && b.amount !== 0);
+    const byCurrency: Record<string, number> = {};
+    myRows.forEach((b) => {
+      byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
+    });
+    const rawMap = new Map<string, Record<string, number>>();
+    myRows.forEach((b) => {
+      const mid = b.firendId;
+      const curr = rawMap.get(mid) || {};
+      curr[b.currency] = (curr[b.currency] ?? 0) + b.amount;
+      rawMap.set(mid, curr);
+    });
+    const perMember = Object.fromEntries(
+      [...rawMap.entries()].map(([mid, curr]) => {
+        const netSigned = Object.values(curr).reduce((s, v) => s + v, 0);
+        return [
+          mid.slice(0, 8),
+          { curr, netSigned, directionGuess: netSigned > 0 ? "owe" : "owed" },
+        ];
+      }),
+    );
+    fetch("http://127.0.0.1:7660/ingest/2772b0cc-df03-41e9-90e6-6be9025e849d", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "64e217" },
+      body: JSON.stringify({
+        sessionId: "64e217",
+        runId: "post-fix",
+        hypothesisId: "H1-H5",
+        location: "settle-debts-modal.tsx:open",
+        message: "Settle modal balances",
+        data: {
+          groupId,
+          byCurrencyAllFriends: byCurrency,
+          perMemberRaw: perMember,
+          specificMemberAmounts: specificMemberAmounts ?? null,
+          memberDebtRows: memberDebtRows.map((r) => ({
+            id: r.memberId.slice(0, 8),
+            direction: r.direction,
+            netConvertedSigned: r.netConvertedSigned,
+            debts: r.debts,
+          })),
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }, [isOpen, balances, user?.id, groupId, specificMemberAmounts, memberDebtRows]);
+  // #endregion
 
   // Fetch exchange rates for balance currencies that differ from defaultCurrency
   const uniqueBalanceCurrencies = useMemo(() => {
@@ -893,13 +959,13 @@ export function SettleDebtsModal({
     return amount * (balanceRates[fromCurrency] ?? 1);
   };
 
-  // Calculate totals split by direction
+  // Calculate totals split by direction (per-counterparty net in default currency — do not sum abs of mixed-currency legs)
   const totalToPay = memberDebtRows
     .filter((r) => r.direction === "owe")
-    .reduce((sum, row) => sum + row.debts.reduce((s, d) => s + convertBalanceAmount(d.amount, d.currency), 0), 0);
+    .reduce((sum, row) => sum + Math.abs(row.netConvertedSigned), 0);
   const totalToCollect = memberDebtRows
     .filter((r) => r.direction === "owed")
-    .reduce((sum, row) => sum + row.debts.reduce((s, d) => s + convertBalanceAmount(d.amount, d.currency), 0), 0);
+    .reduce((sum, row) => sum + Math.abs(row.netConvertedSigned), 0);
   const remainingTotal = totalToPay + totalToCollect;
 
   const CURRENCY_FLAG: Record<string, string> = {
@@ -1074,7 +1140,7 @@ export function SettleDebtsModal({
                                     ? Math.abs(specificMemberAmounts[row.memberId])
                                     : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
                                       ? Math.abs(specificAmount)
-                                      : row.debts.reduce((sum, d) => sum + convertBalanceAmount(d.amount, d.currency), 0),
+                                      : Math.abs(row.netConvertedSigned),
                                   defaultCurrency || "USD"
                                 )}
                               </p>
@@ -1325,7 +1391,7 @@ export function SettleDebtsModal({
                                                 ? Math.abs(specificMemberAmounts[row.memberId])
                                                 : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
                                                   ? Math.abs(specificAmount)
-                                                  : row.debts.reduce((sum, d) => sum + convertBalanceAmount(d.amount, d.currency), 0);
+                                                  : Math.abs(row.netConvertedSigned);
                                             handleMarkAsPaid(
                                               row.memberId,
                                               displayedAmount,
