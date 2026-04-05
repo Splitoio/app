@@ -27,6 +27,7 @@ export const GetAllGroupsSchema = z.object({
 });
 
 const ExpenseParticipantSchema = z.object({
+  expenseId: z.string(),
   userId: z.string(),
   amount: z.number(),
   isPaid: z.boolean().default(false),
