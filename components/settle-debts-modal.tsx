@@ -1,18 +1,19 @@
 "use client";
 
-import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Landmark, Link2 } from "lucide-react";
-import { useState, useEffect, useMemo } from "react";
+import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Landmark, Link2, ArrowLeft, Receipt, Bell } from "lucide-react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { fadeIn, scaleIn } from "@/utils/animations";
+import { fadeIn, scaleIn, slideVariants } from "@/utils/animations";
 import { toast } from "sonner";
 import Image from "next/image";
-import { GroupBalance, User } from "@/api-helpers/modelSchema";
+import { GroupBalance, User, Expense, ExpenseParticipant } from "@/api-helpers/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
 import { useMarkAsPaid } from "@/features/groups/hooks/use-create-group";
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useQueryClient, useQuery, useQueries } from "@tanstack/react-query";
 import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
+import { useReminders } from "@/features/reminders/hooks/use-reminders";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
 import { useBalances } from "@/features/balances/hooks/use-balances";
 import ResolverSelector, { Option as TokenOption } from "./ResolverSelector";
@@ -23,12 +24,15 @@ import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
 
+type ExpenseWithParticipants = Expense & { expenseParticipants?: ExpenseParticipant[] };
+
 interface SettleDebtsModalProps {
   isOpen: boolean;
   onClose: () => void;
   balances?: GroupBalance[];
   groupId?: string;
   members?: User[];
+  expenses?: ExpenseWithParticipants[];
   showIndividualView?: boolean;
   selectedFriendId?: string | null;
   defaultCurrency?: string;
@@ -44,6 +48,7 @@ export function SettleDebtsModal({
   balances = [],
   groupId = "",
   members: _members = [],
+  expenses: _expenses = [],
   showIndividualView = false,
   selectedFriendId = null,
   defaultCurrency,
@@ -82,8 +87,14 @@ export function SettleDebtsModal({
   const [memberBankDropdownOpen, setMemberBankDropdownOpen] = useState<Record<string, boolean>>({});
   const [memberBankSearch, setMemberBankSearch] = useState<Record<string, string>>({});
 
+  // Multi-step settle flow state
+  const [settleStep, setSettleStep] = useState(1);
+  const [slideDir, setSlideDir] = useState(1);
+  const [selectedSettleMemberId, setSelectedSettleMemberId] = useState<string | null>(null);
+
   const settleDebtMutation = useSettleDebt(groupId);
   const markAsPaidMutation = useMarkAsPaid();
+  const { sendReminder: sendReminderMutation, isSending: isReminderSending } = useReminders();
   const _queryClient = useQueryClient();
   const { data: friends } = useGetFriends();
   const { data: _groups } = useGetAllGroups();
@@ -276,6 +287,18 @@ export function SettleDebtsModal({
     return `${symbol}${amount.toFixed(decimals)}`;
   };
 
+  const defCur = defaultCurrency || "USD";
+
+  // Shows "₹500.00 ($8.00)" when currency differs from default
+  const formatWithDefault = (amount: number, currencyId: string): { primary: string; secondary: string | null } => {
+    const primary = formatCurrency(amount, currencyId);
+    if (currencyId === defCur) return { primary, secondary: null };
+    const rate = balanceRateMap[currencyId];
+    if (!rate || !Number.isFinite(rate)) return { primary, secondary: null };
+    const converted = amount * rate;
+    return { primary, secondary: formatCurrency(converted, defCur) };
+  };
+
   // Reset excluded friends when modal opens/closes
   useEffect(() => {
     if (isOpen) {
@@ -283,10 +306,13 @@ export function SettleDebtsModal({
     }
   }, [isOpen, groupId, showIndividualView, selectedFriendId, userStellarAddress]);
 
-  // Reset expanded row when modal opens
+  // Reset expanded row and step when modal opens
   useEffect(() => {
     if (isOpen) {
       setExpandedRowMemberId(null);
+      setSettleStep(1);
+      setSlideDir(1);
+      setSelectedSettleMemberId(null);
     }
   }, [isOpen]);
 
@@ -1013,6 +1039,52 @@ export function SettleDebtsModal({
     );
   };
 
+  // Step navigation helpers
+  const goToStep = useCallback((step: number) => {
+    setSlideDir(step > settleStep ? 1 : -1);
+    setSettleStep(step);
+  }, [settleStep]);
+
+  const handleSelectMember = useCallback((memberId: string) => {
+    setSelectedSettleMemberId(memberId);
+    setSlideDir(1);
+    setSettleStep(2);
+  }, []);
+
+  const handleBackToStep = useCallback((step: number) => {
+    setSlideDir(-1);
+    setSettleStep(step);
+  }, []);
+
+  // Compute expense breakdown for selected member — both directions, each tagged
+  const selectedMemberExpenses = useMemo(() => {
+    if (!selectedSettleMemberId || !user || !_expenses.length) return [];
+
+    const result: { id: string; name: string; category: string; amount: number; currency: string; date: Date; direction: "owe" | "owed" }[] = [];
+
+    for (const e of _expenses) {
+      if (e.splitType === "SETTLEMENT" || e.deletedAt) continue;
+
+      if (e.paidBy === selectedSettleMemberId) {
+        // They paid → I owe them for my share
+        const myPart = e.expenseParticipants?.find(p => p.userId === user.id && !p.isPaid);
+        if (myPart) {
+          result.push({ id: e.id, name: e.name, category: e.category, amount: myPart.amount, currency: e.currency, date: e.expenseDate, direction: "owe" });
+        }
+      } else if (e.paidBy === user.id) {
+        // I paid → they owe me for their share
+        const theirPart = e.expenseParticipants?.find(p => p.userId === selectedSettleMemberId && !p.isPaid);
+        if (theirPart) {
+          result.push({ id: e.id, name: e.name, category: e.category, amount: theirPart.amount, currency: e.currency, date: e.expenseDate, direction: "owed" });
+        }
+      }
+    }
+
+    return result;
+  }, [selectedSettleMemberId, user, _expenses]);
+
+  const selectedMemberRow = memberDebtRows.find(r => r.memberId === selectedSettleMemberId);
+
   const isMobile = useIsMobile();
 
   return (
@@ -1037,7 +1109,7 @@ export function SettleDebtsModal({
             }
           >
             {isMobile && <div className="modal-as-sheet-handle" />}
-            {/* Settle All Debts Section - Only shown when header button is clicked */}
+            {/* Settle All Debts Section - Multi-step flow */}
             {!showIndividualView && (
               <motion.div
                 className={
@@ -1048,12 +1120,29 @@ export function SettleDebtsModal({
                 style={isMobile ? undefined : { background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)" }}
                 {...(isMobile ? { initial: { y: "100%" }, animate: { y: 0 }, transition: { type: "tween", duration: 0.32, ease: [0.34, 1.2, 0.64, 1] } } : scaleIn)}
               >
+                {/* Header */}
                 <div className={`flex items-center justify-between mb-5 ${isMobile ? "modal-as-sheet-title-bar pb-4" : ""}`}>
-                  <div>
-                    <h2 className={`font-extrabold text-white tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>
-                      Settle Debts
-                    </h2>
-                    <p className="mt-1.5 text-xs text-white/55">{displayGroupName}</p>
+                  <div className="flex items-center gap-3">
+                    {settleStep > 1 && (
+                      <button
+                        onClick={() => handleBackToStep(settleStep - 1)}
+                        className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.07] grid place-items-center hover:bg-white/[0.12] transition-colors flex-shrink-0"
+                      >
+                        <ArrowLeft className="h-4 w-4 text-white/70" />
+                      </button>
+                    )}
+                    <div>
+                      <h2 className={`font-extrabold text-white tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>
+                        {settleStep === 1 && "Settle Debts"}
+                        {settleStep === 2 && `Expenses · ${selectedMemberRow?.name?.split(" ")[0] || "Member"}`}
+                        {settleStep === 3 && `Pay ${selectedMemberRow?.name?.split(" ")[0] || "Member"}`}
+                      </h2>
+                      <p className="mt-1 text-xs text-white/55">
+                        {settleStep === 1 && displayGroupName}
+                        {settleStep === 2 && "Review what you owe"}
+                        {settleStep === 3 && "Choose payment method"}
+                      </p>
+                    </div>
                   </div>
                   <button
                     onClick={onClose}
@@ -1063,413 +1152,522 @@ export function SettleDebtsModal({
                   </button>
                 </div>
 
-                {/* Progress bar — one-third filled (step 1) */}
-                <div className="flex gap-1.5 mb-6">
-                  {[1, 2, 3].map((s) => (
-                    <div
-                      key={s}
-                      className="flex-1 h-1 rounded-full transition-all duration-300"
-                      style={{
-                        background: s === 1 ? "#22D3EE" : "#2a2a2a",
-                        boxShadow: s === 1 ? "0 0 8px rgba(34,211,238,0.5)" : "none",
-                      }}
-                    />
-                  ))}
-                </div>
+                {/* Progress bar — 3 steps for "owe", 2 for "owed" */}
+                {(() => {
+                  const totalSteps = selectedMemberRow && selectedMemberRow.direction === "owed" ? 2 : 3;
+                  return (
+                    <div className="flex gap-1.5 mb-6">
+                      {Array.from({ length: totalSteps }, (_, i) => i + 1).map((s) => (
+                        <div
+                          key={s}
+                          className="flex-1 h-1 rounded-full transition-all duration-500"
+                          style={{
+                            background: s <= settleStep ? "#22D3EE" : "#2a2a2a",
+                            boxShadow: s <= settleStep ? "0 0 8px rgba(34,211,238,0.4)" : "none",
+                          }}
+                        />
+                      ))}
+                    </div>
+                  );
+                })()}
 
-                <div className="space-y-4">
-                  {/* Currency block — Group default + Per-member override */}
-                  <div
-                    className="rounded-[14px] border border-[#22D3EE]/15 bg-[#22D3EE]/[0.06] px-4 py-3 flex items-center justify-between gap-2"
-                  >
-                    <span className="text-white/60 text-xs font-semibold">
-                      Group default:{" "}
-                      <span className="text-[#22D3EE] font-extrabold">
-                        {defaultCurrency || "USD"}
-                      </span>
-                    </span>
-                    <span className="text-white/45 text-[11px] font-medium">
-                      Per-member override below
-                    </span>
-                  </div>
+                {/* Step content with slide animation */}
+                <div className="overflow-hidden">
+                  <AnimatePresence mode="wait" custom={slideDir}>
 
-                  {/* Debtor list — expandable card-like rows */}
-                  <div className="space-y-2.5">
-                    {memberDebtRows.length > 0 ? (
-                      memberDebtRows.map((row) => {
-                        const isExpanded = expandedRowMemberId === row.memberId;
-                        return (
-                          <div
-                            key={row.memberId}
-                            className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] overflow-hidden"
-                          >
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setExpandedRowMemberId((id) =>
-                                  id === row.memberId ? null : row.memberId
-                                )
-                              }
-                              className="w-full px-4 py-3.5 flex items-center gap-3 text-left hover:bg-white/[0.02] transition-colors"
-                            >
-                              <div
-                                className="h-9 w-9 rounded-full border-2 grid place-items-center text-xs font-extrabold flex-shrink-0"
-                                style={{
-                                  color: row.color,
-                                  borderColor: `${row.color}40`,
-                                  background: `${row.color}1a`,
-                                }}
+                    {/* ─── Step 1: People I owe ─── */}
+                    {settleStep === 1 && (
+                      <motion.div
+                        key="step-1"
+                        custom={slideDir}
+                        variants={slideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        className="space-y-3"
+                      >
+                        {memberDebtRows.filter(r => r.direction === "owe").length > 0 && (
+                          <>
+                            <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/40 px-0.5">You owe</p>
+                            {memberDebtRows.filter(r => r.direction === "owe").map((row) => (
+                              <button
+                                key={row.memberId}
+                                type="button"
+                                onClick={() => handleSelectMember(row.memberId)}
+                                className="w-full rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-4 py-4 flex items-center gap-3 text-left hover:bg-white/[0.06] hover:border-white/[0.14] transition-all group"
                               >
-                                {row.initials}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white text-[13px] font-bold truncate">
-                                  {row.name}
-                                </p>
-                                <p className="text-[11px] mt-0.5" style={{ color: row.direction === "owe" ? "#F8717188" : "rgba(255,255,255,0.55)" }}>
-                                  {row.direction === "owe" ? `You owe · ${defaultCurrency || "USD"}` : `Owes you · ${defaultCurrency || "USD"}`}
-                                </p>
-                              </div>
-                              <p
-                                className="text-sm font-extrabold tabular-nums flex-shrink-0"
-                                style={{ color: row.direction === "owe" ? "#F87171" : "#34D399" }}
-                              >
-                                {row.direction === "owe" ? "-" : "+"}
-                                {formatCurrency(
-                                  specificMemberAmounts?.[row.memberId] !== undefined
-                                    ? Math.abs(specificMemberAmounts[row.memberId])
-                                    : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
-                                      ? Math.abs(specificAmount)
-                                      : Math.abs(row.netConvertedSigned),
-                                  defaultCurrency || "USD"
-                                )}
-                              </p>
-                              <span className="flex-shrink-0 text-white/40">
-                                {isExpanded ? (
-                                  <ChevronUp className="h-4 w-4" />
-                                ) : (
-                                  <ChevronDown className="h-4 w-4" />
-                                )}
-                              </span>
-                            </button>
-                            {isExpanded && (
-                              <div
-                                className="border-t border-white/[0.06] bg-black/20 px-4 py-4 space-y-3"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {/* Method tabs */}
-                                <div className="grid grid-cols-2 gap-2">
-                                  {(["crypto", "bank"] as const).map((method) => {
-                                    const active = (memberMethods[row.memberId] ?? "crypto") === method;
-                                    return (
-                                      <button
-                                        key={method}
-                                        type="button"
-                                        onClick={() => setMemberMethods((p) => ({ ...p, [row.memberId]: method }))}
-                                        className="flex items-center justify-center gap-2 py-3 px-3 rounded-[14px] border text-xs font-bold transition-colors"
-                                        style={{
-                                          background: active ? "rgba(34,211,238,0.10)" : "rgba(255,255,255,0.04)",
-                                          borderColor: active ? "rgba(34,211,238,0.50)" : "rgba(255,255,255,0.10)",
-                                          color: active ? "#22D3EE" : "rgba(255,255,255,0.80)",
-                                        }}
-                                      >
-                                        {method === "crypto" ? (
-                                          <><Link2 className="h-3.5 w-3.5 flex-shrink-0" /> Crypto on-chain</>
-                                        ) : (
-                                          <><Landmark className="h-3.5 w-3.5 flex-shrink-0" /> Bank / Mark paid</>
-                                        )}
-                                      </button>
-                                    );
-                                  })}
+                                <div
+                                  className="h-10 w-10 rounded-full border-2 grid place-items-center text-xs font-extrabold flex-shrink-0"
+                                  style={{ color: row.color, borderColor: `${row.color}40`, background: `${row.color}1a` }}
+                                >
+                                  {row.initials}
                                 </div>
-
-                                {/* Crypto on-chain panel */}
-                                {(memberMethods[row.memberId] ?? "crypto") === "crypto" && (
-                                  <div>
-                                    <p className="text-[10px] font-bold tracking-[0.1em] uppercase mb-2" style={{ color: "#ccc" }}>
-                                      Chain
-                                    </p>
-                                    <div className="grid grid-cols-4 gap-2 mb-3">
-                                      {availableChains.map((chain) => {
-                                        const meta = SETTLE_CHAIN_META[chain] || { icon: "◆", color: "#666" };
-                                        const isChainSel = (memberChains[row.memberId] || selectedChain) === chain;
-                                        return (
-                                          <button
-                                            key={chain}
-                                            type="button"
-                                            onClick={() => {
-                                              setMemberChains((p) => ({ ...p, [row.memberId]: chain }));
-                                              setSelectedChain(chain);
-                                            }}
-                                            className="flex flex-col items-center gap-1.5 py-3 rounded-[14px] border transition-all"
-                                            style={{
-                                              background: isChainSel ? `${meta.color}18` : "rgba(255,255,255,0.04)",
-                                              borderColor: isChainSel ? `${meta.color}55` : "rgba(255,255,255,0.08)",
-                                              boxShadow: isChainSel ? `0 0 14px ${meta.color}22` : "none",
-                                            }}
-                                          >
-                                            <span style={{ color: meta.color, fontSize: 18 }}>{meta.icon}</span>
-                                            <span className="text-[10px] font-bold" style={{ color: isChainSel ? meta.color : "rgba(255,255,255,0.55)" }}>
-                                              {chain.charAt(0).toUpperCase() + chain.slice(1)}
-                                            </span>
-                                          </button>
-                                        );
-                                      })}
-                                    </div>
-
-                                    {(memberChains[row.memberId] || selectedChain) && (() => {
-                                      const member = _members.find((m) => m.id === row.memberId);
-                                      if (!canProceedWithSettlement()) {
-                                        return (
-                                          <div>
-                                            {selectedChain === "aptos" && <ShadcnWalletSelector />}
-                                            {selectedChain === "stellar" && (
-                                              <button
-                                                type="button"
-                                                className="w-full py-3 rounded-[14px] bg-white/[0.06] border border-white/10 text-white text-sm font-semibold hover:bg-white/[0.1] transition-colors"
-                                                onClick={connectWallet}
-                                              >
-                                                Connect Stellar Wallet
-                                              </button>
-                                            )}
-                                            {(selectedChain === "solana" || selectedChain === "base") && (
-                                              <p className="text-xs text-amber-400 mt-2 text-center">
-                                                Add your {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} wallet address in Settings → Wallet first.
-                                              </p>
-                                            )}
-                                            {selectedChain && selectedChain !== "solana" && selectedChain !== "base" && !getUserWalletAddress() && (
-                                              <p className="text-xs text-red-400 mt-2 text-center">
-                                                Please connect your {selectedChain} wallet or add it in settings first.
-                                              </p>
-                                            )}
-                                          </div>
-                                        );
-                                      }
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white text-[14px] font-bold truncate">{row.name}</p>
+                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                    {row.debts.filter(d => d.signed > 0).map((d) => {
+                                      const fmt = formatWithDefault(d.amount, d.currency);
                                       return (
-                                        <button
-                                          type="button"
-                                          disabled={isPending}
-                                          className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-opacity hover:opacity-90 disabled:opacity-50"
-                                          style={{ background: "#22D3EE", color: "#0a0a0a" }}
-                                          onClick={() => member && handleSettleOne(member)}
-                                        >
-                                          {isPending ? "Sending…" : "Settle Now"}
-                                        </button>
-                                      );
-                                    })()}
-
-                                    <button
-                                      type="button"
-                                      className="w-full mt-2 py-2.5 rounded-[14px] text-xs font-semibold transition-colors hover:text-white/80"
-                                      style={{ border: "1px dashed rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
-                                      onClick={() => setMemberMethods((p) => ({ ...p, [row.memberId]: "bank" }))}
-                                    >
-                                      Don&apos;t trust app? Mark as paid manually instead
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Bank / Mark paid panel */}
-                                {memberMethods[row.memberId] === "bank" && (() => {
-                                  const selCurrency = memberBankCurrencies[row.memberId] || defaultCurrency || "USD";
-                                  const isOpen = !!memberBankDropdownOpen[row.memberId];
-                                  const search = memberBankSearch[row.memberId] || "";
-                                  const fiatList = organizedCurrencies?.fiatCurrencies || [];
-                                  const filtered = fiatList.filter((c: { id: string; name: string }) =>
-                                    c.id.toLowerCase().includes(search.toLowerCase()) ||
-                                    c.name.toLowerCase().includes(search.toLowerCase())
-                                  );
-                                  const selEntry = fiatList.find((c: { id: string }) => c.id === selCurrency);
-                                  return (
-                                    <div>
-                                      <p className="text-[12px] mb-3" style={{ color: "rgba(255,255,255,0.60)", lineHeight: 1.6 }}>
-                                        {row.direction === "owe"
-                                          ? `Pay ${row.name.split(" ")[0]} via bank, then mark as paid here.`
-                                          : `Ask ${row.name.split(" ")[0]} to pay via their banking app, then mark as paid here.`}
-                                      </p>
-                                      <p className="text-[10px] font-bold tracking-[0.1em] uppercase mb-2" style={{ color: "#ccc" }}>
-                                        They&apos;ll Pay In
-                                      </p>
-
-                                      {/* Dropdown trigger */}
-                                      <button
-                                        type="button"
-                                        onClick={() => setMemberBankDropdownOpen((p) => ({ ...p, [row.memberId]: !p[row.memberId] }))}
-                                        className="w-full rounded-[14px] px-4 py-3 text-sm font-semibold mb-1 flex items-center justify-between transition-colors"
-                                        style={{
-                                          background: "rgba(255,255,255,0.05)",
-                                          border: `1px solid ${isOpen ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
-                                          color: "#fff",
-                                        }}
-                                      >
-                                        <span>
-                                          {CURRENCY_FLAG[selCurrency] || "💱"} {selCurrency}
-                                          {selEntry ? ` · ${selEntry.name}` : ""}
+                                        <span key={d.currency} className="text-[11px] text-white/50">
+                                          {fmt.primary}{fmt.secondary && <span className="text-white/30"> ({fmt.secondary})</span>}
                                         </span>
-                                        <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, transition: "transform 0.2s", display: "inline-block", transform: isOpen ? "rotate(180deg)" : "none" }}>▾</span>
-                                      </button>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0 text-[#F87171]">
+                                  {formatCurrency(
+                                    specificMemberAmounts?.[row.memberId] !== undefined
+                                      ? Math.abs(specificMemberAmounts[row.memberId])
+                                      : Math.abs(row.netConvertedSigned),
+                                    defaultCurrency || "USD"
+                                  )}
+                                </p>
+                                <ChevronRight className="h-4 w-4 text-white/25 group-hover:text-white/50 transition-colors flex-shrink-0" />
+                              </button>
+                            ))}
+                          </>
+                        )}
 
-                                      {/* Dropdown panel */}
-                                      {isOpen && (
-                                        <div
-                                          className="rounded-[18px] overflow-hidden mb-3"
-                                          style={{ border: "1px solid rgba(255,255,255,0.09)", background: "#141414", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" }}
-                                        >
-                                          {/* Search */}
-                                          <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                                            <input
-                                              autoFocus
-                                              placeholder="Search currency…"
-                                              value={search}
-                                              onChange={(e) => setMemberBankSearch((p) => ({ ...p, [row.memberId]: e.target.value }))}
-                                              className="bg-transparent outline-none text-[13px] w-full"
-                                              style={{ color: "#fff", fontFamily: "inherit" }}
-                                            />
-                                          </div>
-                                          {/* Fiat label */}
-                                          <div className="px-4 py-1.5 text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>
-                                            Fiat
-                                          </div>
-                                          {/* Currency list */}
-                                          <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                                            {filtered.map((c: { id: string; name: string }, i: number) => {
-                                              const isSel = c.id === selCurrency;
-                                              return (
-                                                <div
-                                                  key={c.id}
-                                                  onClick={() => {
-                                                    setMemberBankCurrencies((p) => ({ ...p, [row.memberId]: c.id }));
-                                                    setMemberBankDropdownOpen((p) => ({ ...p, [row.memberId]: false }));
-                                                    setMemberBankSearch((p) => ({ ...p, [row.memberId]: "" }));
-                                                  }}
-                                                  className="flex items-center gap-3 px-4 cursor-pointer transition-colors"
-                                                  style={{
-                                                    padding: "10px 16px",
-                                                    borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                                                    background: isSel ? "rgba(34,211,238,0.06)" : "transparent",
-                                                  }}
-                                                >
-                                                  <span style={{ fontSize: 17 }}>{CURRENCY_FLAG[c.id] || "💱"}</span>
-                                                  <span style={{ fontWeight: 700, fontSize: 13, color: isSel ? "#fff" : "rgba(255,255,255,0.85)", minWidth: 36 }}>{c.id}</span>
-                                                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, flex: 1 }}>{c.name}</span>
-                                                  {isSel && <span style={{ color: "#22D3EE", fontSize: 12 }}>✓</span>}
-                                                </div>
-                                              );
-                                            })}
-                                            {filtered.length === 0 && (
-                                              <p className="text-center py-4 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>No currencies found</p>
-                                            )}
-                                          </div>
-                                        </div>
-                                      )}
+                        {memberDebtRows.filter(r => r.direction === "owed").length > 0 && (
+                          <>
+                            <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/40 px-0.5 mt-4">Owed to you</p>
+                            {memberDebtRows.filter(r => r.direction === "owed").map((row) => (
+                              <button
+                                key={row.memberId}
+                                type="button"
+                                onClick={() => handleSelectMember(row.memberId)}
+                                className="w-full rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-4 py-4 flex items-center gap-3 text-left hover:bg-white/[0.06] hover:border-white/[0.14] transition-all group"
+                              >
+                                <div
+                                  className="h-10 w-10 rounded-full border-2 grid place-items-center text-xs font-extrabold flex-shrink-0"
+                                  style={{ color: row.color, borderColor: `${row.color}40`, background: `${row.color}1a` }}
+                                >
+                                  {row.initials}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-white text-[14px] font-bold truncate">{row.name}</p>
+                                  <div className="flex flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
+                                    {row.debts.filter(d => d.signed < 0).map((d) => {
+                                      const fmt = formatWithDefault(d.amount, d.currency);
+                                      return (
+                                        <span key={d.currency} className="text-[11px] text-white/50">
+                                          {fmt.primary}{fmt.secondary && <span className="text-white/30"> ({fmt.secondary})</span>}
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                                <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0 text-[#34D399]">
+                                  {formatCurrency(Math.abs(row.netConvertedSigned), defaultCurrency || "USD")}
+                                </p>
+                                <ChevronRight className="h-4 w-4 text-white/25 group-hover:text-white/50 transition-colors flex-shrink-0" />
+                              </button>
+                            ))}
+                          </>
+                        )}
 
-                                      {memberMarkedPaid[row.memberId] ? (
-                                        <div
-                                          className="w-full py-3 rounded-[14px] text-sm font-bold text-center"
-                                          style={{
-                                            background: "rgba(52,211,153,0.06)",
-                                            border: "1px solid rgba(52,211,153,0.20)",
-                                            color: "#34D399",
-                                          }}
-                                        >
-                                          ✓ Marked as paid
-                                        </div>
-                                      ) : (
-                                        <button
-                                          type="button"
-                                          disabled={markAsPaidMutation.isPending}
-                                          className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-colors hover:opacity-90 disabled:opacity-50"
-                                          style={{
-                                            background: "rgba(52,211,153,0.10)",
-                                            border: "1.5px solid rgba(52,211,153,0.25)",
-                                            color: "#34D399",
-                                          }}
-                                          onClick={() => {
-                                            const displayedAmount =
-                                              specificMemberAmounts?.[row.memberId] !== undefined
-                                                ? Math.abs(specificMemberAmounts[row.memberId])
-                                                : row.memberId === defaultExpandedMemberId && specificAmount !== undefined
-                                                  ? Math.abs(specificAmount)
-                                                  : Math.abs(row.netConvertedSigned);
-                                            handleMarkAsPaid(
-                                              row.memberId,
-                                              displayedAmount,
-                                              memberBankCurrencies[row.memberId] || defaultCurrency || row.currency,
-                                              row.direction,
-                                            );
-                                          }}
-                                        >
-                                          {markAsPaidMutation.isPending ? "Marking…" : "✓ Mark as Paid"}
-                                        </button>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
+                        {memberDebtRows.length === 0 && (
+                          <div className="text-center text-white/55 py-8 text-sm">
+                            No outstanding debts found for this group.
+                          </div>
+                        )}
+
+                        {/* Totals */}
+                        {(totalToPay > 0 || totalToCollect > 0) && (
+                          <div className="pt-3 mt-1 border-t border-white/[0.06] space-y-2">
+                            {totalToPay > 0 && (
+                              <div className="flex items-center justify-between px-0.5">
+                                <span className="text-white/70 text-[13px] font-semibold">Total to pay</span>
+                                <span className="text-[#F87171] text-[15px] font-extrabold tabular-nums">
+                                  -{formatCurrency(totalToPay, defaultCurrency || "USD")}
+                                </span>
+                              </div>
+                            )}
+                            {totalToCollect > 0 && (
+                              <div className="flex items-center justify-between px-0.5">
+                                <span className="text-white/70 text-[13px] font-semibold">Total to collect</span>
+                                <span className="text-[#34D399] text-[15px] font-extrabold tabular-nums">
+                                  +{formatCurrency(totalToCollect, defaultCurrency || "USD")}
+                                </span>
                               </div>
                             )}
                           </div>
-                        );
-                      })
-                    ) : groupDebtBreakdown.length > 0 ? (
-                      groupDebtBreakdown.map((debt) => (
-                        <div
-                          key={debt.currency}
-                          className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 flex items-center justify-between"
-                        >
-                          <div>
-                            <p className="text-white text-[13px] font-bold">{debt.currency}</p>
-                            <p className="text-white/55 text-[11px] mt-0.5">Unattributed member debt</p>
-                          </div>
-                          <p className="text-[#34D399] text-sm font-extrabold tabular-nums">
-                            +{formatCurrency(debt.amount, debt.currency)}
-                          </p>
-                        </div>
-                      ))
-                    ) : (
-                      <div className="text-center text-white/55 py-8 text-sm">
-                        No outstanding debts found for this group.
-                      </div>
+                        )}
+                      </motion.div>
                     )}
-                  </div>
 
-                  {/* Totals by direction */}
-                  {totalToPay > 0 && (
-                    <div className="flex items-center justify-between pt-1 pb-1 px-0.5">
-                      <span className="text-white/90 text-[13px] font-semibold">Total to pay</span>
-                      <span className="text-[#F87171] text-[15px] font-extrabold tabular-nums">
-                        -{formatCurrency(totalToPay, defaultCurrency || "USD")}
-                      </span>
-                    </div>
-                  )}
-                  {totalToCollect > 0 && (
-                    <div className="flex items-center justify-between pt-1 pb-1 px-0.5">
-                      <span className="text-white/90 text-[13px] font-semibold">Total to collect</span>
-                      <span className="text-[#34D399] text-[15px] font-extrabold tabular-nums">
-                        +{formatCurrency(totalToCollect, defaultCurrency || "USD")}
-                      </span>
-                    </div>
-                  )}
+                    {/* ─── Step 2: Expense breakdown ─── */}
+                    {settleStep === 2 && selectedMemberRow && (
+                      <motion.div
+                        key="step-2"
+                        custom={slideDir}
+                        variants={slideVariants}
+                        initial="enter"
+                        animate="center"
+                        exit="exit"
+                        className="space-y-3"
+                      >
+                        {/* Selected person card */}
+                        <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 flex items-center gap-3">
+                          <div
+                            className="h-10 w-10 rounded-full border-2 grid place-items-center text-xs font-extrabold flex-shrink-0"
+                            style={{ color: selectedMemberRow.color, borderColor: `${selectedMemberRow.color}40`, background: `${selectedMemberRow.color}1a` }}
+                          >
+                            {selectedMemberRow.initials}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-white text-[14px] font-bold truncate">{selectedMemberRow.name}</p>
+                            <p className="text-[11px] mt-0.5" style={{ color: selectedMemberRow.direction === "owe" ? "#F87171" : "#34D399" }}>
+                              {selectedMemberRow.direction === "owe" ? "You owe" : "Owes you"}{" "}
+                              <span className="font-extrabold">
+                                {formatCurrency(Math.abs(selectedMemberRow.netConvertedSigned), defaultCurrency || "USD")}
+                              </span>
+                            </p>
+                          </div>
+                        </div>
 
+                        {/* Expense list */}
+                        {selectedMemberExpenses.length > 0 ? (
+                          <div className="space-y-1.5">
+                            <p className="text-[10px] font-bold tracking-[0.1em] uppercase text-white/40 px-0.5">Expenses</p>
+                            {selectedMemberExpenses.map((exp) => {
+                              const catKey = (exp.category || "").toUpperCase();
+                              const KNOWN_CATS: Record<string, string> = { ACCOMMODATION: "🏠", FOOD: "🍽", TRAVEL: "🚗", TRANSPORT: "🚗" };
+                              const catIcon = KNOWN_CATS[catKey] || KNOWN_CATS[catKey.split(/[\s-_]/)[0]] || ((exp.category || "").trim() && exp.category !== "OTHER" ? exp.category : "🧾");
+                              return (
+                                <div
+                                  key={exp.id}
+                                  className="rounded-[14px] border border-white/[0.06] bg-white/[0.02] px-4 py-3 flex items-center gap-3"
+                                >
+                                  <div className="h-8 w-8 rounded-[10px] bg-white/[0.06] grid place-items-center flex-shrink-0 text-[15px]">
+                                    {catIcon}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white text-[13px] font-semibold truncate">{exp.name}</p>
+                                    <p className="text-[10px] text-white/40 mt-0.5">
+                                      {exp.date ? new Date(exp.date).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : ""}
+                                    </p>
+                                  </div>
+                                  <p className="text-[13px] font-extrabold tabular-nums flex-shrink-0" style={{ color: exp.direction === "owe" ? "#F87171" : "#34D399" }}>
+                                    {exp.direction === "owed" && "+"}
+                                    {(() => {
+                                      const fmt = formatWithDefault(exp.amount, exp.currency);
+                                      return <>{fmt.primary}{fmt.secondary && <span className="text-[11px] font-semibold text-white/35"> ({fmt.secondary})</span>}</>;
+                                    })()}
+                                  </p>
+                                </div>
+                              );
+                            })}
+
+                            {/* Net total */}
+                            <div className="flex items-center justify-between pt-3 mt-1 border-t border-white/[0.06] px-0.5">
+                              <span className="text-white/70 text-[13px] font-semibold">Net balance</span>
+                              <span className="text-[15px] font-extrabold tabular-nums" style={{ color: selectedMemberRow.direction === "owe" ? "#F87171" : "#34D399" }}>
+                                {selectedMemberRow.direction === "owe" ? "-" : "+"}
+                                {formatCurrency(Math.abs(selectedMemberRow.netConvertedSigned), defaultCurrency || "USD")}
+                              </span>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="text-center py-6">
+                            <p className="text-white/50 text-[13px]">No individual expenses found.</p>
+                            <p className="text-white/35 text-[11px] mt-1">Balance may be from settled or adjusted amounts.</p>
+                          </div>
+                        )}
+
+                        {/* Action button */}
+                        {selectedMemberRow.direction === "owe" ? (
+                          <button
+                            className="w-full mt-2 h-12 rounded-[14px] bg-[#22D3EE] text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                            onClick={() => goToStep(3)}
+                          >
+                            <span>Continue to Payment</span>
+                            <ChevronRight className="h-4 w-4" />
+                          </button>
+                        ) : (
+                          <button
+                            className="w-full mt-2 h-12 rounded-[14px] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50"
+                            style={{ background: "rgba(251,191,36,0.12)", border: "1.5px solid rgba(251,191,36,0.30)", color: "#FBBF24" }}
+                            disabled={isReminderSending}
+                            onClick={() => sendReminderMutation({ receiverId: selectedMemberRow.memberId, reminderType: "USER", content: `Hey, you owe ${formatCurrency(Math.abs(selectedMemberRow.netConvertedSigned), defaultCurrency || "USD")} in ${displayGroupName}` })}
+                          >
+                            <Bell className="h-4 w-4" />
+                            <span>{isReminderSending ? "Sending…" : "Send Reminder"}</span>
+                          </button>
+                        )}
+                      </motion.div>
+                    )}
+
+                    {/* ─── Step 3: Payment method ─── */}
+                    {settleStep === 3 && selectedMemberRow && (() => {
+                      const row = selectedMemberRow;
+                      const memberId = row.memberId;
+                      return (
+                        <motion.div
+                          key="step-3"
+                          custom={slideDir}
+                          variants={slideVariants}
+                          initial="enter"
+                          animate="center"
+                          exit="exit"
+                          className="space-y-3"
+                        >
+                          {/* Amount summary */}
+                          <div className="rounded-[18px] border border-white/[0.08] bg-white/[0.03] px-4 py-3.5 flex items-center gap-3">
+                            <div
+                              className="h-10 w-10 rounded-full border-2 grid place-items-center text-xs font-extrabold flex-shrink-0"
+                              style={{ color: row.color, borderColor: `${row.color}40`, background: `${row.color}1a` }}
+                            >
+                              {row.initials}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-white text-[14px] font-bold truncate">{row.name}</p>
+                            </div>
+                            <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0" style={{ color: row.direction === "owe" ? "#F87171" : "#34D399" }}>
+                              {row.direction === "owe" ? "-" : "+"}
+                              {formatCurrency(
+                                specificMemberAmounts?.[memberId] !== undefined
+                                  ? Math.abs(specificMemberAmounts[memberId])
+                                  : Math.abs(row.netConvertedSigned),
+                                defaultCurrency || "USD"
+                              )}
+                            </p>
+                          </div>
+
+                          {/* Method tabs */}
+                          <div className="grid grid-cols-2 gap-2">
+                            {(["crypto", "bank"] as const).map((method) => {
+                              const active = (memberMethods[memberId] ?? "crypto") === method;
+                              return (
+                                <button
+                                  key={method}
+                                  type="button"
+                                  onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: method }))}
+                                  className="flex items-center justify-center gap-2 py-3 px-3 rounded-[14px] border text-xs font-bold transition-colors"
+                                  style={{
+                                    background: active ? "rgba(34,211,238,0.10)" : "rgba(255,255,255,0.04)",
+                                    borderColor: active ? "rgba(34,211,238,0.50)" : "rgba(255,255,255,0.10)",
+                                    color: active ? "#22D3EE" : "rgba(255,255,255,0.80)",
+                                  }}
+                                >
+                                  {method === "crypto" ? (
+                                    <><Link2 className="h-3.5 w-3.5 flex-shrink-0" /> Crypto on-chain</>
+                                  ) : (
+                                    <><Landmark className="h-3.5 w-3.5 flex-shrink-0" /> Bank / Mark paid</>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Crypto panel */}
+                          {(memberMethods[memberId] ?? "crypto") === "crypto" && (
+                            <div className="space-y-3">
+                              <p className="text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "#ccc" }}>Chain</p>
+                              <div className="grid grid-cols-4 gap-2">
+                                {availableChains.map((chain) => {
+                                  const meta = SETTLE_CHAIN_META[chain] || { icon: "◆", color: "#666" };
+                                  const isChainSel = (memberChains[memberId] || selectedChain) === chain;
+                                  return (
+                                    <button
+                                      key={chain}
+                                      type="button"
+                                      onClick={() => {
+                                        setMemberChains((p) => ({ ...p, [memberId]: chain }));
+                                        setSelectedChain(chain);
+                                      }}
+                                      className="flex flex-col items-center gap-1.5 py-3 rounded-[14px] border transition-all"
+                                      style={{
+                                        background: isChainSel ? `${meta.color}18` : "rgba(255,255,255,0.04)",
+                                        borderColor: isChainSel ? `${meta.color}55` : "rgba(255,255,255,0.08)",
+                                        boxShadow: isChainSel ? `0 0 14px ${meta.color}22` : "none",
+                                      }}
+                                    >
+                                      <span style={{ color: meta.color, fontSize: 18 }}>{meta.icon}</span>
+                                      <span className="text-[10px] font-bold" style={{ color: isChainSel ? meta.color : "rgba(255,255,255,0.55)" }}>
+                                        {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                                      </span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {(memberChains[memberId] || selectedChain) && (() => {
+                                const member = _members.find((m) => m.id === memberId);
+                                if (!canProceedWithSettlement()) {
+                                  return (
+                                    <div>
+                                      {selectedChain === "aptos" && <ShadcnWalletSelector />}
+                                      {selectedChain === "stellar" && (
+                                        <button
+                                          type="button"
+                                          className="w-full py-3 rounded-[14px] bg-white/[0.06] border border-white/10 text-white text-sm font-semibold hover:bg-white/[0.1] transition-colors"
+                                          onClick={connectWallet}
+                                        >
+                                          Connect Stellar Wallet
+                                        </button>
+                                      )}
+                                      {(selectedChain === "solana" || selectedChain === "base") && (
+                                        <p className="text-xs text-amber-400 mt-2 text-center">
+                                          Add your {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} wallet address in Settings first.
+                                        </p>
+                                      )}
+                                    </div>
+                                  );
+                                }
+                                return (
+                                  <button
+                                    type="button"
+                                    disabled={isPending}
+                                    className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-opacity hover:opacity-90 disabled:opacity-50"
+                                    style={{ background: "#22D3EE", color: "#0a0a0a" }}
+                                    onClick={() => member && handleSettleOne(member)}
+                                  >
+                                    {isPending ? (
+                                      <span className="flex items-center justify-center gap-2">
+                                        <Loader2 className="h-4 w-4 animate-spin" /> Sending…
+                                      </span>
+                                    ) : "Settle Now"}
+                                  </button>
+                                );
+                              })()}
+
+                              <button
+                                type="button"
+                                className="w-full py-2.5 rounded-[14px] text-xs font-semibold transition-colors hover:text-white/80"
+                                style={{ border: "1px dashed rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
+                                onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
+                              >
+                                Don&apos;t trust app? Mark as paid manually instead
+                              </button>
+                            </div>
+                          )}
+
+                          {/* Bank panel */}
+                          {memberMethods[memberId] === "bank" && (() => {
+                            const selCurrency = memberBankCurrencies[memberId] || defaultCurrency || "USD";
+                            const isBankOpen = !!memberBankDropdownOpen[memberId];
+                            const search = memberBankSearch[memberId] || "";
+                            const fiatList = organizedCurrencies?.fiatCurrencies || [];
+                            const filtered = fiatList.filter((c: { id: string; name: string }) =>
+                              c.id.toLowerCase().includes(search.toLowerCase()) ||
+                              c.name.toLowerCase().includes(search.toLowerCase())
+                            );
+                            const selEntry = fiatList.find((c: { id: string }) => c.id === selCurrency);
+                            return (
+                              <div className="space-y-3">
+                                <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.60)", lineHeight: 1.6 }}>
+                                  {row.direction === "owe"
+                                    ? `Pay ${row.name.split(" ")[0]} via bank, then mark as paid here.`
+                                    : `Ask ${row.name.split(" ")[0]} to pay via their banking app, then mark as paid here.`}
+                                </p>
+                                <p className="text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "#ccc" }}>Currency</p>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setMemberBankDropdownOpen((p) => ({ ...p, [memberId]: !p[memberId] }))}
+                                  className="w-full rounded-[14px] px-4 py-3 text-sm font-semibold mb-1 flex items-center justify-between transition-colors"
+                                  style={{
+                                    background: "rgba(255,255,255,0.05)",
+                                    border: `1px solid ${isBankOpen ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
+                                    color: "#fff",
+                                  }}
+                                >
+                                  <span>
+                                    {CURRENCY_FLAG[selCurrency] || "💱"} {selCurrency}
+                                    {selEntry ? ` · ${selEntry.name}` : ""}
+                                  </span>
+                                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, transition: "transform 0.2s", display: "inline-block", transform: isBankOpen ? "rotate(180deg)" : "none" }}>▾</span>
+                                </button>
+
+                                {isBankOpen && (
+                                  <div
+                                    className="rounded-[18px] overflow-hidden"
+                                    style={{ border: "1px solid rgba(255,255,255,0.09)", background: "#141414", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" }}
+                                  >
+                                    <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+                                      <input
+                                        autoFocus
+                                        placeholder="Search currency…"
+                                        value={search}
+                                        onChange={(e) => setMemberBankSearch((p) => ({ ...p, [memberId]: e.target.value }))}
+                                        className="bg-transparent outline-none text-[13px] w-full"
+                                        style={{ color: "#fff", fontFamily: "inherit" }}
+                                      />
+                                    </div>
+                                    <div className="px-4 py-1.5 text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>Fiat</div>
+                                    <div style={{ maxHeight: 200, overflowY: "auto" }}>
+                                      {filtered.map((c: { id: string; name: string }, i: number) => {
+                                        const isSel = c.id === selCurrency;
+                                        return (
+                                          <div
+                                            key={c.id}
+                                            onClick={() => {
+                                              setMemberBankCurrencies((p) => ({ ...p, [memberId]: c.id }));
+                                              setMemberBankDropdownOpen((p) => ({ ...p, [memberId]: false }));
+                                              setMemberBankSearch((p) => ({ ...p, [memberId]: "" }));
+                                            }}
+                                            className="flex items-center gap-3 px-4 cursor-pointer transition-colors"
+                                            style={{
+                                              padding: "10px 16px",
+                                              borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
+                                              background: isSel ? "rgba(34,211,238,0.06)" : "transparent",
+                                            }}
+                                          >
+                                            <span style={{ fontSize: 17 }}>{CURRENCY_FLAG[c.id] || "💱"}</span>
+                                            <span style={{ fontWeight: 700, fontSize: 13, color: isSel ? "#fff" : "rgba(255,255,255,0.85)", minWidth: 36 }}>{c.id}</span>
+                                            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, flex: 1 }}>{c.name}</span>
+                                            {isSel && <span style={{ color: "#22D3EE", fontSize: 12 }}>✓</span>}
+                                          </div>
+                                        );
+                                      })}
+                                      {filtered.length === 0 && (
+                                        <p className="text-center py-4 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>No currencies found</p>
+                                      )}
+                                    </div>
+                                  </div>
+                                )}
+
+                                {memberMarkedPaid[memberId] ? (
+                                  <div
+                                    className="w-full py-3 rounded-[14px] text-sm font-bold text-center"
+                                    style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.20)", color: "#34D399" }}
+                                  >
+                                    ✓ Marked as paid
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    disabled={markAsPaidMutation.isPending}
+                                    className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-colors hover:opacity-90 disabled:opacity-50"
+                                    style={{ background: "rgba(52,211,153,0.10)", border: "1.5px solid rgba(52,211,153,0.25)", color: "#34D399" }}
+                                    onClick={() => {
+                                      const displayedAmount =
+                                        specificMemberAmounts?.[memberId] !== undefined
+                                          ? Math.abs(specificMemberAmounts[memberId])
+                                          : Math.abs(row.netConvertedSigned);
+                                      handleMarkAsPaid(
+                                        memberId,
+                                        displayedAmount,
+                                        memberBankCurrencies[memberId] || defaultCurrency || row.currency,
+                                        row.direction,
+                                      );
+                                    }}
+                                  >
+                                    {markAsPaidMutation.isPending ? "Marking…" : "✓ Mark as Paid"}
+                                  </button>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </motion.div>
+                      );
+                    })()}
+
+                  </AnimatePresence>
                 </div>
-
-                <button
-                  className="w-full mt-5 h-12 rounded-[14px] bg-[#22D3EE] text-[#0a0a0a] font-extrabold text-sm flex items-center justify-center gap-2 hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={handleSettleAll}
-                  disabled={isPending || remainingTotal <= 0}
-                >
-                  {isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Sending…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>Review &amp; Confirm</span>
-                      <ChevronRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
               </motion.div>
             )}
 

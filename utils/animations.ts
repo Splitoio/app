@@ -23,3 +23,20 @@ export const staggerContainer = {
     },
   },
 };
+
+export const slideVariants = {
+  enter: (dir: number) => ({
+    x: dir > 0 ? 220 : -220,
+    opacity: 0,
+  }),
+  center: {
+    x: 0,
+    opacity: 1,
+    transition: { type: "spring", stiffness: 300, damping: 30 },
+  },
+  exit: (dir: number) => ({
+    x: dir > 0 ? -220 : 220,
+    opacity: 0,
+    transition: { duration: 0.18 },
+  }),
+};

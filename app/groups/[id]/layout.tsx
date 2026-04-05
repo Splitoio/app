@@ -221,6 +221,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           balances={group.groupBalances}
           groupId={groupId}
           members={group.groupUsers.map((u) => u.user)}
+          expenses={group.expenses}
           defaultCurrency={user?.currency || "USD"}
           showIndividualView={false}
           defaultExpandedMemberId={settleFriendId}

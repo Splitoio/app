@@ -254,17 +254,21 @@ function ExpenseRow({
             </div>
           {isInvolved && (
             <div style={{ display: "flex", gap: 8, paddingTop: 16 }}>
-              <Btn variant="ghost" onClick={onSettle} className="splito-sbtn" style={{ padding: "8px 16px", fontSize: 12 }}>
-                <Icons.check /> Settle
-              </Btn>
-              {iAmPayer && (
+              {!iAmPayer && myShare > 0 && !myIsPaid && (
+                <Btn variant="ghost" onClick={onSettle} className="splito-sbtn" style={{ padding: "8px 16px", fontSize: 12 }}>
+                  <Icons.check /> Pay
+                </Btn>
+              )}
+              {iAmPayer && pending > 0 && (
                 <Btn variant="ghost" onClick={onNotify} className="splito-abtn" style={{ padding: "8px 16px", fontSize: 12 }}>
                   <Icons.bell /> Notify
                 </Btn>
               )}
-              <Btn variant="danger" onClick={onDelete} style={{ padding: "8px 14px", fontSize: 12 }}>
-                <Icons.trash size={14} /> Delete
-              </Btn>
+              {iAmPayer && (
+                <Btn variant="danger" onClick={onDelete} style={{ padding: "8px 14px", fontSize: 12 }}>
+                  <Icons.trash size={14} /> Delete
+                </Btn>
+              )}
             </div>
           )}
         </div>
