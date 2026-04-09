@@ -106,6 +106,11 @@ export const getSettlementPreference = async (): Promise<SettlementPreference | 
   return response as unknown as SettlementPreference | null;
 };
 
+export const getUserSettlementPreference = async (userId: string): Promise<SettlementPreference | null> => {
+  const response = await apiClient.get(`/users/${userId}/settlement-preference`);
+  return response as unknown as SettlementPreference | null;
+};
+
 export const saveSettlementPreference = async (payload: {
   tokenIds: string[];
   chainId: string;

@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Landmark, Link2, ArrowLeft, Receipt, Bell } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Landmark, Link2, ArrowLeft, Receipt, Bell, Mail, UserX } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn, slideVariants } from "@/utils/animations";
@@ -23,6 +23,7 @@ import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
+import { useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
 
 type ExpenseWithParticipants = Expense & { expenseParticipants?: ExpenseParticipant[] };
 
@@ -104,6 +105,7 @@ export function SettleDebtsModal({
   const wallets = walletData?.accounts || [];
   const stellarWallet = wallets.find(w => w.chainId === "stellar");
   const userStellarAddress = stellarWallet?.address || null;
+  const { data: recipientPref, isLoading: isRecipientPrefLoading } = useGetUserSettlementPreference(selectedSettleMemberId);
   useHandleEscapeToCloseModal(isOpen, onClose);
 
   // Exchange rate conversion for balance currencies
@@ -315,6 +317,13 @@ export function SettleDebtsModal({
       setSelectedSettleMemberId(null);
     }
   }, [isOpen]);
+
+  // Auto-select recipient's preferred chain when their settlement preference loads
+  useEffect(() => {
+    if (recipientPref?.chainId && selectedSettleMemberId && !memberChains[selectedSettleMemberId]) {
+      setSelectedChain(recipientPref.chainId);
+    }
+  }, [recipientPref, selectedSettleMemberId, memberChains]);
 
   // Set the selected user based on selectedFriendId prop
   useEffect(() => {
@@ -687,7 +696,6 @@ export function SettleDebtsModal({
     return false;
   };
 
-  // Helper to check if we can proceed with settlement
   const canProceedWithSettlement = () => {
     if (selectedChain === 'aptos') {
       return aptosWallet.connected && aptosWallet.account?.address;
@@ -1462,87 +1470,227 @@ export function SettleDebtsModal({
                           </div>
 
                           {/* Crypto panel */}
-                          {(memberMethods[memberId] ?? "crypto") === "crypto" && (
-                            <div className="space-y-3">
-                              <p className="text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "#ccc" }}>Chain</p>
-                              <div className="grid grid-cols-4 gap-2">
-                                {availableChains.map((chain) => {
-                                  const meta = SETTLE_CHAIN_META[chain] || { icon: "◆", color: "#666" };
-                                  const isChainSel = (memberChains[memberId] || selectedChain) === chain;
+                          {(memberMethods[memberId] ?? "crypto") === "crypto" && (() => {
+                            const firstName = (row.name || "").split(" ")[0] || "They";
+
+                            if (isRecipientPrefLoading) {
+                              return (
+                                <div className="space-y-3">
+                                  <div className="h-3 w-24 rounded-full bg-white/[0.06] animate-pulse" />
+                                  <div className="grid grid-cols-4 gap-2">
+                                    {[1,2,3,4].map(i => (
+                                      <div key={i} className="h-[72px] rounded-[14px] bg-white/[0.04] animate-pulse" />
+                                    ))}
+                                  </div>
+                                  <div className="h-12 rounded-[14px] bg-white/[0.04] animate-pulse" />
+                                </div>
+                              );
+                            }
+
+                            if (!recipientPref) {
+                              return (
+                                <div className="space-y-3">
+                                  <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid rgba(251,146,60,0.20)", background: "linear-gradient(135deg, rgba(251,146,60,0.06) 0%, rgba(251,146,60,0.02) 100%)" }}>
+                                    <div className="px-4 pt-4 pb-3 flex items-start gap-3">
+                                      <div
+                                        className="flex-shrink-0 h-10 w-10 rounded-full grid place-items-center"
+                                        style={{ background: "rgba(251,146,60,0.12)", border: "1.5px solid rgba(251,146,60,0.25)" }}
+                                      >
+                                        <UserX className="h-[18px] w-[18px]" style={{ color: "#FB923C" }} />
+                                      </div>
+                                      <div className="min-w-0 flex-1">
+                                        <p className="text-[13px] font-bold text-white/90">
+                                          {firstName}{" "}hasn&apos;t set up settlements
+                                        </p>
+                                        <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.45)", lineHeight: 1.5 }}>
+                                          They need to configure their settlement preferences in Settings before you can pay on-chain.
+                                        </p>
+                                      </div>
+                                    </div>
+                                    <div className="px-4 pb-4 flex flex-col gap-2">
+                                      <button
+                                        type="button"
+                                        className="w-full h-11 rounded-[12px] font-bold text-[13px] flex items-center justify-center gap-2 transition-all hover:opacity-90 disabled:opacity-50"
+                                        style={{ background: "rgba(251,146,60,0.12)", border: "1.5px solid rgba(251,146,60,0.30)", color: "#FB923C" }}
+                                        disabled={isReminderSending}
+                                        onClick={() => sendReminderMutation({
+                                          receiverId: memberId,
+                                          reminderType: "NUDGE",
+                                          content: `Hey ${firstName}! Set up your settlement preferences on Splito (Settings → Settlement) so I can pay you on-chain.`,
+                                        })}
+                                      >
+                                        {isReminderSending ? (
+                                          <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Sending…</>
+                                        ) : (
+                                          <><Mail className="h-3.5 w-3.5" /> Nudge {firstName} to set up</>
+                                        )}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        className="w-full h-9 rounded-[12px] text-[11px] font-semibold transition-colors hover:text-white/70"
+                                        style={{ color: "rgba(255,255,255,0.40)" }}
+                                        onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
+                                      >
+                                        or settle via bank / mark paid instead
+                                      </button>
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            }
+
+                            const recipientChainId = recipientPref.chainId;
+                            const recipientChainMeta = SETTLE_CHAIN_META[recipientChainId] || { icon: "◆", color: "#666" };
+                            const recipientChainLabel = recipientChainId.charAt(0).toUpperCase() + recipientChainId.slice(1);
+                            const recipientTokens = recipientPref.tokens.map(t => t.token.symbol).join(", ");
+
+                            return (
+                              <div className="space-y-3">
+                                {/* Recipient's preferred chain badge */}
+                                <div className="rounded-[14px] px-3.5 py-2.5 flex items-center gap-2.5" style={{ background: `${recipientChainMeta.color}0d`, border: `1px solid ${recipientChainMeta.color}25` }}>
+                                  <span style={{ fontSize: 16, color: recipientChainMeta.color }}>{recipientChainMeta.icon}</span>
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[11px] font-bold" style={{ color: recipientChainMeta.color }}>
+                                      {firstName} accepts {recipientChainLabel}
+                                    </p>
+                                    <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>
+                                      {recipientTokens}{recipientPref.wallet ? ` · ${recipientPref.wallet.address.slice(0, 6)}…${recipientPref.wallet.address.slice(-4)}` : ""}
+                                    </p>
+                                  </div>
+                                  <div className="h-5 px-2 rounded-full flex items-center" style={{ background: `${recipientChainMeta.color}18`, border: `1px solid ${recipientChainMeta.color}30` }}>
+                                    <span className="text-[9px] font-extrabold tracking-wide uppercase" style={{ color: recipientChainMeta.color }}>preferred</span>
+                                  </div>
+                                </div>
+
+                                {/* Chain selector — show recipient's chain highlighted, others dimmed */}
+                                <p className="text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "#ccc" }}>Chain</p>
+                                <div className="grid grid-cols-4 gap-2">
+                                  {availableChains.map((chain) => {
+                                    const meta = SETTLE_CHAIN_META[chain] || { icon: "◆", color: "#666" };
+                                    const isChainSel = (memberChains[memberId] || selectedChain || recipientChainId) === chain;
+                                    const isRecipientChain = chain === recipientChainId;
+                                    return (
+                                      <button
+                                        key={chain}
+                                        type="button"
+                                        onClick={() => {
+                                          setMemberChains((p) => ({ ...p, [memberId]: chain }));
+                                          setSelectedChain(chain);
+                                        }}
+                                        className="relative flex flex-col items-center gap-1.5 py-3 rounded-[14px] border transition-all"
+                                        style={{
+                                          background: isChainSel ? `${meta.color}18` : "rgba(255,255,255,0.04)",
+                                          borderColor: isChainSel ? `${meta.color}55` : "rgba(255,255,255,0.08)",
+                                          boxShadow: isChainSel ? `0 0 14px ${meta.color}22` : "none",
+                                          opacity: isRecipientChain || isChainSel ? 1 : 0.4,
+                                        }}
+                                      >
+                                        <span style={{ color: meta.color, fontSize: 18 }}>{meta.icon}</span>
+                                        <span className="text-[10px] font-bold" style={{ color: isChainSel ? meta.color : "rgba(255,255,255,0.55)" }}>
+                                          {chain.charAt(0).toUpperCase() + chain.slice(1)}
+                                        </span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {(() => {
+                                  const effectiveChain = memberChains[memberId] || selectedChain || recipientChainId;
+                                  if (!effectiveChain) return null;
+
+                                  if (effectiveChain !== recipientChainId) {
+                                    const pickedLabel = effectiveChain.charAt(0).toUpperCase() + effectiveChain.slice(1);
+                                    return (
+                                      <div className="rounded-[16px] overflow-hidden" style={{ border: "1px solid rgba(239,68,68,0.20)", background: "linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(239,68,68,0.02) 100%)" }}>
+                                        <div className="px-4 py-3.5 flex items-start gap-3">
+                                          <div className="flex-shrink-0 h-9 w-9 rounded-full grid place-items-center" style={{ background: "rgba(239,68,68,0.12)", border: "1.5px solid rgba(239,68,68,0.25)" }}>
+                                            <X className="h-4 w-4" style={{ color: "#F87171" }} />
+                                          </div>
+                                          <div className="min-w-0 flex-1">
+                                            <p className="text-[12px] font-bold" style={{ color: "#F87171" }}>
+                                              {firstName} can&apos;t receive on {pickedLabel}
+                                            </p>
+                                            <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.40)", lineHeight: 1.5 }}>
+                                              They only have a {recipientChainLabel} wallet configured.
+                                            </p>
+                                          </div>
+                                        </div>
+                                        <div className="px-4 pb-3.5 flex gap-2">
+                                          <button
+                                            type="button"
+                                            className="flex-1 h-10 rounded-[12px] font-bold text-[12px] flex items-center justify-center gap-1.5 transition-all hover:opacity-90"
+                                            style={{ background: `${recipientChainMeta.color}15`, border: `1.5px solid ${recipientChainMeta.color}35`, color: recipientChainMeta.color }}
+                                            onClick={() => {
+                                              setMemberChains((p) => ({ ...p, [memberId]: recipientChainId }));
+                                              setSelectedChain(recipientChainId);
+                                            }}
+                                          >
+                                            {recipientChainMeta.icon} Use {recipientChainLabel}
+                                          </button>
+                                          <button
+                                            type="button"
+                                            className="flex-1 h-10 rounded-[12px] font-semibold text-[12px] transition-colors hover:text-white/70"
+                                            style={{ border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.50)" }}
+                                            onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
+                                          >
+                                            Bank / Mark paid
+                                          </button>
+                                        </div>
+                                      </div>
+                                    );
+                                  }
+
+                                  const member = _members.find((m) => m.id === memberId);
+                                  if (!canProceedWithSettlement()) {
+                                    return (
+                                      <div>
+                                        {effectiveChain === "aptos" && <ShadcnWalletSelector />}
+                                        {effectiveChain === "stellar" && (
+                                          <button
+                                            type="button"
+                                            className="w-full py-3 rounded-[14px] bg-white/[0.06] border border-white/10 text-white text-sm font-semibold hover:bg-white/[0.1] transition-colors"
+                                            onClick={connectWallet}
+                                          >
+                                            Connect Stellar Wallet
+                                          </button>
+                                        )}
+                                        {(effectiveChain === "solana" || effectiveChain === "base") && (
+                                          <p className="text-xs text-amber-400 mt-2 text-center">
+                                            Add your {effectiveChain.charAt(0).toUpperCase() + effectiveChain.slice(1)} wallet address in Settings first.
+                                          </p>
+                                        )}
+                                      </div>
+                                    );
+                                  }
+
                                   return (
                                     <button
-                                      key={chain}
                                       type="button"
-                                      onClick={() => {
-                                        setMemberChains((p) => ({ ...p, [memberId]: chain }));
-                                        setSelectedChain(chain);
-                                      }}
-                                      className="flex flex-col items-center gap-1.5 py-3 rounded-[14px] border transition-all"
-                                      style={{
-                                        background: isChainSel ? `${meta.color}18` : "rgba(255,255,255,0.04)",
-                                        borderColor: isChainSel ? `${meta.color}55` : "rgba(255,255,255,0.08)",
-                                        boxShadow: isChainSel ? `0 0 14px ${meta.color}22` : "none",
-                                      }}
+                                      disabled={isPending}
+                                      className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-opacity hover:opacity-90 disabled:opacity-50"
+                                      style={{ background: "#22D3EE", color: "#0a0a0a" }}
+                                      onClick={() => member && handleSettleOne(member)}
                                     >
-                                      <span style={{ color: meta.color, fontSize: 18 }}>{meta.icon}</span>
-                                      <span className="text-[10px] font-bold" style={{ color: isChainSel ? meta.color : "rgba(255,255,255,0.55)" }}>
-                                        {chain.charAt(0).toUpperCase() + chain.slice(1)}
-                                      </span>
+                                      {isPending ? (
+                                        <span className="flex items-center justify-center gap-2">
+                                          <Loader2 className="h-4 w-4 animate-spin" /> Sending…
+                                        </span>
+                                      ) : "Settle Now"}
                                     </button>
                                   );
-                                })}
+                                })()}
+
+                                <button
+                                  type="button"
+                                  className="w-full py-2.5 rounded-[14px] text-xs font-semibold transition-colors hover:text-white/80"
+                                  style={{ border: "1px dashed rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
+                                  onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
+                                >
+                                  Don&apos;t trust app? Mark as paid manually instead
+                                </button>
                               </div>
-
-                              {(memberChains[memberId] || selectedChain) && (() => {
-                                const member = _members.find((m) => m.id === memberId);
-                                if (!canProceedWithSettlement()) {
-                                  return (
-                                    <div>
-                                      {selectedChain === "aptos" && <ShadcnWalletSelector />}
-                                      {selectedChain === "stellar" && (
-                                        <button
-                                          type="button"
-                                          className="w-full py-3 rounded-[14px] bg-white/[0.06] border border-white/10 text-white text-sm font-semibold hover:bg-white/[0.1] transition-colors"
-                                          onClick={connectWallet}
-                                        >
-                                          Connect Stellar Wallet
-                                        </button>
-                                      )}
-                                      {(selectedChain === "solana" || selectedChain === "base") && (
-                                        <p className="text-xs text-amber-400 mt-2 text-center">
-                                          Add your {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} wallet address in Settings first.
-                                        </p>
-                                      )}
-                                    </div>
-                                  );
-                                }
-                                return (
-                                  <button
-                                    type="button"
-                                    disabled={isPending}
-                                    className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-opacity hover:opacity-90 disabled:opacity-50"
-                                    style={{ background: "#22D3EE", color: "#0a0a0a" }}
-                                    onClick={() => member && handleSettleOne(member)}
-                                  >
-                                    {isPending ? (
-                                      <span className="flex items-center justify-center gap-2">
-                                        <Loader2 className="h-4 w-4 animate-spin" /> Sending…
-                                      </span>
-                                    ) : "Settle Now"}
-                                  </button>
-                                );
-                              })()}
-
-                              <button
-                                type="button"
-                                className="w-full py-2.5 rounded-[14px] text-xs font-semibold transition-colors hover:text-white/80"
-                                style={{ border: "1px dashed rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
-                                onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
-                              >
-                                Don&apos;t trust app? Mark as paid manually instead
-                              </button>
-                            </div>
-                          )}
+                            );
+                          })()}
 
                           {/* Bank panel */}
                           {memberMethods[memberId] === "bank" && (() => {

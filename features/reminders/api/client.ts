@@ -4,7 +4,7 @@ import { z } from "zod";
 // Schema for reminder request
 const reminderRequestSchema = z.object({
   receiverId: z.string(),
-  reminderType: z.enum(["USER", "SPLIT"]),
+  reminderType: z.enum(["USER", "SPLIT", "NUDGE"]),
   splitId: z.string().optional(),
   content: z.string().optional(),
 }).refine((data) => {

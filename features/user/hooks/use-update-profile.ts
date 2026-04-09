@@ -3,7 +3,7 @@ import { QueryKeys } from "@/lib/constants";
 import { useMutation } from "@tanstack/react-query";
 import {
   getUser, updateUser, getUserAcceptedTokens, addUserAcceptedToken, removeUserAcceptedToken,
-  getSettlementPreference, saveSettlementPreference, removeSettlementPreference, updateSettlementWallet,
+  getSettlementPreference, getUserSettlementPreference, saveSettlementPreference, removeSettlementPreference, updateSettlementWallet,
 } from "../api/client";
 import { toast } from "sonner";
 import { WALLET_QUERY_KEYS } from "@/features/wallets/hooks/use-wallets";
@@ -66,6 +66,15 @@ export const useGetSettlementPreference = () => {
     queryKey: SETTLEMENT_PREF_KEY,
     queryFn: getSettlementPreference,
     staleTime: 0,
+  });
+};
+
+export const useGetUserSettlementPreference = (userId: string | null) => {
+  return useQuery({
+    queryKey: ["settlement-preference", userId],
+    queryFn: () => getUserSettlementPreference(userId!),
+    enabled: !!userId,
+    staleTime: 1000 * 60 * 2,
   });
 };
 
