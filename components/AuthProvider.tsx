@@ -8,9 +8,9 @@ import { Loader2 } from "lucide-react";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((state) => state.setUser);
-  const { data: user, isPending } = useGetUser();
   const pathname = usePathname();
   const isAuthPage = pathname?.match(/^\/login|^\/signup/);
+  const { data: user, isPending } = useGetUser({ enabled: !isAuthPage });
 
   useEffect(() => {
     if (user) {

@@ -923,58 +923,6 @@ export function SettleDebtsModal({
       .sort((a, b) => b.amount - a.amount);
   }, [balances, user?.id, _members, specificMemberAmounts, defaultCurrency, balanceRateMap]);
 
-  // #region agent log
-  useEffect(() => {
-    if (!isOpen || !user?.id) return;
-    const sourceBalances = Array.isArray(balances) ? balances : [];
-    const myRows = sourceBalances.filter((b) => b.userId === user.id && b.amount !== 0);
-    const byCurrency: Record<string, number> = {};
-    myRows.forEach((b) => {
-      byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
-    });
-    const rawMap = new Map<string, Record<string, number>>();
-    myRows.forEach((b) => {
-      const mid = b.firendId;
-      const curr = rawMap.get(mid) || {};
-      curr[b.currency] = (curr[b.currency] ?? 0) + b.amount;
-      rawMap.set(mid, curr);
-    });
-    const perMember = Object.fromEntries(
-      [...rawMap.entries()].map(([mid, curr]) => {
-        const netSigned = Object.values(curr).reduce((s, v) => s + v, 0);
-        return [
-          mid.slice(0, 8),
-          { curr, netSigned, directionGuess: netSigned > 0 ? "owe" : "owed" },
-        ];
-      }),
-    );
-    fetch("http://127.0.0.1:7660/ingest/2772b0cc-df03-41e9-90e6-6be9025e849d", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "64e217" },
-      body: JSON.stringify({
-        sessionId: "64e217",
-        runId: "post-fix",
-        hypothesisId: "H1-H5",
-        location: "settle-debts-modal.tsx:open",
-        message: "Settle modal balances",
-        data: {
-          groupId,
-          byCurrencyAllFriends: byCurrency,
-          perMemberRaw: perMember,
-          specificMemberAmounts: specificMemberAmounts ?? null,
-          memberDebtRows: memberDebtRows.map((r) => ({
-            id: r.memberId.slice(0, 8),
-            direction: r.direction,
-            netConvertedSigned: r.netConvertedSigned,
-            debts: r.debts,
-          })),
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }, [isOpen, balances, user?.id, groupId, specificMemberAmounts, memberDebtRows]);
-  // #endregion
-
   // Fetch exchange rates for balance currencies that differ from defaultCurrency
   const uniqueBalanceCurrencies = useMemo(() => {
     if (!defaultCurrency) return [];

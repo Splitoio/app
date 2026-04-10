@@ -39,12 +39,6 @@ export default function SignupPage() {
     e.preventDefault();
     setIsLoadingEmail(true);
 
-    if (!formData.agreeToTerms) {
-      toast.error("Please agree to the Privacy & Policy terms");
-      setIsLoadingEmail(false);
-      return;
-    }
-
     try {
       const { data, error } = await authClient.signUp.email({
         name: formData.name,
@@ -223,7 +217,7 @@ export default function SignupPage() {
                 />
                 <label htmlFor="terms-desktop" className="text-sm text-white/70">
                   I agree with the{" "}
-                  <Link href="/terms" className="text-white hover:underline">Privacy & Policy</Link>
+                  <a href="https://splito.io/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Privacy Policy</a>
                 </label>
               </div>
               <button
@@ -357,7 +351,7 @@ export default function SignupPage() {
                   disabled={isLoadingEmail || isLoadingGoogle}
                 />
                 <label htmlFor="terms-mobile" className="text-sm text-white/70">
-                  I agree with the <Link href="/terms" className="text-white hover:underline">Privacy & Policy</Link>
+                  I agree with the <a href="https://splito.io/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Privacy Policy</a>
                 </label>
               </div>
               <button

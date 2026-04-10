@@ -24,10 +24,11 @@ export const useUpdateUser = () => {
   });
 };
 
-export const useGetUser = () => {
+export const useGetUser = (options?: { enabled?: boolean }) => {
   return useQuery({
     queryKey: [QueryKeys.USER],
     queryFn: getUser,
+    enabled: options?.enabled ?? true,
   });
 };
 

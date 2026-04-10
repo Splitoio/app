@@ -4,7 +4,7 @@ import { useRouter, usePathname } from "next/navigation";
 import Link from "next/link";
 import { DetailGroup } from "@/features/groups/api/client";
 import { Loader2 } from "lucide-react";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
@@ -110,45 +110,6 @@ export function GroupInfoHeader({
   const isUserOwes = net !== null && net < 0;
   const netAmount = net !== null ? Math.abs(net) : 0;
   const balanceLabel = isOwedToUser ? "owed to you" : isUserOwes ? "you owe" : "all settled";
-
-  // #region agent log
-  useEffect(() => {
-    if (!group?.groupBalances?.length || !user?.id) return;
-    const userBalances = group.groupBalances.filter((b) => b.userId === user.id);
-    const byCurrency: Record<string, number> = {};
-    userBalances.forEach((b) => {
-      byCurrency[b.currency] = (byCurrency[b.currency] ?? 0) + b.amount;
-    });
-    fetch("http://127.0.0.1:7660/ingest/2772b0cc-df03-41e9-90e6-6be9025e849d", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "X-Debug-Session-Id": "64e217" },
-      body: JSON.stringify({
-        sessionId: "64e217",
-        runId: "pre-fix",
-        hypothesisId: "H2",
-        location: "group-info-header.tsx:headerNet",
-        message: "Group header balance inputs",
-        data: {
-          groupId,
-          byCurrency,
-          totalOwedToUserConv: converting ? null : totalOwedToUser,
-          totalUserOwesConv: converting ? null : totalUserOwes,
-          netConv: converting ? null : net,
-          pairRowCount: userBalances.length,
-        },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {});
-  }, [
-    group?.groupBalances,
-    user?.id,
-    groupId,
-    converting,
-    totalOwedToUser,
-    totalUserOwes,
-    net,
-  ]);
-  // #endregion
 
   const desktopSubtitle = converting
     ? <span style={{ color: "rgba(255,255,255,0.4)" }}>…</span>
