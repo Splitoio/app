@@ -13,16 +13,18 @@ import {
   useUpdateGroup,
 } from "@/features/groups/hooks/use-create-group";
 import { AddExpenseModal } from "@/components/add-expense-modal";
-import { Loader2, Trash2 } from "lucide-react";
+import { AlertTriangle, Loader2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 import { useReminders } from "@/features/reminders/hooks/use-reminders";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import axios from "axios";
+import Link from "next/link";
 import TimeLockToggle from "@/components/ui/TimeLockToggle";
 import {
   GroupLayoutProvider,
   type GroupLayoutContextValue,
 } from "@/contexts/group-layout-context";
+import { useGetSettlementPreference } from "@/features/user/hooks/use-update-profile";
 
 const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
@@ -48,6 +50,11 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
     lockPrice: true,
     memberEmail: "",
   });
+  const [settlementBannerDismissed, setSettlementBannerDismissed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("settlement-banner-dismissed") === "true";
+  });
+  const { data: settlementPref, isLoading: isSettlementLoading } = useGetSettlementPreference();
 
   const getCurrencySymbol = (currencyId: string): string => {
     const currency = allCurrencies?.currencies?.find((c) => c.id === currencyId);
@@ -210,6 +217,26 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
         />
 
         <div className="p-4 pt-0 sm:pt-0 sm:p-7">
+          {!isSettlementLoading && !settlementPref && !settlementBannerDismissed && (
+            <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
+              <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
+              <p className="flex-1 text-mobile-sm sm:text-sm text-yellow-200">
+                You haven&apos;t set a settlement preference yet — others won&apos;t be able to pay you.{" "}
+                <Link href="/settings" className="underline text-yellow-400 hover:text-yellow-300">
+                  Set it up
+                </Link>
+              </p>
+              <button
+                onClick={() => {
+                  setSettlementBannerDismissed(true);
+                  sessionStorage.setItem("settlement-banner-dismissed", "true");
+                }}
+                className="shrink-0 rounded-md p-1 text-yellow-400 hover:bg-yellow-500/20"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+          )}
           {children}
         </div>
 
