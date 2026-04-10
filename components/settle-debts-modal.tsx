@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Landmark, Link2, ArrowLeft, Receipt, Bell, Mail, UserX } from "lucide-react";
+import { X, Loader2, ChevronDown, ChevronRight, ChevronUp, Link2, ArrowLeft, Receipt, Bell, Mail, UserX } from "lucide-react";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fadeIn, scaleIn, slideVariants } from "@/utils/animations";
@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import Image from "next/image";
 import { GroupBalance, User, Expense, ExpenseParticipant } from "@/api-helpers/modelSchema";
 import { useSettleDebt } from "@/features/settle/hooks/use-splits";
-import { useMarkAsPaid } from "@/features/groups/hooks/use-create-group";
+
 import { useHandleEscapeToCloseModal } from "@/hooks/useHandleEscape";
 import { useIsMobile } from "@/hooks/useIsMobile";
 import { useQueryClient, useQuery, useQueries } from "@tanstack/react-query";
@@ -83,12 +83,7 @@ export function SettleDebtsModal({
   const [multiCurrencyDebts, setMultiCurrencyDebts] = useState<Array<{currency: string, amount: number, tokenAmount: number}>>([]);
   const [totalTokenAmount, setTotalTokenAmount] = useState("0"); // Total token amount for all currencies
   const [expandedRowMemberId, setExpandedRowMemberId] = useState<string | null>(null);
-  const [memberMethods, setMemberMethods] = useState<Record<string, "crypto" | "bank">>({});
-  const [memberMarkedPaid, setMemberMarkedPaid] = useState<Record<string, boolean>>({});
   const [memberChains, setMemberChains] = useState<Record<string, string>>({});
-  const [memberBankCurrencies, setMemberBankCurrencies] = useState<Record<string, string>>({});
-  const [memberBankDropdownOpen, setMemberBankDropdownOpen] = useState<Record<string, boolean>>({});
-  const [memberBankSearch, setMemberBankSearch] = useState<Record<string, string>>({});
 
   // Multi-step settle flow state
   const [settleStep, setSettleStep] = useState(1);
@@ -96,7 +91,7 @@ export function SettleDebtsModal({
   const [selectedSettleMemberId, setSelectedSettleMemberId] = useState<string | null>(null);
 
   const settleDebtMutation = useSettleDebt(groupId);
-  const markAsPaidMutation = useMarkAsPaid();
+
   const { sendReminder: sendReminderMutation, isSending: isReminderSending } = useReminders();
   const _queryClient = useQueryClient();
   const { data: friends } = useGetFriends();
@@ -962,13 +957,6 @@ export function SettleDebtsModal({
     .reduce((sum, row) => sum + Math.abs(row.netConvertedSigned), 0);
   const remainingTotal = totalToPay + totalToCollect;
 
-  const CURRENCY_FLAG: Record<string, string> = {
-    USD: "🇺🇸", EUR: "🇪🇺", GBP: "🇬🇧", JPY: "🇯🇵", THB: "🇹🇭",
-    INR: "🇮🇳", AUD: "🇦🇺", CAD: "🇨🇦", SGD: "🇸🇬", CHF: "🇨🇭",
-    CNY: "🇨🇳", KRW: "🇰🇷", MXN: "🇲🇽", BRL: "🇧🇷", SEK: "🇸🇪",
-    NOK: "🇳🇴", DKK: "🇩🇰", NZD: "🇳🇿", ZAR: "🇿🇦", HKD: "🇭🇰",
-  };
-
   const SETTLE_CHAIN_META: Record<string, { icon: string; color: string }> = {
     stellar: { icon: "✦", color: "#34D399" },
     solana:  { icon: "◎", color: "#A78BFA" },
@@ -979,33 +967,6 @@ export function SettleDebtsModal({
   const availableChains = organizedCurrencies?.chainGroups
     ? Object.keys(organizedCurrencies.chainGroups)
     : ["stellar", "solana", "base", "aptos"];
-
-  const handleMarkAsPaid = (memberId: string, amount: number, currency: string, direction: "owe" | "owed") => {
-    if (!user || !groupId) return;
-    // When user owes the member, user is the payer.
-    // When the member owes the user, the member is the payer.
-    const payerId = direction === "owe" ? user.id : memberId;
-    const payeeId = direction === "owe" ? memberId : user.id;
-    markAsPaidMutation.mutate(
-      {
-        groupId,
-        payload: {
-          payerId,
-          payeeId,
-          amount,
-          currency: currency || defaultCurrency || "USD",
-          currencyType: "FIAT",
-        },
-      },
-      {
-        onSuccess: () => {
-          toast.success("Marked as paid");
-          setMemberMarkedPaid((p) => ({ ...p, [memberId]: true }));
-        },
-        onError: () => toast.error("Failed to mark as paid"),
-      }
-    );
-  };
 
   // Step navigation helpers
   const goToStep = useCallback((step: number) => {
@@ -1435,34 +1396,8 @@ export function SettleDebtsModal({
                             </p>
                           </div>
 
-                          {/* Method tabs */}
-                          <div className="grid grid-cols-2 gap-2">
-                            {(["crypto", "bank"] as const).map((method) => {
-                              const active = (memberMethods[memberId] ?? "crypto") === method;
-                              return (
-                                <button
-                                  key={method}
-                                  type="button"
-                                  onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: method }))}
-                                  className="flex items-center justify-center gap-2 py-3 px-3 rounded-[14px] border text-xs font-bold transition-colors"
-                                  style={{
-                                    background: active ? "rgba(34,211,238,0.10)" : "rgba(255,255,255,0.04)",
-                                    borderColor: active ? "rgba(34,211,238,0.50)" : "rgba(255,255,255,0.10)",
-                                    color: active ? "#22D3EE" : "rgba(255,255,255,0.80)",
-                                  }}
-                                >
-                                  {method === "crypto" ? (
-                                    <><Link2 className="h-3.5 w-3.5 flex-shrink-0" /> Crypto on-chain</>
-                                  ) : (
-                                    <><Landmark className="h-3.5 w-3.5 flex-shrink-0" /> Bank / Mark paid</>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-
                           {/* Crypto panel */}
-                          {(memberMethods[memberId] ?? "crypto") === "crypto" && (() => {
+                          {(() => {
                             const firstName = (row.name || "").split(" ")[0] || "They";
 
                             if (isRecipientPrefLoading) {
@@ -1516,14 +1451,6 @@ export function SettleDebtsModal({
                                         ) : (
                                           <><Mail className="h-3.5 w-3.5" /> Nudge {firstName} to set up</>
                                         )}
-                                      </button>
-                                      <button
-                                        type="button"
-                                        className="w-full h-9 rounded-[12px] text-[11px] font-semibold transition-colors hover:text-white/70"
-                                        style={{ color: "rgba(255,255,255,0.40)" }}
-                                        onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
-                                      >
-                                        or settle via bank / mark paid instead
                                       </button>
                                     </div>
                                   </div>
@@ -1619,14 +1546,6 @@ export function SettleDebtsModal({
                                           >
                                             {recipientChainMeta.icon} Use {recipientChainLabel}
                                           </button>
-                                          <button
-                                            type="button"
-                                            className="flex-1 h-10 rounded-[12px] font-semibold text-[12px] transition-colors hover:text-white/70"
-                                            style={{ border: "1px solid rgba(255,255,255,0.10)", color: "rgba(255,255,255,0.50)" }}
-                                            onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
-                                          >
-                                            Bank / Mark paid
-                                          </button>
                                         </div>
                                       </div>
                                     );
@@ -1672,136 +1591,10 @@ export function SettleDebtsModal({
                                   );
                                 })()}
 
-                                <button
-                                  type="button"
-                                  className="w-full py-2.5 rounded-[14px] text-xs font-semibold transition-colors hover:text-white/80"
-                                  style={{ border: "1px dashed rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.55)" }}
-                                  onClick={() => setMemberMethods((p) => ({ ...p, [memberId]: "bank" }))}
-                                >
-                                  Don&apos;t trust app? Mark as paid manually instead
-                                </button>
                               </div>
                             );
                           })()}
 
-                          {/* Bank panel */}
-                          {memberMethods[memberId] === "bank" && (() => {
-                            const selCurrency = memberBankCurrencies[memberId] || defaultCurrency || "USD";
-                            const isBankOpen = !!memberBankDropdownOpen[memberId];
-                            const search = memberBankSearch[memberId] || "";
-                            const fiatList = organizedCurrencies?.fiatCurrencies || [];
-                            const filtered = fiatList.filter((c: { id: string; name: string }) =>
-                              c.id.toLowerCase().includes(search.toLowerCase()) ||
-                              c.name.toLowerCase().includes(search.toLowerCase())
-                            );
-                            const selEntry = fiatList.find((c: { id: string }) => c.id === selCurrency);
-                            return (
-                              <div className="space-y-3">
-                                <p className="text-[12px]" style={{ color: "rgba(255,255,255,0.60)", lineHeight: 1.6 }}>
-                                  {row.direction === "owe"
-                                    ? `Pay ${row.name.split(" ")[0]} via bank, then mark as paid here.`
-                                    : `Ask ${row.name.split(" ")[0]} to pay via their banking app, then mark as paid here.`}
-                                </p>
-                                <p className="text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "#ccc" }}>Currency</p>
-
-                                <button
-                                  type="button"
-                                  onClick={() => setMemberBankDropdownOpen((p) => ({ ...p, [memberId]: !p[memberId] }))}
-                                  className="w-full rounded-[14px] px-4 py-3 text-sm font-semibold mb-1 flex items-center justify-between transition-colors"
-                                  style={{
-                                    background: "rgba(255,255,255,0.05)",
-                                    border: `1px solid ${isBankOpen ? "rgba(255,255,255,0.18)" : "rgba(255,255,255,0.09)"}`,
-                                    color: "#fff",
-                                  }}
-                                >
-                                  <span>
-                                    {CURRENCY_FLAG[selCurrency] || "💱"} {selCurrency}
-                                    {selEntry ? ` · ${selEntry.name}` : ""}
-                                  </span>
-                                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, transition: "transform 0.2s", display: "inline-block", transform: isBankOpen ? "rotate(180deg)" : "none" }}>▾</span>
-                                </button>
-
-                                {isBankOpen && (
-                                  <div
-                                    className="rounded-[18px] overflow-hidden"
-                                    style={{ border: "1px solid rgba(255,255,255,0.09)", background: "#141414", boxShadow: "0 20px 60px rgba(0,0,0,0.7)" }}
-                                  >
-                                    <div className="flex items-center gap-2 px-3 py-2.5" style={{ borderBottom: "1px solid rgba(255,255,255,0.06)" }}>
-                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="rgba(255,255,255,0.4)" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
-                                      <input
-                                        autoFocus
-                                        placeholder="Search currency…"
-                                        value={search}
-                                        onChange={(e) => setMemberBankSearch((p) => ({ ...p, [memberId]: e.target.value }))}
-                                        className="bg-transparent outline-none text-[13px] w-full"
-                                        style={{ color: "#fff", fontFamily: "inherit" }}
-                                      />
-                                    </div>
-                                    <div className="px-4 py-1.5 text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "rgba(255,255,255,0.35)" }}>Fiat</div>
-                                    <div style={{ maxHeight: 200, overflowY: "auto" }}>
-                                      {filtered.map((c: { id: string; name: string }, i: number) => {
-                                        const isSel = c.id === selCurrency;
-                                        return (
-                                          <div
-                                            key={c.id}
-                                            onClick={() => {
-                                              setMemberBankCurrencies((p) => ({ ...p, [memberId]: c.id }));
-                                              setMemberBankDropdownOpen((p) => ({ ...p, [memberId]: false }));
-                                              setMemberBankSearch((p) => ({ ...p, [memberId]: "" }));
-                                            }}
-                                            className="flex items-center gap-3 px-4 cursor-pointer transition-colors"
-                                            style={{
-                                              padding: "10px 16px",
-                                              borderBottom: i < filtered.length - 1 ? "1px solid rgba(255,255,255,0.04)" : "none",
-                                              background: isSel ? "rgba(34,211,238,0.06)" : "transparent",
-                                            }}
-                                          >
-                                            <span style={{ fontSize: 17 }}>{CURRENCY_FLAG[c.id] || "💱"}</span>
-                                            <span style={{ fontWeight: 700, fontSize: 13, color: isSel ? "#fff" : "rgba(255,255,255,0.85)", minWidth: 36 }}>{c.id}</span>
-                                            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 12, flex: 1 }}>{c.name}</span>
-                                            {isSel && <span style={{ color: "#22D3EE", fontSize: 12 }}>✓</span>}
-                                          </div>
-                                        );
-                                      })}
-                                      {filtered.length === 0 && (
-                                        <p className="text-center py-4 text-xs" style={{ color: "rgba(255,255,255,0.35)" }}>No currencies found</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                )}
-
-                                {memberMarkedPaid[memberId] ? (
-                                  <div
-                                    className="w-full py-3 rounded-[14px] text-sm font-bold text-center"
-                                    style={{ background: "rgba(52,211,153,0.06)", border: "1px solid rgba(52,211,153,0.20)", color: "#34D399" }}
-                                  >
-                                    ✓ Marked as paid
-                                  </div>
-                                ) : (
-                                  <button
-                                    type="button"
-                                    disabled={markAsPaidMutation.isPending}
-                                    className="w-full py-3 rounded-[14px] text-sm font-extrabold transition-colors hover:opacity-90 disabled:opacity-50"
-                                    style={{ background: "rgba(52,211,153,0.10)", border: "1.5px solid rgba(52,211,153,0.25)", color: "#34D399" }}
-                                    onClick={() => {
-                                      const displayedAmount =
-                                        specificMemberAmounts?.[memberId] !== undefined
-                                          ? Math.abs(specificMemberAmounts[memberId])
-                                          : Math.abs(row.netConvertedSigned);
-                                      handleMarkAsPaid(
-                                        memberId,
-                                        displayedAmount,
-                                        memberBankCurrencies[memberId] || defaultCurrency || row.currency,
-                                        row.direction,
-                                      );
-                                    }}
-                                  >
-                                    {markAsPaidMutation.isPending ? "Marking…" : "✓ Mark as Paid"}
-                                  </button>
-                                )}
-                              </div>
-                            );
-                          })()}
                         </motion.div>
                       );
                     })()}
