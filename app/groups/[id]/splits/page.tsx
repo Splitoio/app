@@ -433,7 +433,14 @@ export default function GroupSplitsPage() {
                     if (firstOwer) handleSendReminder(firstOwer.userId, expense.id);
                   }}
                   onSettle={() => {
-                    openSettle();
+                    const myParticipation = expense.expenseParticipants?.find(
+                      (p) => p.userId === user.id && !p.isPaid && p.amount > 0
+                    );
+                    if (myParticipation && expense.paidBy !== user.id) {
+                      openSettle(expense.paidBy, myParticipation.amount, undefined, expense.id);
+                    } else {
+                      openSettle();
+                    }
                   }}
                   onMarkAsPaid={(userId) => {
                     if (markPaidMutation.isPending) return;

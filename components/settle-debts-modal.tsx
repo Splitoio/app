@@ -41,6 +41,7 @@ interface SettleDebtsModalProps {
   specificDebtByCurrency?: Record<string, number>;
   defaultExpandedMemberId?: string | null;
   specificMemberAmounts?: Record<string, number>;
+  expenseId?: string;
 }
 
 export function SettleDebtsModal({
@@ -57,6 +58,7 @@ export function SettleDebtsModal({
   specificDebtByCurrency,
   defaultExpandedMemberId,
   specificMemberAmounts,
+  expenseId,
 }: SettleDebtsModalProps) {
   const user = useAuthStore((state) => state.user);
   const {
@@ -308,15 +310,21 @@ export function SettleDebtsModal({
     }
   }, [isOpen, groupId, showIndividualView, selectedFriendId, userStellarAddress]);
 
-  // Reset expanded row and step when modal opens
+  // Reset expanded row and step when modal opens; auto-jump for single-expense
   useEffect(() => {
     if (isOpen) {
       setExpandedRowMemberId(null);
-      setSettleStep(1);
       setSlideDir(1);
-      setSelectedSettleMemberId(null);
+
+      if (expenseId && defaultExpandedMemberId) {
+        setSelectedSettleMemberId(defaultExpandedMemberId);
+        setSettleStep(3);
+      } else {
+        setSettleStep(1);
+        setSelectedSettleMemberId(null);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, expenseId, defaultExpandedMemberId]);
 
   // Auto-select recipient's preferred chain when their settlement preference loads
   useEffect(() => {
@@ -337,8 +345,11 @@ export function SettleDebtsModal({
           const amount = Math.abs(specificAmount);
           setFiatAmount(amount.toFixed(2));
           setIndividualAmount(amount.toFixed(2));
-          // Set debt currency from specificDebtByCurrency if available
-          if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
+          // Set debt currency from the expense or specificDebtByCurrency
+          if (expenseId) {
+            const expense = _expenses.find((e) => e.id === expenseId);
+            if (expense?.currency) setDebtCurrency(expense.currency);
+          } else if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
             setDebtCurrency(Object.keys(specificDebtByCurrency)[0]);
           }
         } else if (specificDebtByCurrency && Object.keys(specificDebtByCurrency).length > 0) {
@@ -747,6 +758,7 @@ export function SettleDebtsModal({
       selectedTokenId: selectedToken.id,
       selectedChainId: selectedChain || undefined,
       amount: amountToSettle,
+      ...(expenseId ? { expenseId } : {}),
     };
     settleDebtMutation.mutate(payload, {
       onSuccess: () => {
@@ -1091,7 +1103,34 @@ export function SettleDebtsModal({
     return result;
   }, [selectedSettleMemberId, user, _expenses]);
 
-  const selectedMemberRow = memberDebtRows.find(r => r.memberId === selectedSettleMemberId);
+  const singleExpense = expenseId ? _expenses.find((e) => e.id === expenseId) : null;
+
+  const selectedMemberRow = useMemo(() => {
+    // Single-expense: build row from that expense only (not the aggregated total)
+    if (expenseId && selectedSettleMemberId && singleExpense && user) {
+      const member = _members.find((m) => m.id === selectedSettleMemberId);
+      const aggregated = memberDebtRows.find(r => r.memberId === selectedSettleMemberId);
+      const myPart = singleExpense.expenseParticipants?.find(p => p.userId === user.id && !p.isPaid);
+      if (member && myPart) {
+        const palette = ["#A78BFA", "#34D399", "#FB923C", "#22D3EE", "#F472B6", "#FBBF24"];
+        const initials = aggregated?.initials
+          || (member.name || member.email || "?").split(" ").map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+        return {
+          memberId: selectedSettleMemberId,
+          name: member.name || member.email || "Member",
+          initials,
+          color: aggregated?.color || palette[0],
+          debts: [{ currency: singleExpense.currency, signed: myPart.amount, amount: myPart.amount }],
+          direction: "owe" as const,
+          netConvertedSigned: myPart.amount,
+          amount: myPart.amount,
+          currency: singleExpense.currency,
+        };
+      }
+    }
+
+    return memberDebtRows.find(r => r.memberId === selectedSettleMemberId);
+  }, [memberDebtRows, selectedSettleMemberId, expenseId, singleExpense, user, _members]);
 
   const isMobile = useIsMobile();
 
@@ -1133,7 +1172,7 @@ export function SettleDebtsModal({
                   <div className="flex items-center gap-3">
                     {settleStep > 1 && (
                       <button
-                        onClick={() => handleBackToStep(settleStep - 1)}
+                        onClick={() => expenseId ? onClose() : handleBackToStep(settleStep - 1)}
                         className="h-9 w-9 rounded-full border border-white/10 bg-white/[0.07] grid place-items-center hover:bg-white/[0.12] transition-colors flex-shrink-0"
                       >
                         <ArrowLeft className="h-4 w-4 text-white/70" />
@@ -1143,12 +1182,12 @@ export function SettleDebtsModal({
                       <h2 className={`font-extrabold text-white tracking-tight ${isMobile ? "text-lg" : "text-xl"}`}>
                         {settleStep === 1 && "Settle Debts"}
                         {settleStep === 2 && `Expenses · ${selectedMemberRow?.name?.split(" ")[0] || "Member"}`}
-                        {settleStep === 3 && `Pay ${selectedMemberRow?.name?.split(" ")[0] || "Member"}`}
+                        {settleStep === 3 && (expenseId ? `Pay for ${singleExpense?.name || "Expense"}` : `Pay ${selectedMemberRow?.name?.split(" ")[0] || "Member"}`)}
                       </h2>
                       <p className="mt-1 text-xs text-white/55">
                         {settleStep === 1 && displayGroupName}
                         {settleStep === 2 && "Review what you owe"}
-                        {settleStep === 3 && "Choose payment method"}
+                        {settleStep === 3 && (expenseId ? `to ${selectedMemberRow?.name?.split(" ")[0] || "Member"}` : "Choose payment method")}
                       </p>
                     </div>
                   </div>
@@ -1160,8 +1199,8 @@ export function SettleDebtsModal({
                   </button>
                 </div>
 
-                {/* Progress bar — 3 steps for "owe", 2 for "owed" */}
-                {(() => {
+                {/* Progress bar — hidden for single-expense, 3 steps for "owe", 2 for "owed" */}
+                {!expenseId && (() => {
                   const totalSteps = selectedMemberRow && selectedMemberRow.direction === "owed" ? 2 : 3;
                   return (
                     <div className="flex gap-1.5 mb-6">
@@ -1431,15 +1470,20 @@ export function SettleDebtsModal({
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-white text-[14px] font-bold truncate">{row.name}</p>
+                              {singleExpense && (
+                                <p className="text-[11px] text-white/40 mt-0.5 truncate">for {singleExpense.name}</p>
+                              )}
                             </div>
                             <p className="text-[15px] font-extrabold tabular-nums flex-shrink-0" style={{ color: row.direction === "owe" ? "#F87171" : "#34D399" }}>
                               {row.direction === "owe" ? "-" : "+"}
-                              {formatCurrency(
-                                specificMemberAmounts?.[memberId] !== undefined
+                              {(() => {
+                                const amt = specificMemberAmounts?.[memberId] !== undefined
                                   ? Math.abs(specificMemberAmounts[memberId])
-                                  : Math.abs(row.netConvertedSigned),
-                                defaultCurrency || "USD"
-                              )}
+                                  : Math.abs(row.netConvertedSigned);
+                                const cur = singleExpense?.currency || row.debts[0]?.currency || defaultCurrency || "USD";
+                                const fmt = formatWithDefault(amt, cur);
+                                return <>{fmt.primary}{fmt.secondary && <span className="text-[11px] font-semibold text-white/35"> ({fmt.secondary})</span>}</>;
+                              })()}
                             </p>
                           </div>
 

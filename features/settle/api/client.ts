@@ -112,6 +112,7 @@ const settleDebtStellar = async (
     selectedTokenId?: string;
     selectedChainId?: string;
     amount?: number;
+    expenseId?: string;
   },
   unsignedTx: UnsignedTxResponse,
   wallet: StellarWallet
@@ -195,6 +196,7 @@ const settleDebtAptos = async (
     selectedTokenId?: string;
     selectedChainId?: string;
     amount?: number;
+    expenseId?: string;
   },
   unsignedTx: UnsignedTxResponse,
   wallet: AptosWalletContextType
@@ -348,6 +350,7 @@ export const settleDebt = async (
     selectedTokenId?: string;
     selectedChainId?: string;
     amount?: number;
+    expenseId?: string;
   },
   wallet: WalletType | undefined
 ) => {

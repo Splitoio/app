@@ -42,6 +42,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
   const [settleFriendId, setSettleFriendId] = useState<string | null>(null);
   const [settleSpecificAmount, setSettleSpecificAmount] = useState<number | undefined>(undefined);
   const [settleSpecificMemberAmounts, setSettleSpecificMemberAmounts] = useState<Record<string, number> | undefined>(undefined);
+  const [settleExpenseId, setSettleExpenseId] = useState<string | undefined>(undefined);
   const [groupSettings, setGroupSettings] = useState({
     name: "",
     lockPrice: true,
@@ -176,15 +177,17 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
     openAddMember: () => setIsAddMemberModalOpen(true),
     openAddExpense: () => setIsAddExpenseModalOpen(true),
     openSettings: () => setIsSettingsModalOpen(true),
-    openSettle: (friendId?: string | null, specificAmount?: number, specificMemberAmounts?: Record<string, number>) => {
+    openSettle: (friendId?: string | null, specificAmount?: number, specificMemberAmounts?: Record<string, number>, expenseId?: string) => {
       setSettleFriendId(friendId ?? null);
       setSettleSpecificAmount(specificAmount);
       setSettleSpecificMemberAmounts(specificMemberAmounts);
+      setSettleExpenseId(expenseId);
       setIsSettleModalOpen(true);
     },
     settleFriendId,
     settleSpecificAmount,
     settleSpecificMemberAmounts,
+    settleExpenseId,
     getSpecificDebtAmount,
     getSpecificDebtByCurrency,
     handleSettleFriendClick,
@@ -217,6 +220,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
             setSettleFriendId(null);
             setSettleSpecificAmount(undefined);
             setSettleSpecificMemberAmounts(undefined);
+            setSettleExpenseId(undefined);
           }}
           balances={group.groupBalances}
           groupId={groupId}
@@ -227,6 +231,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
           defaultExpandedMemberId={settleFriendId}
           specificAmount={settleSpecificAmount}
           specificMemberAmounts={settleSpecificMemberAmounts}
+          expenseId={settleExpenseId}
         />
 
         <AddMemberModal
