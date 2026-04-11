@@ -38,14 +38,14 @@ export interface SettingsPageContentProps {
   groupCount?: number;
   friendCount?: number;
   settledCount?: number;
-  settlementPref: SettlementPreference | null;
+  settlementPrefs: SettlementPreference[];
   isLoadingPref: boolean;
   isSavingPref: boolean;
   isRemovingPref: boolean;
   isUpdatingWallet: boolean;
   onSaveSettlementPref: (data: { tokenIds: string[]; chainId: string; walletAddress: string }) => void;
-  onRemoveSettlementPref: () => void;
-  onUpdateSettlementWallet: (walletAddress: string) => void;
+  onRemoveSettlementPref: (chainId: string) => void;
+  onUpdateSettlementWallet: (walletAddress: string, chainId: string) => void;
   allCurrencies: Currency[];
 }
 
@@ -129,54 +129,80 @@ function AvatarUpload({ id, size, isUploadingImage, uploadProgress, uploadError,
 
 // ─── Settlement Preference Display ───────────────────────────────────────────
 
-function SettlementPrefDisplay({ pref, isLoading, isRemoving, onEdit, onEditWallet, onRemove }: {
-  pref: SettlementPreference | null; isLoading: boolean; isRemoving: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void;
+function SettlementPrefItem({ pref, isRemoving, onEdit, onEditWallet, onRemove, isLast }: {
+  pref: SettlementPreference; isRemoving: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void; isLast: boolean;
 }) {
-  if (isLoading) return <Row style={{ borderBottom: "none", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></Row>;
-
-  if (!pref) {
-    return (
-      <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={onEdit}>
-        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
-        <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
-      </Row>
-    );
-  }
-
   const meta = getChainMeta(pref.chainId);
   const tokenSymbols = pref.tokens.map((t) => t.token.symbol).join(", ");
   const addr = pref.wallet?.address || "";
   const truncated = addr.length > 16 ? `${addr.slice(0, 8)}\u2026${addr.slice(-6)}` : addr;
 
   return (
-    <>
-      <Row style={{ borderBottom: "none" }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <div style={{ width: 40, height: 40, borderRadius: 12, background: `${meta.color}18`, border: `1.5px solid ${meta.color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, color: "#fff" }}>{meta.icon}</div>
-          <div>
-            <p style={{ fontSize: 14, fontWeight: 700, color: T.bright }}>{tokenSymbols} <span style={{ color: T.muted, fontWeight: 500, fontSize: 13 }}>on {pref.chain.name}</span></p>
-            {pref.wallet && <p style={{ fontSize: 11, color: T.muted, fontFamily: "monospace", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={addr}>{truncated}</p>}
-          </div>
+    <Row style={{ borderBottom: isLast ? "none" : undefined }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <div style={{ width: 40, height: 40, borderRadius: 12, background: `${meta.color}18`, border: `1.5px solid ${meta.color}33`, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0, color: "#fff" }}>{meta.icon}</div>
+        <div>
+          <p style={{ fontSize: 14, fontWeight: 700, color: T.bright }}>{tokenSymbols} <span style={{ color: T.muted, fontWeight: 500, fontSize: 13 }}>on {pref.chain.name}</span></p>
+          {pref.wallet && <p style={{ fontSize: 11, color: T.muted, fontFamily: "monospace", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={addr}>{truncated}</p>}
         </div>
-        <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
-          <button onClick={onEditWallet} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit Wallet</button>
-          <button onClick={onEdit} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Change</button>
-          <button onClick={onRemove} disabled={isRemoving} style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "7px 10px", color: "#F87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center" }}>{Icons.trash({})}</button>
-        </div>
+      </div>
+      <div style={{ display: "flex", gap: 7, flexShrink: 0 }}>
+        <button onClick={onEditWallet} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit Wallet</button>
+        <button onClick={onEdit} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "7px 14px", color: T.body, fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Change</button>
+        <button onClick={onRemove} disabled={isRemoving} style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "7px 10px", color: "#F87171", fontSize: 11, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center" }}>{Icons.trash({})}</button>
+      </div>
+    </Row>
+  );
+}
+
+function SettlementPrefDisplay({ prefs, isLoading, isRemoving, onEdit, onEditWallet, onRemove, onAdd }: {
+  prefs: SettlementPreference[]; isLoading: boolean; isRemoving: boolean;
+  onEdit: (chainId: string) => void; onEditWallet: (chainId: string) => void; onRemove: (chainId: string) => void; onAdd: () => void;
+}) {
+  if (isLoading) return <Row style={{ borderBottom: "none", justifyContent: "center" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></Row>;
+
+  if (prefs.length === 0) {
+    return (
+      <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={onAdd}>
+        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
+        <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
       </Row>
+    );
+  }
+
+  return (
+    <>
+      {prefs.map((pref, i) => (
+        <SettlementPrefItem
+          key={pref.chainId}
+          pref={pref}
+          isRemoving={isRemoving}
+          onEdit={() => onEdit(pref.chainId)}
+          onEditWallet={() => onEditWallet(pref.chainId)}
+          onRemove={() => onRemove(pref.chainId)}
+          isLast={i === prefs.length - 1 && prefs.length >= 4}
+        />
+      ))}
+      {prefs.length < 4 && (
+        <Row style={{ borderBottom: "none", cursor: "pointer" }} onClick={onAdd}>
+          <p style={{ color: T.muted, fontSize: 13 }}>Add another chain</p>
+          <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
+        </Row>
+      )}
     </>
   );
 }
 
 // ─── Settlement Preference Modal ─────────────────────────────────────────────
 
-function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies, initialChainId, initialTokenIds, initialWalletAddress, mode, onUpdateWallet, isUpdatingWallet }: {
+function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies, initialChainId, initialTokenIds, initialWalletAddress, mode, onUpdateWallet, isUpdatingWallet, existingChainIds = [] }: {
   isOpen: boolean; onClose: () => void;
   onSave: (data: { tokenIds: string[]; chainId: string; walletAddress: string }) => void;
   isSaving: boolean; allCurrencies: Currency[];
   initialChainId?: string; initialTokenIds?: string[]; initialWalletAddress?: string;
   mode: "add" | "edit-wallet";
   onUpdateWallet: (walletAddress: string) => void; isUpdatingWallet: boolean;
+  existingChainIds?: string[];
 }) {
   const [selectedChainId, setSelectedChainId] = React.useState<string>("");
   const [selectedTokenIds, setSelectedTokenIds] = React.useState<Set<string>>(new Set());
@@ -211,10 +237,9 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
         setWalletAddress(initialWalletAddress || "");
         setSelectedChainId(initialChainId || "");
       } else {
-        const chain = initialChainId || chainIds[0] || "";
-        setSelectedChainId(chain);
-        // Pre-select all tokens for that chain
-        const chainTokens = cryptoTokens.filter((c) => c.chainId === chain);
+        const availableChain = initialChainId || chainIds.find((c) => !existingChainIds.includes(c)) || chainIds[0] || "";
+        setSelectedChainId(availableChain);
+        const chainTokens = cryptoTokens.filter((c) => c.chainId === availableChain);
         if (initialTokenIds?.length) {
           setSelectedTokenIds(new Set(initialTokenIds));
         } else {
@@ -274,6 +299,44 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
     }
   };
 
+  const handleConnectSolana = async () => {
+    if (isConnecting) return;
+    setIsConnecting(true);
+    try {
+      const phantom = (window as unknown as Record<string, unknown>).phantom as Record<string, unknown> | undefined;
+      const provider = phantom?.solana as { isPhantom?: boolean; connect: () => Promise<{ publicKey: { toString: () => string } }> } | undefined;
+      if (!provider?.isPhantom) {
+        toast.error("Phantom wallet not found. Install it from phantom.app");
+        setIsConnecting(false);
+        return;
+      }
+      const resp = await provider.connect();
+      const addr = resp.publicKey.toString();
+      if (addr) { setWalletAddress(addr); toast.success("Solana wallet connected"); }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to connect Solana wallet");
+    } finally { setIsConnecting(false); }
+  };
+
+  const handleConnectBase = async () => {
+    if (isConnecting) return;
+    setIsConnecting(true);
+    try {
+      const eth = (window as unknown as Record<string, unknown>).ethereum as { request: (args: { method: string }) => Promise<string[]> } | undefined;
+      if (!eth) {
+        toast.error("No EVM wallet found. Install MetaMask or Coinbase Wallet.");
+        setIsConnecting(false);
+        return;
+      }
+      const accounts = await eth.request({ method: "eth_requestAccounts" });
+      if (accounts?.[0]) { setWalletAddress(accounts[0]); toast.success("Base wallet connected"); }
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to connect wallet");
+    } finally { setIsConnecting(false); }
+  };
+
   const canSave = mode === "edit-wallet"
     ? walletAddress.trim().length > 0
     : selectedChainId && selectedTokenIds.size > 0 && walletAddress.trim().length > 0;
@@ -284,7 +347,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   };
 
   const isWorking = mode === "edit-wallet" ? isUpdatingWallet : isSaving;
-  const connectSupported = selectedChainId === "stellar" || selectedChainId === "aptos";
+  const connectSupported = ["stellar", "aptos", "solana", "base"].includes(selectedChainId);
 
   return (
     <AnimatePresence>
@@ -318,12 +381,14 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                     {chainIds.map((cid) => {
                       const m = getChainMeta(cid);
                       const sel = selectedChainId === cid;
+                      const alreadyUsed = existingChainIds.includes(cid) && cid !== initialChainId;
                       return (
-                        <button key={cid} onClick={() => handleChainChange(cid)} style={{
+                        <button key={cid} onClick={() => !alreadyUsed && handleChainChange(cid)} disabled={alreadyUsed} style={{
                           padding: "12px 6px", background: sel ? `${m.color}18` : "rgba(255,255,255,0.04)",
                           border: `1.5px solid ${sel ? `${m.color}55` : "rgba(255,255,255,0.08)"}`,
-                          borderRadius: 16, cursor: "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
+                          borderRadius: 16, cursor: alreadyUsed ? "not-allowed" : "pointer", display: "flex", flexDirection: "column", alignItems: "center", gap: 6,
                           transition: "all 0.2s", fontFamily: "inherit", boxShadow: sel ? `0 0 16px ${m.color}22` : "none",
+                          opacity: alreadyUsed ? 0.35 : 1,
                         }}>
                           <span style={{ fontSize: 20, color: "#fff" }}>{m.icon}</span>
                           <span style={{ fontSize: 11, fontWeight: 700, color: sel ? m.color : "#999" }}>{m.label}</span>
@@ -373,6 +438,8 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                         onClick={() => {
                           if (selectedChainId === "stellar") handleConnectStellar();
                           else if (selectedChainId === "aptos") handleConnectAptos();
+                          else if (selectedChainId === "solana") handleConnectSolana();
+                          else if (selectedChainId === "base") handleConnectBase();
                         }}
                         disabled={isConnecting}
                         style={{
@@ -423,20 +490,9 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
 
 // ─── Mobile Settlement Pref Display ──────────────────────────────────────────
 
-function MobileSettlementPref({ pref, isLoading, onEdit, onEditWallet, onRemove }: {
-  pref: SettlementPreference | null; isLoading: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void;
+function MobileSettlementPrefItem({ pref, isLast, onEdit, onEditWallet, onRemove }: {
+  pref: SettlementPreference; isLast: boolean; onEdit: () => void; onEditWallet: () => void; onRemove: () => void;
 }) {
-  if (isLoading) return <MobileRow last><div style={{ display: "flex", justifyContent: "center", width: "100%" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div></MobileRow>;
-
-  if (!pref) {
-    return (
-      <MobileRow last onClick={onEdit}>
-        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
-        <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
-      </MobileRow>
-    );
-  }
-
   const meta = getChainMeta(pref.chainId);
   const tokenSymbols = pref.tokens.map((t) => t.token.symbol).join(", ");
   const addr = pref.wallet?.address || "";
@@ -454,13 +510,50 @@ function MobileSettlementPref({ pref, isLoading, onEdit, onEditWallet, onRemove 
         </div>
         <span style={{ color: T.dim, fontSize: 18 }}>&rsaquo;</span>
       </MobileRow>
-      <MobileRow last>
+      <MobileRow last={isLast}>
         <div style={{ display: "flex", gap: 8, width: "100%" }}>
           <button onClick={onEditWallet} style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "10px", color: T.body, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Edit Wallet</button>
           <button onClick={onEdit} style={{ flex: 1, background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.11)", borderRadius: 10, padding: "10px", color: T.body, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>Change</button>
           <button onClick={onRemove} style={{ background: "rgba(248,113,113,0.07)", border: "1px solid rgba(248,113,113,0.15)", borderRadius: 10, padding: "10px 14px", color: "#F87171", fontSize: 13, cursor: "pointer", fontFamily: "inherit", display: "flex", alignItems: "center" }}>{Icons.trash({})}</button>
         </div>
       </MobileRow>
+    </>
+  );
+}
+
+function MobileSettlementPref({ prefs, isLoading, onEdit, onEditWallet, onRemove, onAdd }: {
+  prefs: SettlementPreference[]; isLoading: boolean;
+  onEdit: (chainId: string) => void; onEditWallet: (chainId: string) => void; onRemove: (chainId: string) => void; onAdd: () => void;
+}) {
+  if (isLoading) return <MobileRow last><div style={{ display: "flex", justifyContent: "center", width: "100%" }}><Loader2 className="h-5 w-5 animate-spin" style={{ color: T.muted }} /></div></MobileRow>;
+
+  if (prefs.length === 0) {
+    return (
+      <MobileRow last onClick={onAdd}>
+        <p style={{ color: T.muted, fontSize: 13 }}>No settlement preference set yet.</p>
+        <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
+      </MobileRow>
+    );
+  }
+
+  return (
+    <>
+      {prefs.map((pref, i) => (
+        <MobileSettlementPrefItem
+          key={pref.chainId}
+          pref={pref}
+          isLast={i === prefs.length - 1 && prefs.length >= 4}
+          onEdit={() => onEdit(pref.chainId)}
+          onEditWallet={() => onEditWallet(pref.chainId)}
+          onRemove={() => onRemove(pref.chainId)}
+        />
+      ))}
+      {prefs.length < 4 && (
+        <MobileRow last onClick={onAdd}>
+          <p style={{ color: T.muted, fontSize: 13 }}>Add another chain</p>
+          <span style={{ color: A, fontSize: 13, fontWeight: 700 }}>+ Add</span>
+        </MobileRow>
+      )}
     </>
   );
 }
@@ -474,7 +567,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
     isUploadingImage, uploadProgress, uploadError, handleImageUpload,
     onLogout, isLoggingOut = false,
     groupCount = 0, friendCount = 0, settledCount = 0,
-    settlementPref, isLoadingPref, isSavingPref, isRemovingPref, isUpdatingWallet,
+    settlementPrefs, isLoadingPref, isSavingPref, isRemovingPref, isUpdatingWallet,
     onSaveSettlementPref, onRemoveSettlementPref, onUpdateSettlementWallet,
     allCurrencies,
   } = props;
@@ -485,13 +578,20 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
   const [prefModalOpen, setPrefModalOpen] = React.useState(false);
   const [prefModalMode, setPrefModalMode] = React.useState<"add" | "edit-wallet">("add");
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = React.useState(false);
+  const [activeChainId, setActiveChainId] = React.useState<string | null>(null);
+
+  const activePref = activeChainId ? settlementPrefs.find((p) => p.chainId === activeChainId) : null;
 
   const userEmail = user?.email ?? "";
   const userInitial = (displayName || user?.name || "Y").charAt(0).toUpperCase();
   const userColor = getUserColor(user?.name || "You");
   const currencyFlag = CURRENCY_FLAG[preferredCurrency] ?? "\u{1F4B1}";
 
-  const openPrefModal = (mode: "add" | "edit-wallet") => { setPrefModalMode(mode); setPrefModalOpen(true); };
+  const openPrefModalForChain = (mode: "add" | "edit-wallet", chainId?: string) => {
+    setActiveChainId(chainId ?? null);
+    setPrefModalMode(mode);
+    setPrefModalOpen(true);
+  };
 
   return (
     <div style={{ flex: 1, display: "flex", flexDirection: "column", minWidth: 0 }}>
@@ -544,7 +644,14 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
 
         <MSLabel>Settlement Preference</MSLabel>
         <MobileCard>
-          <MobileSettlementPref pref={settlementPref} isLoading={isLoadingPref} onEdit={() => openPrefModal("add")} onEditWallet={() => openPrefModal("edit-wallet")} onRemove={() => setIsRemoveConfirmOpen(true)} />
+          <MobileSettlementPref
+            prefs={settlementPrefs}
+            isLoading={isLoadingPref}
+            onEdit={(chainId) => openPrefModalForChain("add", chainId)}
+            onEditWallet={(chainId) => openPrefModalForChain("edit-wallet", chainId)}
+            onRemove={(chainId) => { setActiveChainId(chainId); setIsRemoveConfirmOpen(true); }}
+            onAdd={() => openPrefModalForChain("add")}
+          />
         </MobileCard>
 
         <MSLabel>Security</MSLabel>
@@ -590,7 +697,15 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
 
         <SLabel>Settlement Preference</SLabel>
         <Card style={{ padding: "0 22px" }}>
-          <SettlementPrefDisplay pref={settlementPref} isLoading={isLoadingPref} isRemoving={isRemovingPref} onEdit={() => openPrefModal("add")} onEditWallet={() => openPrefModal("edit-wallet")} onRemove={() => setIsRemoveConfirmOpen(true)} />
+          <SettlementPrefDisplay
+            prefs={settlementPrefs}
+            isLoading={isLoadingPref}
+            isRemoving={isRemovingPref}
+            onEdit={(chainId) => openPrefModalForChain("add", chainId)}
+            onEditWallet={(chainId) => openPrefModalForChain("edit-wallet", chainId)}
+            onRemove={(chainId) => { setActiveChainId(chainId); setIsRemoveConfirmOpen(true); }}
+            onAdd={() => openPrefModalForChain("add")}
+          />
         </Card>
 
         <SLabel>Security</SLabel>
@@ -619,12 +734,13 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
         onSave={(data) => { onSaveSettlementPref(data); setPrefModalOpen(false); }}
         isSaving={isSavingPref}
         allCurrencies={allCurrencies}
-        initialChainId={settlementPref?.chainId}
-        initialTokenIds={settlementPref?.tokens.map((t) => t.tokenId)}
-        initialWalletAddress={settlementPref?.wallet?.address}
+        initialChainId={activePref?.chainId}
+        initialTokenIds={activePref?.tokens.map((t) => t.tokenId)}
+        initialWalletAddress={activePref?.wallet?.address}
         mode={prefModalMode}
-        onUpdateWallet={(addr) => { onUpdateSettlementWallet(addr); setPrefModalOpen(false); }}
+        onUpdateWallet={(addr) => { if (activePref) onUpdateSettlementWallet(addr, activePref.chainId); setPrefModalOpen(false); }}
         isUpdatingWallet={isUpdatingWallet}
+        existingChainIds={settlementPrefs.map((p) => p.chainId)}
       />
 
       <AnimatePresence>
@@ -650,7 +766,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
                 <p style={{ color: T.body, fontSize: 14, lineHeight: 1.6 }}>You won&apos;t be able to receive crypto settlements until you set a new preference.</p>
                 <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 20 }}>
                   <Btn variant="ghost" onClick={() => setIsRemoveConfirmOpen(false)}>Cancel</Btn>
-                  <Btn variant="danger" onClick={() => { onRemoveSettlementPref(); setIsRemoveConfirmOpen(false); }} style={{ opacity: isRemovingPref ? 0.7 : 1 }}>
+                  <Btn variant="danger" onClick={() => { if (activeChainId) onRemoveSettlementPref(activeChainId); setIsRemoveConfirmOpen(false); }} style={{ opacity: isRemovingPref ? 0.7 : 1 }}>
                     {isRemovingPref ? <><Loader2 className="h-4 w-4 animate-spin" /><span>Removing…</span></> : <span>Remove</span>}
                   </Btn>
                 </div>

@@ -94,7 +94,7 @@ export const useSaveSettlementPreference = () => {
 export const useRemoveSettlementPreference = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: removeSettlementPreference,
+    mutationFn: (chainId?: string) => removeSettlementPreference(chainId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
       queryClient.invalidateQueries({ queryKey: ACCEPTED_TOKENS_KEY });
@@ -105,7 +105,7 @@ export const useRemoveSettlementPreference = () => {
 export const useUpdateSettlementWallet = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: updateSettlementWallet,
+    mutationFn: (payload: { walletAddress: string; chainId?: string }) => updateSettlementWallet(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: SETTLEMENT_PREF_KEY });
       queryClient.invalidateQueries({ queryKey: [WALLET_QUERY_KEYS.WALLETS] });

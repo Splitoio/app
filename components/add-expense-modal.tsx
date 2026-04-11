@@ -164,6 +164,8 @@ export function AddExpenseModal({
   const [splits, setSplits] = useState<Split[]>([]);
   const [percentages, setPercentages] = useState<{ [key: string]: number }>({});
   const [selectedParticipants, setSelectedParticipants] = useState<Set<string>>(new Set());
+  const [touchedCustom, setTouchedCustom] = useState<Set<string>>(new Set());
+  const [touchedPercentage, setTouchedPercentage] = useState<Set<string>>(new Set());
   const expenseMutation = useCreateExpense(groupId);
 
   const groupCtx = useGroupLayoutOptional();
@@ -174,6 +176,8 @@ export function AddExpenseModal({
       setStep(1);
       setFormData((prev) => ({ ...prev, currency: defaultCurrency, currencyType: "FIAT" }));
       setSelectedParticipants(new Set(members.map((m) => m.id)));
+      setTouchedCustom(new Set());
+      setTouchedPercentage(new Set());
     }
   }, [isOpen, defaultCurrency, members]);
 
@@ -200,72 +204,118 @@ export function AddExpenseModal({
   };
 
   useEffect(() => {
+    setTouchedCustom(new Set());
+    setTouchedPercentage(new Set());
+  }, [formData.splitType, selectedParticipants]);
+
+  useEffect(() => {
     const allMemberIds = members.map((m) => m.id);
+    const total = Number(formData.amount);
 
-    let newSplits: Split[] = [];
-
-    switch (formData.splitType) {
-      case "equal":
-        const activeIds = allMemberIds.filter((id) => selectedParticipants.has(id));
-        const equalAmount = activeIds.length > 0 ? Number(formData.amount) / activeIds.length : 0;
-        newSplits = allMemberIds.map((id) => ({
-          address: id,
-          amount: selectedParticipants.has(id) ? equalAmount : 0,
-        }));
-        break;
-
-      case "percentage":
-        const equalPercentage = 100 / allMemberIds.length;
-        newSplits = allMemberIds.map((id) => ({
-          address: id,
-          amount: (Number(formData.amount) * equalPercentage) / 100,
-          percentage: equalPercentage,
-        }));
-        break;
-
-      case "custom":
-        newSplits = allMemberIds.map((id) => ({
-          address: id,
-          amount: 0,
-        }));
-        break;
+    if (formData.splitType === "equal") {
+      const activeIds = allMemberIds.filter((id) => selectedParticipants.has(id));
+      const equalAmount = activeIds.length > 0 ? total / activeIds.length : 0;
+      setSplits(allMemberIds.map((id) => ({
+        address: id,
+        amount: selectedParticipants.has(id) ? equalAmount : 0,
+      })));
     }
-
-    setSplits(newSplits);
   }, [members, formData.amount, formData.splitType, formData.paidBy, selectedParticipants]);
 
+  useEffect(() => {
+    const allMemberIds = members.map((m) => m.id);
+    const total = Number(formData.amount);
+
+    if (formData.splitType === "percentage") {
+      const activeIds = allMemberIds.filter((id) => selectedParticipants.has(id));
+      const equalPct = activeIds.length > 0 ? 100 / activeIds.length : 0;
+      setSplits(allMemberIds.map((id) => ({
+        address: id,
+        amount: selectedParticipants.has(id) ? (total * equalPct) / 100 : 0,
+        percentage: selectedParticipants.has(id) ? equalPct : 0,
+      })));
+    }
+
+    if (formData.splitType === "custom") {
+      const activeIds = allMemberIds.filter((id) => selectedParticipants.has(id));
+      const perPerson = activeIds.length > 0 ? total / activeIds.length : 0;
+      setSplits(allMemberIds.map((id) => ({
+        address: id,
+        amount: selectedParticipants.has(id) ? perPerson : 0,
+      })));
+    }
+  }, [members, formData.splitType, formData.paidBy, selectedParticipants]);
+
   const updateCustomSplit = (id: string, amount: number) => {
+    const newTouched = new Set(touchedCustom);
+    newTouched.add(id);
+    setTouchedCustom(newTouched);
+
     setSplits((current) => {
       const total = Number(formData.amount);
-      const others = current.filter((s) => s.address !== id);
-      const remaining = total - amount;
-      const perOther = others.length > 0 ? remaining / others.length : 0;
+      const touchedSum = current
+        .filter((s) => s.address !== id && newTouched.has(s.address) && selectedParticipants.has(s.address))
+        .reduce((sum, s) => sum + s.amount, 0);
+      const remaining = total - amount - touchedSum;
+      const untouched = current.filter(
+        (s) => s.address !== id && !newTouched.has(s.address) && selectedParticipants.has(s.address)
+      );
+      const perUntouched = untouched.length > 0 ? Math.max(0, remaining / untouched.length) : 0;
+
       return current.map((split) => {
         if (split.address === id) return { ...split, amount };
-        return { ...split, amount: perOther };
+        if (!selectedParticipants.has(split.address)) return { ...split, amount: 0 };
+        if (newTouched.has(split.address)) return split;
+        return { ...split, amount: perUntouched };
       });
     });
   };
 
   const updatePercentage = (id: string, percentage: number) => {
+    const newTouched = new Set(touchedPercentage);
+    newTouched.add(id);
+    setTouchedPercentage(newTouched);
+
     setPercentages((current) => {
-      const otherIds = Object.keys(current).filter((k) => k !== id);
-      const remaining = 100 - percentage;
-      const perOther = otherIds.length > 0 ? remaining / otherIds.length : 0;
-      const updated: { [key: string]: number } = { ...current, [id]: percentage };
-      otherIds.forEach((k) => (updated[k] = perOther));
+      const touchedSum = Object.entries(current)
+        .filter(([k]) => k !== id && newTouched.has(k) && selectedParticipants.has(k))
+        .reduce((sum, [, v]) => sum + v, 0);
+      const remaining = 100 - percentage - touchedSum;
+      const untouchedIds = Object.keys(current).filter(
+        (k) => k !== id && !newTouched.has(k) && selectedParticipants.has(k)
+      );
+      const perUntouched = untouchedIds.length > 0 ? Math.max(0, remaining / untouchedIds.length) : 0;
+
+      const updated: { [key: string]: number } = {};
+      for (const k of Object.keys(current)) {
+        if (k === id) updated[k] = percentage;
+        else if (!selectedParticipants.has(k)) updated[k] = 0;
+        else if (newTouched.has(k)) updated[k] = current[k];
+        else updated[k] = perUntouched;
+      }
       return updated;
     });
 
     setSplits((current) => {
-      const otherSplits = current.filter((s) => s.address !== id);
-      const remaining = 100 - percentage;
-      const perOther = otherSplits.length > 0 ? remaining / otherSplits.length : 0;
+      const touchedPctSum = [...newTouched]
+        .filter((k) => k !== id && selectedParticipants.has(k))
+        .reduce((sum, k) => sum + (percentages[k] ?? 0), 0);
+      const remaining = 100 - percentage - touchedPctSum;
+      const untouched = current.filter(
+        (s) => s.address !== id && !newTouched.has(s.address) && selectedParticipants.has(s.address)
+      );
+      const perUntouched = untouched.length > 0 ? Math.max(0, remaining / untouched.length) : 0;
+      const total = Number(formData.amount);
+
       return current.map((split) => {
         if (split.address === id) {
-          return { ...split, amount: (Number(formData.amount) * percentage) / 100, percentage };
+          return { ...split, amount: (total * percentage) / 100, percentage };
         }
-        return { ...split, amount: (Number(formData.amount) * perOther) / 100, percentage: perOther };
+        if (!selectedParticipants.has(split.address)) {
+          return { ...split, amount: 0, percentage: 0 };
+        }
+        if (newTouched.has(split.address)) return split;
+        return { ...split, amount: (total * perUntouched) / 100, percentage: perUntouched };
       });
     });
   };
@@ -395,13 +445,14 @@ export function AddExpenseModal({
     if (formData.splitType !== "percentage") return;
 
     const allMemberIds = members.map((m) => m.id);
-    const equalPercentage = 100 / allMemberIds.length;
+    const activeIds = allMemberIds.filter((id) => selectedParticipants.has(id));
+    const equalPercentage = activeIds.length > 0 ? 100 / activeIds.length : 0;
 
     const initialPercentages = Object.fromEntries(
-      allMemberIds.map((id) => [id, equalPercentage])
+      allMemberIds.map((id) => [id, selectedParticipants.has(id) ? equalPercentage : 0])
     );
     setPercentages(initialPercentages);
-  }, [members, formData.splitType, formData.paidBy]);
+  }, [members, formData.splitType, formData.paidBy, selectedParticipants]);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -903,7 +954,7 @@ export function AddExpenseModal({
                         return (
                           <div
                             key={member.id}
-                            onClick={isEqual ? () => toggleParticipant(member.id) : undefined}
+                            onClick={() => toggleParticipant(member.id)}
                             style={{
                               display: "flex",
                               alignItems: "center",
@@ -911,8 +962,8 @@ export function AddExpenseModal({
                               padding: "14px 18px",
                               borderBottom: "1px solid rgba(255,255,255,0.06)",
                               gap: 12,
-                              cursor: isEqual ? "pointer" : undefined,
-                              userSelect: isEqual ? "none" : undefined,
+                              cursor: "pointer",
+                              userSelect: "none",
                             }}
                           >
                             <div
@@ -922,34 +973,32 @@ export function AddExpenseModal({
                                 gap: 12,
                                 minWidth: 0,
                                 flex: 1,
-                                opacity: isEqual && !selectedParticipants.has(member.id) ? 0.4 : 1,
+                                opacity: !selectedParticipants.has(member.id) ? 0.4 : 1,
                                 transition: "opacity 0.2s",
                               }}
                             >
-                              {isEqual && (
-                                <button
-                                  type="button"
-                                  onClick={(e) => { e.stopPropagation(); toggleParticipant(member.id); }}
-                                  style={{
-                                    width: 22,
-                                    height: 22,
-                                    borderRadius: 6,
-                                    border: `2px solid ${selectedParticipants.has(member.id) ? A : "rgba(255,255,255,0.2)"}`,
-                                    background: selectedParticipants.has(member.id) ? A : "transparent",
-                                    cursor: "pointer",
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "center",
-                                    flexShrink: 0,
-                                    transition: "all 0.2s",
-                                    padding: 0,
-                                  }}
-                                >
-                                  {selectedParticipants.has(member.id) && (
-                                    <span style={{ color: "#0a0a0a", fontSize: 13, fontWeight: 800, lineHeight: 1 }}>✓</span>
-                                  )}
-                                </button>
-                              )}
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); toggleParticipant(member.id); }}
+                                style={{
+                                  width: 22,
+                                  height: 22,
+                                  borderRadius: 6,
+                                  border: `2px solid ${selectedParticipants.has(member.id) ? A : "rgba(255,255,255,0.2)"}`,
+                                  background: selectedParticipants.has(member.id) ? A : "transparent",
+                                  cursor: "pointer",
+                                  display: "flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  flexShrink: 0,
+                                  transition: "all 0.2s",
+                                  padding: 0,
+                                }}
+                              >
+                                {selectedParticipants.has(member.id) && (
+                                  <span style={{ color: "#0a0a0a", fontSize: 13, fontWeight: 800, lineHeight: 1 }}>✓</span>
+                                )}
+                              </button>
                               <div
                                 style={{
                                   width: 36,
@@ -1007,6 +1056,8 @@ export function AddExpenseModal({
                                     min={0}
                                     max={100}
                                     value={percentage || ""}
+                                    disabled={!selectedParticipants.has(member.id)}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) => {
                                       const value = Number(e.target.value);
                                       if (value >= 0 && value <= 100) {
@@ -1024,6 +1075,7 @@ export function AddExpenseModal({
                                       textAlign: "right",
                                       outline: "none",
                                       fontFamily: "inherit",
+                                      opacity: selectedParticipants.has(member.id) ? 1 : 0.3,
                                     }}
                                   />
                                   <span style={{ color: T.sub, fontSize: 12, width: 16 }}>%</span>
@@ -1044,6 +1096,8 @@ export function AddExpenseModal({
                                     min={0}
                                     step={0.01}
                                     value={amount || ""}
+                                    disabled={!selectedParticipants.has(member.id)}
+                                    onClick={(e) => e.stopPropagation()}
                                     onChange={(e) =>
                                       updateCustomSplit(
                                         member.id,
@@ -1062,6 +1116,7 @@ export function AddExpenseModal({
                                       textAlign: "right",
                                       outline: "none",
                                       fontFamily: "inherit",
+                                      opacity: selectedParticipants.has(member.id) ? 1 : 0.3,
                                     }}
                                   />
                                 </>

@@ -12,12 +12,37 @@ const FriendInviteSchema = z.object({
   status: z.enum(["pending", "accepted"]),
 });
 
+const ExpenseParticipantSchema = z.object({
+  expenseId: z.string(),
+  userId: z.string(),
+  amount: z.number(),
+  isPaid: z.boolean().default(false),
+});
+
+const FriendExpenseSchema = z.object({
+  id: z.string(),
+  paidBy: z.string(),
+  addedBy: z.string(),
+  name: z.string(),
+  category: z.string(),
+  amount: z.number(),
+  currency: z.string(),
+  splitType: z.string(),
+  expenseDate: z.coerce.date(),
+  createdAt: z.coerce.date(),
+  updatedAt: z.coerce.date(),
+  deletedAt: z.coerce.date().nullable(),
+  groupId: z.string().nullable(),
+  expenseParticipants: z.array(ExpenseParticipantSchema),
+}).passthrough();
+
 const FriendSchema = z.object({
   id: z.string(),
   email: z.string().email(),
   name: z.string(),
   balances: z.array(z.object({ currency: z.string(), amount: z.number() })),
   image: z.string().nullable(),
+  expenses: z.array(FriendExpenseSchema).default([]),
 });
 
 export const inviteFriend = async (payload: {

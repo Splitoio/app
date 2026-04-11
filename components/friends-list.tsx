@@ -9,10 +9,12 @@ import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { ApiError } from "@/types/api-error";
 import { UserPlus } from "lucide-react";
-import { Card, Avatar, Icons, T, fmt, G, getUserColor } from "@/lib/splito-design";
+import { Card, Avatar, Icons, T, G, getUserColor } from "@/lib/splito-design";
 import { SettleDebtsModal } from "@/components/settle-debts-modal";
 import { useAuthStore } from "@/stores/authStore";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
+import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+import { formatCurrency } from "@/utils/formatters";
 
 
 function getInitials(name: string): string {
@@ -23,12 +25,6 @@ function getInitials(name: string): string {
   return name.slice(0, 2).toUpperCase() || "?";
 }
 
-function getFriendBalance(
-  balances: Array<{ currency: string; amount: number }> | undefined
-): number {
-  if (!balances?.length) return 0;
-  return balances.reduce((sum, b) => sum + b.amount, 0);
-}
 
 export function FriendsList({
   search = "",
@@ -80,6 +76,7 @@ export function FriendsList({
   };
 
   const selectedGroup = selectedFriendId ? getGroupForFriend(selectedFriendId) : null;
+  const selectedFriend = selectedFriendId ? friends?.find((f) => f.id === selectedFriendId) : null;
 
   const searchLower = search.trim().toLowerCase();
   const filtered =
@@ -179,6 +176,7 @@ export function FriendsList({
               index={idx}
               isLast={idx === filtered.length - 1}
               onSettleClick={() => handleSettleFriendClick(friend.id)}
+              defaultCurrency={user?.currency || "USD"}
             />
           ))}
         </motion.div>
@@ -197,6 +195,7 @@ export function FriendsList({
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
             (gu: any) => gu.user ?? { id: "", name: null }
           )}
+          expenses={(selectedFriend?.expenses ?? []) as never[]}
           defaultCurrency={user?.currency || "USD"}
           defaultExpandedMemberId={selectedFriendId}
         />
@@ -210,6 +209,7 @@ function FriendRow({
   index,
   isLast,
   onSettleClick,
+  defaultCurrency,
 }: {
   friend: {
     id: string;
@@ -220,10 +220,16 @@ function FriendRow({
   index: number;
   isLast: boolean;
   onSettleClick: () => void;
+  defaultCurrency: string;
 }) {
-  const balance = getFriendBalance(friend.balances);
+  const balances = friend.balances ?? [];
+  const { total: balance, isLoading } = useConvertedBalanceTotal(balances, defaultCurrency);
   const color = getUserColor(friend.name);
   const init = getInitials(friend.name);
+
+  // Backend convention: positive = you owe friend, negative = friend owes you
+  // Flip for display: negative net = "owes you" (green), positive net = "you owe" (red)
+  const displayAmount = formatCurrency(Math.abs(balance), defaultCurrency);
 
   return (
     <motion.div variants={slideUp}>
@@ -252,7 +258,7 @@ function FriendRow({
             {friend.email ?? ""}
           </p>
         </div>
-        {balance < 0 && (
+        {balance > 0 && (
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); onSettleClick(); }}
@@ -267,7 +273,7 @@ function FriendRow({
             {Icons.wallet({})} Settle
           </button>
         )}
-        {balance > 0 && (
+        {balance < 0 && (
           <button
             type="button"
             className="abtn shrink-0"
@@ -282,19 +288,21 @@ function FriendRow({
           </button>
         )}
         <div className="shrink-0 text-right" style={{ minWidth: 64 }}>
-          {balance === 0 ? (
+          {isLoading ? (
+            <p style={{ color: T.dim, fontSize: 12, fontWeight: 600 }}>...</p>
+          ) : balance === 0 ? (
             <p style={{ color: T.dim, fontSize: 12, fontWeight: 600 }}>Settled</p>
-          ) : balance > 0 ? (
+          ) : balance < 0 ? (
             <>
               <p style={{ color: G, fontSize: 14, fontWeight: 800, fontFamily: "'DM Mono',monospace" }}>
-                +{fmt(balance)}
+                +{displayAmount}
               </p>
               <p style={{ color: "rgba(52,211,153,0.6)", fontSize: 11, marginTop: 2, fontWeight: 600 }}>owes you</p>
             </>
           ) : (
             <>
               <p style={{ color: "#F87171", fontSize: 14, fontWeight: 800, fontFamily: "'DM Mono',monospace" }}>
-                -{fmt(Math.abs(balance))}
+                -{displayAmount}
               </p>
               <p style={{ color: "rgba(248,113,113,0.6)", fontSize: 11, marginTop: 2, fontWeight: 600 }}>you owe</p>
             </>
@@ -320,13 +328,13 @@ function FriendRow({
           </p>
           <p
             className="truncate block"
-            style={{ fontSize: 12, marginTop: 2, fontWeight: 600, color: balance === 0 ? T.dim : balance > 0 ? G : "#F87171" }}
+            style={{ fontSize: 12, marginTop: 2, fontWeight: 600, color: balance === 0 ? T.dim : balance < 0 ? G : "#F87171" }}
           >
-            {balance === 0 ? "Settled up" : balance > 0 ? `Owes you ${fmt(balance)}` : `You owe ${fmt(Math.abs(balance))}`}
+            {balance === 0 ? "Settled up" : balance < 0 ? `Owes you ${displayAmount}` : `You owe ${displayAmount}`}
           </p>
         </div>
         <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
-          {balance > 0 && (
+          {balance < 0 && (
             <button
               type="button"
               className="abtn shrink-0"
@@ -335,7 +343,7 @@ function FriendRow({
               Remind
             </button>
           )}
-          {balance < 0 && (
+          {balance > 0 && (
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onSettleClick(); }}

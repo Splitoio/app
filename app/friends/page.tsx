@@ -77,7 +77,7 @@ export default function FriendsPage() {
           </div>
         </div>
         {/* Mobile invite card (cyan-tinted) */}
-        <div
+        {/* <div
           id="invite-friends-section"
           className="sm:hidden rounded-[20px] p-4 mb-5"
           style={{
@@ -126,10 +126,10 @@ export default function FriendsPage() {
           >
             <Icons.link /> Copy invite link
           </button>
-        </div>
+        </div> */}
 
         {/* Desktop invite card (original) */}
-        <div id="invite-friends-section-desktop" className="hidden sm:block mb-6">
+        {/* <div id="invite-friends-section-desktop" className="hidden sm:block mb-6">
           <Card className="p-[22px]">
             <p className="text-[15px] font-extrabold text-[#f5f5f5] mb-1 tracking-[-0.01em]">
               Invite a Friend
@@ -168,7 +168,7 @@ export default function FriendsPage() {
               <Icons.link /> Copy invite link
             </button>
           </Card>
-        </div>
+        </div> */}
 
         {/* YOUR FRIENDS label — mobile only */}
         <p

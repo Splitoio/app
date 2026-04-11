@@ -137,15 +137,15 @@ export default function SettingsPage() {
     });
   };
 
-  const handleRemoveSettlementPreference = () => {
-    removePref(undefined, {
+  const handleRemoveSettlementPreference = (chainId: string) => {
+    removePref(chainId, {
       onSuccess: () => toast.success("Settlement preference removed"),
       onError: () => toast.error("Failed to remove settlement preference"),
     });
   };
 
-  const handleUpdateSettlementWallet = (walletAddress: string) => {
-    updateWallet({ walletAddress }, {
+  const handleUpdateSettlementWallet = (walletAddress: string, chainId: string) => {
+    updateWallet({ walletAddress, chainId }, {
       onSuccess: () => toast.success("Wallet address updated"),
       onError: () => toast.error("Failed to update wallet address"),
     });
@@ -241,7 +241,7 @@ export default function SettingsPage() {
       ? allFriends.filter((f) => !f.balances?.some((b) => b.amount !== 0)).length
       : 0,
     // Settlement preference
-    settlementPref: settlementPref ?? null,
+    settlementPrefs: settlementPref ?? [],
     isLoadingPref,
     isSavingPref,
     isRemovingPref,

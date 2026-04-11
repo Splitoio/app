@@ -217,7 +217,7 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
         />
 
         <div className="p-4 pt-0 sm:pt-0 sm:p-7">
-          {!isSettlementLoading && !settlementPref && !settlementBannerDismissed && (
+          {!isSettlementLoading && (!settlementPref || settlementPref.length === 0) && !settlementBannerDismissed && (
             <div className="mb-4 flex items-center gap-3 rounded-xl border border-yellow-500/30 bg-yellow-500/10 px-4 py-3">
               <AlertTriangle className="h-4 w-4 shrink-0 text-yellow-400" />
               <p className="flex-1 text-mobile-sm sm:text-sm text-yellow-200">

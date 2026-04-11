@@ -101,14 +101,14 @@ export interface SettlementPreference {
   } | null;
 }
 
-export const getSettlementPreference = async (): Promise<SettlementPreference | null> => {
+export const getSettlementPreference = async (): Promise<SettlementPreference[]> => {
   const response = await apiClient.get("/users/settlement-preference");
-  return response as unknown as SettlementPreference | null;
+  return (response as unknown as SettlementPreference[]) || [];
 };
 
-export const getUserSettlementPreference = async (userId: string): Promise<SettlementPreference | null> => {
+export const getUserSettlementPreference = async (userId: string): Promise<SettlementPreference[]> => {
   const response = await apiClient.get(`/users/${userId}/settlement-preference`);
-  return response as unknown as SettlementPreference | null;
+  return (response as unknown as SettlementPreference[]) || [];
 };
 
 export const saveSettlementPreference = async (payload: {
@@ -120,12 +120,16 @@ export const saveSettlementPreference = async (payload: {
   return response as unknown as SettlementPreference;
 };
 
-export const removeSettlementPreference = async (): Promise<void> => {
-  await apiClient.delete("/users/settlement-preference");
+export const removeSettlementPreference = async (chainId?: string): Promise<void> => {
+  const url = chainId
+    ? `/users/settlement-preference?chainId=${encodeURIComponent(chainId)}`
+    : "/users/settlement-preference";
+  await apiClient.delete(url);
 };
 
 export const updateSettlementWallet = async (payload: {
   walletAddress: string;
+  chainId?: string;
 }): Promise<unknown> => {
   const response = await apiClient.patch("/users/settlement-preference/wallet", payload);
   return response;

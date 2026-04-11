@@ -23,7 +23,7 @@ import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
 import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
-import { useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
+import { useGetSettlementPreference, useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
 
 type ExpenseWithParticipants = Expense & { expenseParticipants?: ExpenseParticipant[] };
 
@@ -102,7 +102,10 @@ export function SettleDebtsModal({
   const wallets = walletData?.accounts || [];
   const stellarWallet = wallets.find(w => w.chainId === "stellar");
   const userStellarAddress = stellarWallet?.address || null;
-  const { data: recipientPref, isLoading: isRecipientPrefLoading } = useGetUserSettlementPreference(selectedSettleMemberId);
+  const { data: mySettlementPrefs } = useGetSettlementPreference();
+  const { data: recipientPrefs, isLoading: isRecipientPrefLoading } = useGetUserSettlementPreference(selectedSettleMemberId);
+  const recipientPrefList = recipientPrefs?.length ? recipientPrefs : [];
+  const recipientSupportedChains = new Set(recipientPrefList.map(p => p.chainId));
   useHandleEscapeToCloseModal(isOpen, onClose);
 
   // Exchange rate conversion for balance currencies
@@ -323,10 +326,10 @@ export function SettleDebtsModal({
 
   // Auto-select recipient's preferred chain when their settlement preference loads
   useEffect(() => {
-    if (recipientPref?.chainId && selectedSettleMemberId && !memberChains[selectedSettleMemberId]) {
-      setSelectedChain(recipientPref.chainId);
+    if (recipientPrefList.length > 0 && selectedSettleMemberId && !memberChains[selectedSettleMemberId]) {
+      setSelectedChain(recipientPrefList[0].chainId);
     }
-  }, [recipientPref, selectedSettleMemberId, memberChains]);
+  }, [recipientPrefList, selectedSettleMemberId, memberChains]);
 
   // Set the selected user based on selectedFriendId prop
   useEffect(() => {
@@ -676,42 +679,51 @@ export function SettleDebtsModal({
     groupDebtBreakdown
   });
 
+  const getSettlementWallet = (chain: string | null): string | null => {
+    if (!chain) return null;
+    const fromWallets = wallets.find(w => w.chainId === chain)?.address;
+    if (fromWallets) return fromWallets;
+    const raw = mySettlementPrefs;
+    const prefs = Array.isArray(raw) ? raw : [];
+    const pref = prefs.find(p => p.chainId === chain);
+    return pref?.wallet?.address || null;
+  };
+
   // Helper to get the correct wallet address based on selected chain
-  const getUserWalletAddress = () => {
-    if (selectedChain === 'aptos') {
-      return aptosWallet?.account?.address?.toString() || null;
-    } else if (selectedChain === 'stellar') {
-      return address || userStellarAddress;
-    } else if (selectedChain === 'solana' || selectedChain === 'base') {
-      const chainWallet = wallets.find(w => w.chainId === selectedChain);
-      return chainWallet?.address || null;
+  const getUserWalletAddress = (chain?: string | null) => {
+    const c = chain ?? selectedChain;
+    if (c === 'aptos') {
+      return aptosWallet?.account?.address?.toString() || getSettlementWallet('aptos');
+    } else if (c === 'stellar') {
+      return address || userStellarAddress || getSettlementWallet('stellar');
     }
-    return null;
+    return getSettlementWallet(c);
   };
 
   // Helper to check if wallet is connected for the selected chain
-  const _isWalletConnectedForChain = () => {
-    if (selectedChain === 'aptos') {
-      return aptosWallet.connected && aptosWallet.account?.address;
-    } else if (selectedChain === 'stellar') {
-      return walletConnected && wallet && (address || userStellarAddress);
-    } else if (selectedChain === 'solana' || selectedChain === 'base') {
-      const chainWallet = wallets.find(w => w.chainId === selectedChain);
-      return !!chainWallet?.address;
+  const _isWalletConnectedForChain = (chain?: string | null) => {
+    const c = chain ?? selectedChain;
+    if (c === 'aptos') {
+      return (aptosWallet.connected && aptosWallet.account?.address) || !!getSettlementWallet('aptos');
+    } else if (c === 'stellar') {
+      return (walletConnected && wallet && (address || userStellarAddress)) || !!getSettlementWallet('stellar');
     }
-    return false;
+    return !!getSettlementWallet(c);
   };
 
-  const canProceedWithSettlement = () => {
-    if (selectedChain === 'aptos') {
-      return aptosWallet.connected && aptosWallet.account?.address;
-    } else if (selectedChain === 'stellar') {
-      return walletConnected && wallet && (address || userStellarAddress);
-    } else if (selectedChain === 'solana' || selectedChain === 'base') {
-      const chainWallet = wallets.find(w => w.chainId === selectedChain);
-      return !!chainWallet?.address;
+  const canProceedWithSettlement = (chain?: string | null) => {
+    const c = chain ?? selectedChain;
+    if (c === 'aptos') {
+      return (aptosWallet.connected && aptosWallet.account?.address) || !!getSettlementWallet('aptos');
+    } else if (c === 'stellar') {
+      return (walletConnected && wallet && (address || userStellarAddress)) || !!getSettlementWallet('stellar');
     }
-    return false;
+    // For solana/base: user has settlement prefs with wallet, or a saved wallet — either works.
+    // Also allow proceeding if the recipient supports this chain (backend resolves sender wallet from prefs).
+    if (c === 'solana' || c === 'base') {
+      return true;
+    }
+    return !!getSettlementWallet(c);
   };
 
   const handleSettleOne = async (settleWith: User) => {
@@ -732,7 +744,7 @@ export function SettleDebtsModal({
       }
     }
     
-    if (!userWalletAddress) {
+    if (!userWalletAddress && selectedChain !== 'solana' && selectedChain !== 'base') {
       toast.error(`Please connect your ${chainLabel} wallet or add your wallet address in settings first.`);
       return;
     }
@@ -748,7 +760,7 @@ export function SettleDebtsModal({
 
     const payload = {
       groupId,
-      address: userWalletAddress,
+      address: userWalletAddress || "",
       settleWithId: settleWith.id,
       selectedTokenId: selectedToken.id,
       selectedChainId: selectedChain || undefined,
@@ -787,7 +799,7 @@ export function SettleDebtsModal({
       }
     }
     
-    if (!userWalletAddress) {
+    if (!userWalletAddress && selectedChain !== 'solana' && selectedChain !== 'base') {
       toast.error(`Please connect your ${chainLabel} wallet or add your wallet address in settings first.`);
       return;
     }
@@ -804,7 +816,7 @@ export function SettleDebtsModal({
 
     const payload = {
       groupId,
-      address: userWalletAddress,
+      address: userWalletAddress || "",
       selectedTokenId: selectedToken.id,
       selectedChainId: selectedChain || undefined,
       amount: amountToSettle,
@@ -1414,7 +1426,7 @@ export function SettleDebtsModal({
                               );
                             }
 
-                            if (!recipientPref) {
+                            if (recipientPrefList.length === 0) {
                               return (
                                 <div className="space-y-3">
                                   <div className="rounded-[18px] overflow-hidden" style={{ border: "1px solid rgba(251,146,60,0.20)", background: "linear-gradient(135deg, rgba(251,146,60,0.06) 0%, rgba(251,146,60,0.02) 100%)" }}>
@@ -1458,36 +1470,17 @@ export function SettleDebtsModal({
                               );
                             }
 
-                            const recipientChainId = recipientPref.chainId;
-                            const recipientChainMeta = SETTLE_CHAIN_META[recipientChainId] || { icon: "◆", color: "#666" };
-                            const recipientChainLabel = recipientChainId.charAt(0).toUpperCase() + recipientChainId.slice(1);
-                            const recipientTokens = recipientPref.tokens.map(t => t.token.symbol).join(", ");
+                            const defaultChainId = recipientPrefList[0].chainId;
 
                             return (
                               <div className="space-y-3">
-                                {/* Recipient's preferred chain badge */}
-                                <div className="rounded-[14px] px-3.5 py-2.5 flex items-center gap-2.5" style={{ background: `${recipientChainMeta.color}0d`, border: `1px solid ${recipientChainMeta.color}25` }}>
-                                  <span style={{ fontSize: 16, color: recipientChainMeta.color }}>{recipientChainMeta.icon}</span>
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-[11px] font-bold" style={{ color: recipientChainMeta.color }}>
-                                      {firstName} accepts {recipientChainLabel}
-                                    </p>
-                                    <p className="text-[10px]" style={{ color: "rgba(255,255,255,0.40)" }}>
-                                      {recipientTokens}{recipientPref.wallet ? ` · ${recipientPref.wallet.address.slice(0, 6)}…${recipientPref.wallet.address.slice(-4)}` : ""}
-                                    </p>
-                                  </div>
-                                  <div className="h-5 px-2 rounded-full flex items-center" style={{ background: `${recipientChainMeta.color}18`, border: `1px solid ${recipientChainMeta.color}30` }}>
-                                    <span className="text-[9px] font-extrabold tracking-wide uppercase" style={{ color: recipientChainMeta.color }}>preferred</span>
-                                  </div>
-                                </div>
-
-                                {/* Chain selector — show recipient's chain highlighted, others dimmed */}
+                                {/* Chain selector */}
                                 <p className="text-[10px] font-bold tracking-[0.1em] uppercase" style={{ color: "#ccc" }}>Chain</p>
                                 <div className="grid grid-cols-4 gap-2">
                                   {availableChains.map((chain) => {
                                     const meta = SETTLE_CHAIN_META[chain] || { icon: "◆", color: "#666" };
-                                    const isChainSel = (memberChains[memberId] || selectedChain || recipientChainId) === chain;
-                                    const isRecipientChain = chain === recipientChainId;
+                                    const isChainSel = (memberChains[memberId] || selectedChain || defaultChainId) === chain;
+                                    const isRecipientChain = recipientSupportedChains.has(chain);
                                     return (
                                       <button
                                         key={chain}
@@ -1513,12 +1506,37 @@ export function SettleDebtsModal({
                                   })}
                                 </div>
 
+                                {/* Selected chain info */}
                                 {(() => {
-                                  const effectiveChain = memberChains[memberId] || selectedChain || recipientChainId;
+                                  const effectiveChain = memberChains[memberId] || selectedChain || defaultChainId;
+                                  const matchedPref = recipientPrefList.find(p => p.chainId === effectiveChain);
+                                  if (matchedPref) {
+                                    const eMeta = SETTLE_CHAIN_META[effectiveChain] || { icon: "◆", color: "#666" };
+                                    const eTokens = matchedPref.tokens.map(t => t.token.symbol).join(", ");
+                                    const eAddr = matchedPref.wallet?.address || "";
+                                    const eTrunc = eAddr.length > 14 ? `${eAddr.slice(0, 6)}…${eAddr.slice(-4)}` : eAddr;
+                                    return (
+                                      <div className="flex items-center gap-2.5 rounded-[12px] px-3 py-2" style={{ background: `${eMeta.color}08`, border: `1px solid ${eMeta.color}20` }}>
+                                        <span style={{ fontSize: 13, color: eMeta.color }}>{eMeta.icon}</span>
+                                        <p className="text-[11px] flex-1 min-w-0" style={{ color: "rgba(255,255,255,0.55)" }}>
+                                          <span style={{ color: eMeta.color, fontWeight: 700 }}>{eTokens}</span>
+                                          {eTrunc && <span className="font-mono" style={{ color: "rgba(255,255,255,0.30)" }}> · {eTrunc}</span>}
+                                        </p>
+                                      </div>
+                                    );
+                                  }
+                                  return null;
+                                })()}
+
+                                {(() => {
+                                  const effectiveChain = memberChains[memberId] || selectedChain || defaultChainId;
                                   if (!effectiveChain) return null;
 
-                                  if (effectiveChain !== recipientChainId) {
+                                  if (!recipientSupportedChains.has(effectiveChain)) {
                                     const pickedLabel = effectiveChain.charAt(0).toUpperCase() + effectiveChain.slice(1);
+                                    const suggestPref = recipientPrefList[0];
+                                    const suggestMeta = SETTLE_CHAIN_META[suggestPref.chainId] || { icon: "◆", color: "#666" };
+                                    const suggestLabel = suggestPref.chainId.charAt(0).toUpperCase() + suggestPref.chainId.slice(1);
                                     return (
                                       <div className="rounded-[16px] overflow-hidden" style={{ border: "1px solid rgba(239,68,68,0.20)", background: "linear-gradient(135deg, rgba(239,68,68,0.06) 0%, rgba(239,68,68,0.02) 100%)" }}>
                                         <div className="px-4 py-3.5 flex items-start gap-3">
@@ -1530,7 +1548,7 @@ export function SettleDebtsModal({
                                               {firstName} can&apos;t receive on {pickedLabel}
                                             </p>
                                             <p className="text-[11px] mt-0.5" style={{ color: "rgba(255,255,255,0.40)", lineHeight: 1.5 }}>
-                                              They only have a {recipientChainLabel} wallet configured.
+                                              They accept {recipientPrefList.map(p => p.chainId.charAt(0).toUpperCase() + p.chainId.slice(1)).join(", ")}.
                                             </p>
                                           </div>
                                         </div>
@@ -1538,13 +1556,13 @@ export function SettleDebtsModal({
                                           <button
                                             type="button"
                                             className="flex-1 h-10 rounded-[12px] font-bold text-[12px] flex items-center justify-center gap-1.5 transition-all hover:opacity-90"
-                                            style={{ background: `${recipientChainMeta.color}15`, border: `1.5px solid ${recipientChainMeta.color}35`, color: recipientChainMeta.color }}
+                                            style={{ background: `${suggestMeta.color}15`, border: `1.5px solid ${suggestMeta.color}35`, color: suggestMeta.color }}
                                             onClick={() => {
-                                              setMemberChains((p) => ({ ...p, [memberId]: recipientChainId }));
-                                              setSelectedChain(recipientChainId);
+                                              setMemberChains((p) => ({ ...p, [memberId]: suggestPref.chainId }));
+                                              setSelectedChain(suggestPref.chainId);
                                             }}
                                           >
-                                            {recipientChainMeta.icon} Use {recipientChainLabel}
+                                            {suggestMeta.icon} Use {suggestLabel}
                                           </button>
                                         </div>
                                       </div>
@@ -1552,7 +1570,7 @@ export function SettleDebtsModal({
                                   }
 
                                   const member = _members.find((m) => m.id === memberId);
-                                  if (!canProceedWithSettlement()) {
+                                  if (!canProceedWithSettlement(effectiveChain)) {
                                     return (
                                       <div>
                                         {effectiveChain === "aptos" && <ShadcnWalletSelector />}
