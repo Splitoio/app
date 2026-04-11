@@ -130,10 +130,10 @@ export default function SettingsPage() {
   };
 
   // Settlement preference handlers
-  const handleSaveSettlementPreference = (data: { tokenIds: string[]; chainId: string; walletAddress: string }) => {
+  const handleSaveSettlementPreference = (data: { tokenIds: string[]; chainId: string; walletAddress: string }, onSuccess?: () => void) => {
     savePref(data, {
-      onSuccess: () => toast.success("Settlement preference saved"),
-      onError: () => toast.error("Failed to save settlement preference"),
+      onSuccess: () => { toast.success("Settlement preference saved"); onSuccess?.(); },
+      onError: (err: any) => toast.error(err?.message || "Failed to save settlement preference"),
     });
   };
 
@@ -144,10 +144,10 @@ export default function SettingsPage() {
     });
   };
 
-  const handleUpdateSettlementWallet = (walletAddress: string, chainId: string) => {
+  const handleUpdateSettlementWallet = (walletAddress: string, chainId: string, onSuccess?: () => void) => {
     updateWallet({ walletAddress, chainId }, {
-      onSuccess: () => toast.success("Wallet address updated"),
-      onError: () => toast.error("Failed to update wallet address"),
+      onSuccess: () => { toast.success("Wallet address updated"); onSuccess?.(); },
+      onError: (err: any) => toast.error(err?.message || "Failed to update wallet address"),
     });
   };
 

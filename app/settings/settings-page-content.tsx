@@ -43,9 +43,9 @@ export interface SettingsPageContentProps {
   isSavingPref: boolean;
   isRemovingPref: boolean;
   isUpdatingWallet: boolean;
-  onSaveSettlementPref: (data: { tokenIds: string[]; chainId: string; walletAddress: string }) => void;
+  onSaveSettlementPref: (data: { tokenIds: string[]; chainId: string; walletAddress: string }, onSuccess?: () => void) => void;
   onRemoveSettlementPref: (chainId: string) => void;
-  onUpdateSettlementWallet: (walletAddress: string, chainId: string) => void;
+  onUpdateSettlementWallet: (walletAddress: string, chainId: string, onSuccess?: () => void) => void;
   allCurrencies: Currency[];
 }
 
@@ -731,14 +731,14 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
       <SettlementPrefModal
         isOpen={prefModalOpen}
         onClose={() => setPrefModalOpen(false)}
-        onSave={(data) => { onSaveSettlementPref(data); setPrefModalOpen(false); }}
+        onSave={(data) => { onSaveSettlementPref(data, () => setPrefModalOpen(false)); }}
         isSaving={isSavingPref}
         allCurrencies={allCurrencies}
         initialChainId={activePref?.chainId}
         initialTokenIds={activePref?.tokens.map((t) => t.tokenId)}
         initialWalletAddress={activePref?.wallet?.address}
         mode={prefModalMode}
-        onUpdateWallet={(addr) => { if (activePref) onUpdateSettlementWallet(addr, activePref.chainId); setPrefModalOpen(false); }}
+        onUpdateWallet={(addr) => { if (activePref) onUpdateSettlementWallet(addr, activePref.chainId, () => setPrefModalOpen(false)); }}
         isUpdatingWallet={isUpdatingWallet}
         existingChainIds={settlementPrefs.map((p) => p.chainId)}
       />
