@@ -700,13 +700,12 @@ export function SettleDebtsModal({
     return getSettlementWallet(c);
   };
 
-  // Helper to check if wallet is connected for the selected chain
   const _isWalletConnectedForChain = (chain?: string | null) => {
     const c = chain ?? selectedChain;
     if (c === 'aptos') {
       return (aptosWallet.connected && aptosWallet.account?.address) || !!getSettlementWallet('aptos');
     } else if (c === 'stellar') {
-      return (walletConnected && wallet && (address || userStellarAddress)) || !!getSettlementWallet('stellar');
+      return !!(walletConnected && wallet && (address || userStellarAddress));
     }
     return !!getSettlementWallet(c);
   };
@@ -716,10 +715,9 @@ export function SettleDebtsModal({
     if (c === 'aptos') {
       return (aptosWallet.connected && aptosWallet.account?.address) || !!getSettlementWallet('aptos');
     } else if (c === 'stellar') {
-      return (walletConnected && wallet && (address || userStellarAddress)) || !!getSettlementWallet('stellar');
+      // Browser wallet MUST be connected — a saved DB address alone can't sign transactions
+      return !!(walletConnected && wallet && (address || userStellarAddress));
     }
-    // For solana/base: user has settlement prefs with wallet, or a saved wallet — either works.
-    // Also allow proceeding if the recipient supports this chain (backend resolves sender wallet from prefs).
     if (c === 'solana' || c === 'base') {
       return true;
     }
