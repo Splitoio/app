@@ -34,6 +34,7 @@
     "@telegram-apps/bridge": "^2.11.0",
     "@uploadthing/react": "^7.3.0",
     "aptos": "^1.21.0",
+    "axios": "^1.15.0",
     "better-auth": "^1.1.18",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -46,6 +47,7 @@
     "lucide-react": "^0.469.0",
     "next": "16.2.1",
     "petra-plugin-wallet-adapter": "^0.4.5",
+    "posthog-js": "^1.367.0",
     "react": "19.2.4",
     "react-day-picker": "^9.14.0",
     "react-dom": "19.2.4",
@@ -55,6 +57,7 @@
     "tailwind-merge": "^2.6.0",
     "tailwindcss-animate": "^1.0.7",
     "uploadthing": "^7.5.2",
+    "zod": "^4.3.6",
     "zustand": "^5.0.2"
   },
   "devDependencies": {

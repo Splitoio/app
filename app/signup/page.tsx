@@ -10,6 +10,7 @@ import { authClient } from "@/lib/auth";
 import { defaultPostLoginPath } from "@/lib/app-mode";
 import { toast } from "sonner";
 import { ApiError } from "@/types/api-error";
+import posthog from "posthog-js";
 
 function GoogleIcon() {
   return (
@@ -50,6 +51,7 @@ export default function SignupPage() {
       if (error) {
         toast.error(error.message || "Failed to sign up. Please try again.");
       } else if (data) {
+        posthog.capture("user_signed_up", { method: "email" });
         toast.success(
           "Account created successfully! Please check your email to verify your account."
         );
@@ -216,7 +218,9 @@ export default function SignupPage() {
                   disabled={isLoadingEmail || isLoadingGoogle}
                 />
                 <label htmlFor="terms-desktop" className="text-sm text-white/70">
-                  I agree with the{" "}
+                  I agree to the{" "}
+                  <a href="https://splito.io/terms" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Terms of Service</a>
+                  {" "}and{" "}
                   <a href="https://splito.io/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Privacy Policy</a>
                 </label>
               </div>
@@ -351,7 +355,10 @@ export default function SignupPage() {
                   disabled={isLoadingEmail || isLoadingGoogle}
                 />
                 <label htmlFor="terms-mobile" className="text-sm text-white/70">
-                  I agree with the <a href="https://splito.io/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Privacy Policy</a>
+                  I agree to the{" "}
+                  <a href="https://splito.io/terms" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Terms of Service</a>
+                  {" "}and{" "}
+                  <a href="https://splito.io/privacy" target="_blank" rel="noopener noreferrer" className="text-white hover:underline">Privacy Policy</a>
                 </label>
               </div>
               <button

@@ -5,18 +5,24 @@ import { useAuthStore } from "@/stores/authStore";
 import { useGetUser } from "@/features/user/hooks/use-update-profile";
 import { usePathname } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { usePostHog } from "posthog-js/react";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((state) => state.setUser);
   const pathname = usePathname();
   const isAuthPage = pathname?.match(/^\/login|^\/signup/);
   const { data: user, isPending } = useGetUser({ enabled: !isAuthPage });
+  const posthog = usePostHog();
 
   useEffect(() => {
     if (user) {
       setUser(user);
+      posthog.identify(user.id, {
+        email: user.email,
+        name: user.name,
+      });
     }
-  }, [user, setUser]);
+  }, [user, setUser, posthog]);
 
   if (!isAuthPage && isPending) {
     return (
