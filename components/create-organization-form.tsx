@@ -12,7 +12,6 @@ import { isValidEmail } from "@/utils/validation";
 import { useAuthStore } from "@/stores/authStore";
 import { apiClient } from "@/api-helpers/client";
 import Image from "next/image";
-import ResolverSelector, { Option as ResolverOption } from "./ResolverSelector";
 import { T, A } from "@/lib/splito-design";
 
 interface CreateOrganizationFormProps {
@@ -61,8 +60,6 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
   const [isCheckingEmail, setIsCheckingEmail] = useState(false);
   const [formData, setFormData] = useState({ name: "", memberEmail: "" });
   const [members, setMembers] = useState<Member[]>([]);
-  const [resolver, setResolver] = useState<ResolverOption | undefined>(undefined);
-
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
     if (isOpen) {
@@ -107,21 +104,8 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.name.trim()) { toast.error("Please enter an organization name"); return; }
-    const payload: Record<string, unknown> = { name: formData.name, type: "BUSINESS" };
-    if (resolver?.chainId) { payload.tokenId = resolver.id; payload.chainId = resolver.chainId; }
-    createOrganizationMutation.mutate(payload as { name: string; type: "BUSINESS"; tokenId?: string; chainId?: string }, {
+    createOrganizationMutation.mutate({ name: formData.name }, {
       onSuccess: async (data: { id: string }) => {
-        if (resolver && data?.id) {
-          try {
-            await apiClient.post(`/groups/${data.id}/accepted-tokens`, {
-              tokenId: resolver.id,
-              chainId: resolver.chainId,
-              isDefault: true,
-            });
-          } catch {
-            toast.error("Failed to set accepted token for this organization");
-          }
-        }
         if (members.length > 0) await inviteMembers(data.id);
         setFormData({ name: "", memberEmail: "" });
         setMembers([]);
@@ -145,15 +129,6 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
   };
 
   const removeMember = (memberId: string) => setMembers((m) => m.filter((member) => member.id !== memberId));
-
-  const handleResolverChange = (option: ResolverOption | undefined) => {
-    if (option && !option.chainId) {
-      toast.error("Please select a blockchain token as resolver (not fiat)");
-      setResolver(undefined);
-      return;
-    }
-    setResolver(option);
-  };
 
   if (!isOpen) return null;
 
@@ -221,12 +196,6 @@ export function CreateOrganizationForm({ isOpen, onClose }: CreateOrganizationFo
               placeholder="e.g. Acme Corp"
               style={inputStyle}
             />
-          </div>
-
-          {/* Payment token */}
-          <div style={{ overflow: "visible" }}>
-            <label style={labelStyle}>Payment Token</label>
-            <ResolverSelector value={resolver} onChange={handleResolverChange} />
           </div>
 
           {/* Invite admins */}
