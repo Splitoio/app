@@ -1,3 +1,4 @@
+// DEAD — superseded by features/wallets/api/client.ts; not imported anywhere in the app.
 import { toast } from "sonner";
 
 interface Wallet {

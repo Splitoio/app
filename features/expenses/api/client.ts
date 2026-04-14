@@ -38,7 +38,7 @@ export const createExpense = async (
   payload: EnhancedExpensePayload
 ): Promise<any> => {
   const response = await apiClient.post(`/groups/${groupId}/expenses`, payload);
-  return response.data;
+  return response;
 };
 
 export const getExpenses = async (groupId: string) => {
@@ -48,7 +48,7 @@ export const getExpenses = async (groupId: string) => {
 
 export const getLegacyExpenses = async (groupId: string) => {
   const response = await apiClient.get(`/groups/${groupId}/expenses`);
-  return response.data;
+  return response;
 };
 
 export interface UpdateExpensePayload {
@@ -70,17 +70,17 @@ export const updateExpense = async (
     `/groups/${groupId}/expenses/${expenseId}`,
     payload
   );
-  return response.data;
+  return response;
 };
 
 export const deleteExpense = async (groupId: string, expenseId: string) => {
   const response = await apiClient.delete(`/groups/${groupId}/expenses/${expenseId}`);
-  return response.data;
+  return response;
 };
 
 export const markParticipantAsPaid = async (expenseId: string, userId: string) => {
   const response = await apiClient.patch(`/expenses/${expenseId}/participants/${userId}/mark-paid`);
-  return response.data;
+  return response;
 };
 
 // AI-powered expense parsing

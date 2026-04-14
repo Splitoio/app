@@ -1,3 +1,4 @@
+// DEAD — not imported by any component or page; aptos-client.ts (its only dep) is also dead.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { settleDebtAptos, settleDebtAptosWithSubmit } from "../api/aptos-client";
 import { QueryKeys, invalidateSettlementCaches } from "@/lib/constants";

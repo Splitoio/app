@@ -1,3 +1,4 @@
+// DEAD — only imported by use-aptos-splits.ts which is itself dead; not reachable from any component.
 import { apiClient } from "@/api-helpers/client";
 
 import {

@@ -1,3 +1,4 @@
+// DEAD — hardcoded mock data; never imported by any page or layout.
 import { Check, X } from "lucide-react";
 import Image from "next/image";
 

@@ -204,6 +204,12 @@ export default function LoginPage() {
                 </div>
               </div>
 
+              <div className="flex justify-end">
+                <Link href="/forgot-password" className="text-sm text-white/50 hover:text-white/70 transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
+
               <button
                 type="submit"
                 className="w-full h-[52px] flex items-center justify-center rounded-xl
@@ -320,6 +326,12 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
                   </button>
                 </div>
+              </div>
+
+              <div className="flex justify-end">
+                <Link href="/forgot-password" className="text-sm text-white/50 hover:text-white/70 transition-colors">
+                  Forgot password?
+                </Link>
               </div>
 
               <button

@@ -52,9 +52,7 @@ export default function SignupPage() {
         toast.error(error.message || "Failed to sign up. Please try again.");
       } else if (data) {
         posthog.capture("user_signed_up", { method: "email" });
-        toast.success(
-          "Account created successfully! Please check your email to verify your account."
-        );
+        toast.success("Account created! You can sign in now.");
         router.push("/login");
       }
     } catch (error) {
