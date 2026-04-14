@@ -45,7 +45,7 @@ export function OnboardingGate() {
     return inOrgRoute ? "in-org" : "no-org";
   }, [mode, pathname]);
 
-  const isAuthPage = pathname?.match(/^\/login|^\/signup/);
+  const isAuthPage = pathname?.match(/^\/login|^\/signup|^\/forgot-password|^\/reset-password/);
   const hasNoDisplayName =
     !userData?.name || (typeof userData.name === "string" && userData.name.trim() === "");
   const nameIsEmail =

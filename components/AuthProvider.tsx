@@ -10,7 +10,7 @@ import { usePostHog } from "posthog-js/react";
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const setUser = useAuthStore((state) => state.setUser);
   const pathname = usePathname();
-  const isAuthPage = pathname?.match(/^\/login|^\/signup/);
+  const isAuthPage = pathname?.match(/^\/login|^\/signup|^\/forgot-password|^\/reset-password/);
   const { data: user, isPending } = useGetUser({ enabled: !isAuthPage });
   const posthog = usePostHog();
 

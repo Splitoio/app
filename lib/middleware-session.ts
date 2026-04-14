@@ -1,4 +1,4 @@
-const AUTH_ROUTES = new Set(["/login", "/signup"]);
+const AUTH_ROUTES = new Set(["/login", "/signup", "/forgot-password", "/reset-password"]);
 const PUBLIC_ROUTE_PREFIXES = ["/contract/view", "/sign"];
 
 export const SESSION_COOKIE_NAMES = [
