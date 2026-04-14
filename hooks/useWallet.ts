@@ -63,18 +63,9 @@ export function useWallet() {
 
   // Get Aptos wallet from the adapter
   const aptosWallet = useAptosWallet();
-  console.log("[useWallet] Initializing wallet store", aptosWallet.account);
 
   // Sync Aptos wallet state with our store
   useEffect(() => {
-    console.log("[useWallet] Aptos wallet state changed:", {
-      connected: aptosWallet.connected,
-      hasAccount: !!aptosWallet.account,
-      address: aptosWallet.account?.address,
-      currentWalletType: walletType,
-      hasWalletInStore: !!wallet,
-    });
-
     if (aptosWallet.connected && aptosWallet.account?.address) {
       // Update store with Aptos wallet if it's connected
       // Only skip if Stellar wallet is already connected and we want to prioritize it
@@ -86,10 +77,6 @@ export function useWallet() {
           submitTransaction: aptosWallet.submitTransaction,
           signAndSubmitTransaction: aptosWallet.signAndSubmitTransaction,
         };
-        console.log(
-          "[useWallet] Setting Aptos wallet in store:",
-          aptosWalletObj
-        );
         setWallet(aptosWalletObj, "aptos");
         setWalletState({
           isConnected: true,
@@ -99,7 +86,6 @@ export function useWallet() {
       }
     } else if (!aptosWallet.connected && walletType === "aptos") {
       // Aptos wallet disconnected, clear the store
-      console.log("[useWallet] Aptos wallet disconnected, clearing store");
       disconnect();
     }
   }, [
@@ -115,7 +101,7 @@ export function useWallet() {
     try {
       setIsConnecting(true);
       const kit = new StellarWalletsKit({
-        network: WalletNetwork.TESTNET,
+        network: WalletNetwork.PUBLIC,
         selectedWalletId: XBULL_ID,
         modules: allowAllModules(),
       });
@@ -151,7 +137,7 @@ export function useWallet() {
     }
   }, [setWalletState, setWallet]);
 
-  const returnValue = {
+  return {
     isConnected,
     address,
     isConnecting,
@@ -163,15 +149,4 @@ export function useWallet() {
     // Expose Aptos-specific properties for direct access if needed
     aptosWallet,
   };
-
-  console.log("[useWallet] Hook returning:", {
-    isConnected: returnValue.isConnected,
-    address: returnValue.address,
-    hasWallet: !!returnValue.wallet,
-    walletType: returnValue.walletType,
-    aptosConnected: returnValue.aptosWallet.connected,
-    aptosAddress: returnValue.aptosWallet.account?.address,
-  });
-
-  return returnValue;
 }

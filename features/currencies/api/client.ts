@@ -97,8 +97,6 @@ export const getFiatCurrencies = async (): Promise<FiatCurrency[]> => {
 // Get exchange rate between two currencies
 export const getExchangeRate = async (from: string, to: string): Promise<ExchangeRateResponse> => {
   try {
-    console.log(`[getExchangeRate] Attempting to fetch rate from ${from} to ${to}`);
-    
     // Try the new pricing service endpoint first
     const response = await fetch(`${API_URL}/api/pricing/exchange-rate?fromId=${from}&toId=${to}`, {
       method: "GET",
@@ -108,25 +106,19 @@ export const getExchangeRate = async (from: string, to: string): Promise<Exchang
       credentials: "include",
     });
 
-    console.log(`[getExchangeRate] Pricing service response status: ${response.status}`);
-
     if (response.ok) {
       const data = await response.json();
-      console.log(`[getExchangeRate] Pricing service response data:`, data);
-      
+
       // Convert pricing service response format to expected format
       if (data.rate !== undefined) {
-        const result = {
+        return {
           rate: data.rate,
           fromCurrency: from,
           toCurrency: to,
           timestamp: Date.now()
         };
-        console.log(`[getExchangeRate] Returning pricing service result:`, result);
-        return result;
       }
-      
-      console.log(`[getExchangeRate] Returning raw pricing service data:`, data);
+
       return data;
     }
 
@@ -141,11 +133,8 @@ export const getExchangeRate = async (from: string, to: string): Promise<Exchang
       credentials: "include",
     });
 
-    console.log(`[getExchangeRate] Fallback response status: ${fallbackResponse.status}`);
-
     if (fallbackResponse.ok) {
       const fallbackData = await fallbackResponse.json();
-      console.log(`[getExchangeRate] Fallback response data:`, fallbackData);
       return fallbackData;
     }
 
