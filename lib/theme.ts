@@ -1,3 +1,4 @@
+// DEAD — not imported anywhere; components use Tailwind directly.
 export const theme = {
   colors: {
     background: '#101012',

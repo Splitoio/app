@@ -1,3 +1,4 @@
+// DEAD — address truncation done inline elsewhere; not imported by any page or layout.
 type AddressDisplayProps = {
   address: string;
   className?: string;

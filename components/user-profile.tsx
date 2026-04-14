@@ -1,3 +1,4 @@
+// DEAD — not imported by any page or layout.
 "use client";
 
 import { useWallet } from "@/hooks/useWallet";

@@ -26,7 +26,7 @@ const redirectToLogin = () => {
 
     // Only redirect if we're not already on the login page
     if (!window.location.pathname.includes("/login")) {
-      window.location.href = "/login";
+      window.location.href = `/login?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`;
     } else {
       // Reset the redirect flag if we're already on login
       isRedirecting = false;

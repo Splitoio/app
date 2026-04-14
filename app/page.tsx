@@ -881,7 +881,9 @@ export default function Page() {
                 ))
               )}
               {groups?.length === 0 && !isGroupsLoading && (
-                <p className="text-sm text-white/60 py-2">No groups yet</p>
+                <Link href="/groups" className="inline-flex items-center gap-1 mt-1 px-4 py-2 rounded-xl border border-[#22D3EE]/40 text-[#22D3EE] text-sm font-medium hover:bg-[#22D3EE]/10 transition-colors">
+                  + Create your first group
+                </Link>
               )}
             </Card>
 

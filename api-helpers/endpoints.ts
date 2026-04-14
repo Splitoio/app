@@ -1,3 +1,4 @@
+// DEAD — API_ENDPOINTS not imported anywhere; all routes use inline strings.
 export const API_ENDPOINTS = {
   auth: {
     testLogin: "/auth/test-login",

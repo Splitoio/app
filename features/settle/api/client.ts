@@ -58,7 +58,7 @@ const isStellarWallet = (wallet: WalletType): wallet is StellarWallet => {
 
   // Check if it's a Stellar wallet by looking for StellarWalletsKit specific properties
   const hasSignTransaction = wallet && typeof (wallet as StellarWallet).signTransaction === 'function';
-  const doesNotHaveConnectedProperty = !(wallet as AptosWalletContextType).connected;
+  const doesNotHaveConnectedProperty = !('connected' in wallet);
   const isStellarKit = wallet && wallet.constructor &&
     (wallet.constructor.name === 'StellarWalletsKit' ||
       Object.getPrototypeOf(wallet)?.constructor?.name === 'StellarWalletsKit');

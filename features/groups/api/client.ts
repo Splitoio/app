@@ -189,7 +189,7 @@ export const updateGroup = async (
   try {
     return GroupSchema.parse(response);
   } catch (e) {
-    if (response && response.data && response.data.id) return response.data;
+    if (response && (response as any).id) return response;
     throw e;
   }
 };

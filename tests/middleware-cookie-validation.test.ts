@@ -1,3 +1,4 @@
+// DEAD — test file; CLAUDE.md bans tests. Not run in CI.
 import assert from "node:assert/strict";
 import test from "node:test";
 import {

@@ -74,7 +74,7 @@ export function getTransactionsFromGroups(
               id: `${group.id}-${expense.id}-${gu.user.id}`,
               user: {
                 name: gu.user.name || gu.user.id,
-                image: `/api.dicebear.com/7.x/avataaars/svg?seed=${gu.user.id}`,
+                image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${gu.user.id}`,
               },
               amount: expense.amount / group.groupUsers.length, // Simple equal split
               type: "owed",
@@ -90,7 +90,7 @@ export function getTransactionsFromGroups(
           id: `${group.id}-${expense.id}-${userAddress}`,
           user: {
             name: paidByUser.name || paidByUser.id,
-            image: `/api.dicebear.com/7.x/avataaars/svg?seed=${paidByUser.id}`,
+            image: `https://api.dicebear.com/7.x/avataaars/svg?seed=${paidByUser.id}`,
           },
           amount: expense.amount / group.groupUsers.length, // Simple equal split
           type: "owe",
