@@ -14,7 +14,7 @@ import { MobileFAB } from "@/components/mobile-fab";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const isAuthPage = pathname?.match(/^\/login|^\/signup/);
+  const isAuthPage = pathname?.match(/^\/login|^\/signup|^\/forgot-password|^\/reset-password/);
   const isOrganizationMode = pathname?.includes("/organization");
   const isPersonalMode = !isOrganizationMode;
 
