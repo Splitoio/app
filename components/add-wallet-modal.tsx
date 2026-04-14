@@ -209,7 +209,6 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
         onWalletSelected: async (selectedWallet) => {
           try {
             if (!selectedWallet) {
-              console.log("No wallet selected");
               return;
             }
 
@@ -272,7 +271,6 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   };
 
   const handleAptosWalletConnectMutate = async (address: string) => {
-    console.log("Aptos handleAptosWalletConnectMutate called");
     try {
       if (!address) {
         toast.error("Please connect your Aptos wallet first.");
@@ -313,14 +311,11 @@ export const AddWalletModal = ({ isOpen, onClose }: AddWalletModalProps) => {
   const { account, connected, wallets, connect } = useWallet();
 
   useEffect(() => {
-    console.log("Aptos useEffect triggered", { connected, account });
     if (connected && account?.address) {
       setAptosAddress(account.address.toString());
-      console.log("Aptos address set:", account.address.toString());
       // handleAptosWalletConnectMutate(account.address.toString());
     } else {
       setAptosAddress("");
-      console.log("Aptos address cleared");
     }
   }, [connected, account]);
 

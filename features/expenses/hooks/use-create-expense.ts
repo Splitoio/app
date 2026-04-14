@@ -4,7 +4,6 @@ import {
   updateExpense,
   deleteExpense,
   getExpenses,
-  getLegacyExpenses,
   markParticipantAsPaid,
   EnhancedExpensePayload,
   UpdateExpensePayload,
@@ -47,12 +46,6 @@ export const useGetExpenses = (groupId: string) => {
   });
 };
 
-export const useGetLegacyExpenses = (groupId: string) => {
-  return useQuery({
-    queryKey: [QueryKeys.LEGACY_EXPENSES, groupId],
-    queryFn: () => getLegacyExpenses(groupId),
-  });
-};
 
 export const useUpdateExpense = (groupId: string) => {
   const queryClient = useQueryClient();

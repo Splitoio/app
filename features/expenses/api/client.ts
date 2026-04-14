@@ -46,10 +46,6 @@ export const getExpenses = async (groupId: string) => {
   return (response as unknown as { expenses?: unknown[] }) ?? { expenses: [] };
 };
 
-export const getLegacyExpenses = async (groupId: string) => {
-  const response = await apiClient.get(`/groups/${groupId}/expenses`);
-  return response;
-};
 
 export interface UpdateExpensePayload {
   name: string;

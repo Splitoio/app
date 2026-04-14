@@ -228,50 +228,7 @@ export default function GroupMembersPage() {
         })}
       </Card>
 
-      {/* TODO: Group spend breakdown — hidden until data is accurate
-      <Card style={{ padding: "22px" }}>
-        <SectionLabel>Group spend breakdown</SectionLabel>
-        <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 18 }}>
-          <StatBox
-            label="Total spent"
-            value={formatAmount(totalSpent)}
-            color="#e8e8e8"
-          />
-          <StatBox
-            label="You're owed"
-            value={formatAmount(youAreOwed)}
-            color={youAreOwed >= 0 ? G : "#F87171"}
-          />
-          <StatBox
-            label="Expenses"
-            value={String(expenseCount)}
-            color="#e8e8e8"
-          />
-        </div>
-        <div
-          style={{
-            height: 6,
-            background: "rgba(255,255,255,0.06)",
-            borderRadius: 99,
-            display: "flex",
-            overflow: "hidden",
-            gap: 2,
-          }}
-        >
-          {group.groupUsers.map((m) => (
-            <div
-              key={m.user.id}
-              style={{
-                width: `${100 / group.groupUsers.length}%`,
-                background: getUserColor(m.user.name),
-                opacity: 0.75,
-                borderRadius: 99,
-              }}
-            />
-          ))}
-        </div>
-      </Card>
-      */}
+
     </div>
   );
 }

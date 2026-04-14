@@ -4,10 +4,6 @@ import {
   WalletNetwork,
 } from "@creit.tech/stellar-wallets-kit";
 import {
-  Account,
-  Aptos,
-  AptosConfig,
-  Network,
   RawTransaction
 } from "@aptos-labs/ts-sdk";
 
@@ -27,9 +23,6 @@ type UnsignedTxResponse = {
   address: string;
   amount?: number;
 };
-const config = new AptosConfig({ network: Network.TESTNET });
-const aptos = new Aptos(config);
-
 // Type for Stellar wallet
 type StellarWallet = StellarWalletsKit;
 
@@ -47,15 +40,6 @@ type WalletType = StellarWallet | AptosWalletContextType;
 
 // Helper function to determine if wallet is Stellar
 const isStellarWallet = (wallet: WalletType): wallet is StellarWallet => {
-  console.log("[isStellarWallet] Checking wallet type:", {
-    hasWallet: !!wallet,
-    hasSignTransaction: wallet && typeof (wallet as StellarWallet).signTransaction === 'function',
-    hasConnectedProperty: wallet && 'connected' in wallet,
-    connectedValue: wallet && (wallet as AptosWalletContextType).connected,
-    walletConstructorName: wallet && wallet.constructor ? wallet.constructor.name : 'unknown',
-    walletPrototype: wallet && Object.getPrototypeOf(wallet)?.constructor?.name
-  });
-
   // Check if it's a Stellar wallet by looking for StellarWalletsKit specific properties
   const hasSignTransaction = wallet && typeof (wallet as StellarWallet).signTransaction === 'function';
   const doesNotHaveConnectedProperty = !('connected' in wallet);
@@ -65,40 +49,17 @@ const isStellarWallet = (wallet: WalletType): wallet is StellarWallet => {
 
   const isStellar = wallet && hasSignTransaction && (doesNotHaveConnectedProperty || isStellarKit);
 
-  console.log("[isStellarWallet] Analysis:", {
-    hasSignTransaction,
-    doesNotHaveConnectedProperty,
-    isStellarKit,
-    result: isStellar
-  });
-
   return isStellar;
 };
 
 // Helper function to determine if wallet is Aptos
 const isAptosWallet = (wallet: WalletType): wallet is AptosWalletContextType => {
-  console.log("[isAptosWallet] Checking wallet type:", {
-    hasWallet: !!wallet,
-    hasConnectedProperty: wallet && 'connected' in wallet,
-    connectedType: wallet && typeof (wallet as AptosWalletContextType).connected,
-    connectedValue: wallet && (wallet as AptosWalletContextType).connected,
-    hasAccount: wallet && 'account' in wallet,
-    hasSignTransaction: wallet && 'signTransaction' in wallet
-  });
-
   // Check if it has the connected property as boolean (Aptos wallet pattern)
   const hasConnectedBoolean = wallet && typeof (wallet as AptosWalletContextType).connected === 'boolean';
   const hasAccount = wallet && 'account' in wallet;
   const hasSignTransaction = wallet && 'signTransaction' in wallet;
 
   const isAptos = wallet && hasConnectedBoolean && (hasAccount || hasSignTransaction);
-
-  console.log("[isAptosWallet] Analysis:", {
-    hasConnectedBoolean,
-    hasAccount,
-    hasSignTransaction,
-    result: isAptos
-  });
 
   return isAptos;
 };
@@ -117,53 +78,23 @@ const settleDebtStellar = async (
   unsignedTx: UnsignedTxResponse,
   wallet: StellarWallet
 ) => {
-  console.log("[settleDebtStellar] Starting Stellar settlement process", {
-    payload,
-    unsignedTx: {
-      txHash: unsignedTx.txHash,
-      settlementId: unsignedTx.settlementId,
-      tokenSymbol: unsignedTx.tokenSymbol,
-      chainName: unsignedTx.chainName,
-      serializedTxLength: unsignedTx.serializedTx?.length
-    }
-  });
-
   // Now we need the wallet to sign the transaction
   // Determine the correct network passphrase based on the wallet's configuration
   let networkPassphrase = WalletNetwork.TESTNET;
 
-  console.log("[settleDebtStellar] Determining network configuration...");
   try {
     // Try to get the wallet's current network configuration
     const walletConfig = (wallet as any).config;
-    console.log("[settleDebtStellar] Wallet config:", walletConfig);
 
     if (walletConfig && walletConfig.network) {
       networkPassphrase = walletConfig.network;
-      console.log("[settleDebtStellar] Using wallet network:", networkPassphrase);
-    } else {
-      console.log("[settleDebtStellar] No wallet network config found, using default");
     }
   } catch (error) {
-    console.log("[settleDebtStellar] Could not determine wallet network, using TESTNET as default", error);
+    console.error("[settleDebtStellar] Could not determine wallet network, using TESTNET as default", error);
   }
 
-  // Log what is being sent to signTransaction
-  console.log("[settleDebtStellar] About to call wallet.signTransaction with:", {
-    serializedTx: unsignedTx.serializedTx,
-    type: typeof unsignedTx.serializedTx,
-    length: unsignedTx.serializedTx?.length,
-    options: { networkPassphrase }
-  });
-
-  console.log("[settleDebtStellar] Calling wallet.signTransaction...");
   const signedTx = await wallet.signTransaction(unsignedTx.serializedTx, {
     networkPassphrase,
-  });
-  console.log("[settleDebtStellar] signedTx received:", {
-    hasSignedTxXdr: !!signedTx.signedTxXdr,
-    signedTxXdrLength: signedTx.signedTxXdr?.length,
-    signedTx
   });
 
   const submitPayload = {
@@ -173,17 +104,7 @@ const settleDebtStellar = async (
     settleWithId: payload.settleWithId,
   };
 
-  console.log("[settleDebtStellar] POST /groups/settle-transaction/submit", submitPayload);
-
-  console.log("[settleDebtStellar] Submitting signed transaction to backend...");
   const submitTx = await apiClient.post("/groups/settle-transaction/submit", submitPayload);
-  console.log("[settleDebtStellar] submitTx response received:", {
-    status: submitTx.status,
-    data: submitTx.data,
-    hasData: !!submitTx.data
-  });
-
-  console.log("[settleDebtStellar] Stellar settlement completed successfully");
   return submitTx.data;
 };
 
@@ -201,50 +122,21 @@ const settleDebtAptos = async (
   unsignedTx: UnsignedTxResponse,
   wallet: AptosWalletContextType
 ) => {
-  console.log("[settleDebtAptos] Starting Aptos settlement process", {
-    payload,
-    unsignedTx: {
-      txHash: unsignedTx.txHash,
-      settlementId: unsignedTx.settlementId,
-      tokenSymbol: unsignedTx.tokenSymbol,
-      chainName: unsignedTx.chainName,
-      serializedTxLength: unsignedTx.serializedTx?.length
-    },
-    walletInfo: {
-      connected: wallet.connected,
-      hasAccount: !!wallet.account,
-      hasSignTransaction: !!wallet.signTransaction,
-      hasSubmitTransaction: !!wallet.submitTransaction
-    }
-  });
-
   // Check if wallet is connected before proceeding with signing
-  console.log("[settleDebtAptos] Validating wallet connection...");
   if (!wallet.connected) {
     console.error("[settleDebtAptos] Wallet not connected");
     throw new Error("Wallet is not connected. Please connect your Aptos wallet first.");
   }
-  console.log("[settleDebtAptos] Wallet connection validated");
 
   if (!wallet.account) {
     console.error("[settleDebtAptos] No account found in wallet");
     throw new Error("No account found. Please ensure your wallet is properly connected.");
   }
-  console.log("[settleDebtAptos] Wallet account found:", {
-    accountType: typeof wallet.account,
-    hasAddress: !!wallet.account.address
-  });
 
   // Get address from account (handle different types)
   const walletAddress = typeof wallet.account.address === 'string'
     ? wallet.account.address
     : wallet.account.address?.toString();
-
-  console.log("[settleDebtAptos] Extracted wallet address:", {
-    address: walletAddress,
-    addressType: typeof walletAddress,
-    originalAddressType: typeof wallet.account.address
-  });
 
   if (!walletAddress) {
     console.error("[settleDebtAptos] Unable to extract wallet address");
@@ -255,13 +147,8 @@ const settleDebtAptos = async (
     console.error("[settleDebtAptos] Wallet does not support signAndSubmitTransaction");
     throw new Error("Wallet does not support signAndSubmitTransaction. Please use a compatible Aptos wallet.");
   }
-  console.log("[settleDebtAptos] Wallet signAndSubmitTransaction capability confirmed");
 
   try {
-    // Create transaction payload from the backend response
-    console.log("[settleDebtAptos] Creating transaction payload...");
-    console.log("[settleDebtAptos] unsignedTx:", unsignedTx);
-
     // Use the transaction data from backend to build the payload
     const amountInOctas = Math.floor(parseFloat(unsignedTx.amount?.toString() || "0") * 100000000);
     const transactionPayload = {
@@ -275,24 +162,9 @@ const settleDebtAptos = async (
       },
     };
 
-    console.log("[settleDebtAptos] About to call wallet.signAndSubmitTransaction with:", {
-      payload: transactionPayload,
-      walletAddress: walletAddress,
-    });
-
-    console.log("\n=== Signing and submitting transaction ===\n");
-    console.log("[settleDebtAptos] Calling wallet.signAndSubmitTransaction...");
-
     // Use signAndSubmitTransaction to handle both signing and submission
     const transactionResponse = await wallet.signAndSubmitTransaction(transactionPayload);
 
-    console.log("[settleDebtAptos] Transaction response:", {
-      transactionResponseType: typeof transactionResponse,
-      hasHash: !!transactionResponse.hash,
-      transactionResponse
-    });
-
-    console.log("\n=== Submitting transaction hash to backend ===\n");
     const submitPayload = {
       signedTx: transactionResponse.hash,
       txHash: transactionResponse.hash,
@@ -301,18 +173,7 @@ const settleDebtAptos = async (
       settleWithId: payload.settleWithId,
     };
 
-    console.log("[settleDebtAptos] POST /groups/settle-transaction/submit", submitPayload);
-
-    console.log("[settleDebtAptos] Submitting transaction hash to backend...");
     const submitTx = await apiClient.post("/groups/settle-transaction/submit", submitPayload);
-    console.log("[settleDebtAptos] submitTx response received:", {
-      status: submitTx.status,
-      data: submitTx.data,
-      hasData: !!submitTx.data
-    });
-
-    console.log("\n=== Transaction settlement completed ===\n");
-    console.log("[settleDebtAptos] Aptos settlement completed successfully");
     return submitTx.data;
 
   } catch (error) {
@@ -354,46 +215,11 @@ export const settleDebt = async (
   },
   wallet: WalletType | undefined
 ) => {
-  console.log("[settleDebt] === STARTING SETTLEMENT PROCESS ===");
-  console.log("[settleDebt] Input parameters:", {
-    payload: {
-      groupId: payload.groupId,
-      address: payload.address,
-      settleWithId: payload.settleWithId,
-      selectedTokenId: payload.selectedTokenId,
-      selectedChainId: payload.selectedChainId,
-      amount: payload.amount
-    },
-    walletProvided: !!wallet,
-    walletType: wallet ? typeof wallet : 'undefined'
-  });
-
-  console.log("[settleDebt] POST /groups/settle-transaction/create", payload);
-
-  console.log("[settleDebt] Creating unsigned transaction...");
   // Create the transaction - no wallet needed here, just the user's address
   const unsignedTx: UnsignedTxResponse = await apiClient.post(
     "/groups/settle-transaction/create",
     payload
   );
-  console.log("[settleDebt] unsignedTx response received:", {
-    txHash: unsignedTx.txHash,
-    settlementId: unsignedTx.settlementId,
-    tokenSymbol: unsignedTx.tokenSymbol,
-    chainName: unsignedTx.chainName,
-    serializedTxLength: unsignedTx.serializedTx?.length,
-    hasSerializedTx: !!unsignedTx.serializedTx,
-    message: "iam here",
-    amount: unsignedTx.amount
-  });
-
-  // Check if wallet is connected before proceeding with signing
-  console.log("[settleDebt] Validating wallet availability...", {
-    walletProvided: !!wallet,
-    walletType: typeof wallet,
-    walletConstructor: wallet && (wallet as any).constructor ? (wallet as any).constructor.name : 'unknown',
-    walletStringified: wallet ? JSON.stringify(wallet, null, 2) : 'null'
-  });
 
   if (!wallet) {
     console.error("[settleDebt] No wallet provided - this might be because:");
@@ -402,24 +228,17 @@ export const settleDebt = async (
     console.error("3. Wallet connection was lost");
     throw new Error("Wallet is not connected. Please connect your wallet first.");
   }
-  console.log("[settleDebt] Wallet is available, determining wallet type...");
 
   // Determine wallet type and route to appropriate handler
-  console.log("[settleDebt] Checking if wallet is Stellar...");
   const stellarCheck = isStellarWallet(wallet);
 
   if (stellarCheck) {
-    console.log("[settleDebt] ✓ Using Stellar wallet - routing to settleDebtStellar");
     return settleDebtStellar(payload, unsignedTx, wallet);
   }
 
-  console.log("[settleDebt] Checking if wallet is Aptos...");
   const aptosCheck = isAptosWallet(wallet);
 
   if (aptosCheck) {
-    console.log("[settleDebt] ✓ Using Aptos wallet - routing to settleDebtAptos");
-
-    console.log("[settleDebt] Calling settleDebtAptos with unsignedTx as ghghgfhhf", unsignedTx);
     return settleDebtAptos(payload, unsignedTx, wallet);
   }
 

@@ -68,7 +68,6 @@ export const createGroup = async (payload: {
 
 export const getAllGroups = async (params?: { type?: "PERSONAL" | "BUSINESS" }) => {
   const response = await apiClient.get("/groups", { params });
-  console.log(response);
   return GetAllGroupsSchema.array().parse(response);
 };
 
