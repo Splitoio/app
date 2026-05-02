@@ -47,6 +47,8 @@ export interface SettingsPageContentProps {
   onRemoveSettlementPref: (chainId: string) => void;
   onUpdateSettlementWallet: (walletAddress: string, chainId: string, onSuccess?: () => void) => void;
   allCurrencies: Currency[];
+  currencyDisplay: "both" | "real" | "converted";
+  onCurrencyDisplayChange: (mode: "both" | "real" | "converted") => void;
 }
 
 const CURRENCY_FLAG: Record<string, string> = {
@@ -83,6 +85,38 @@ function Toggle({ on, onChange }: { on: boolean; onChange: () => void }) {
   return (
     <div onClick={onChange} role="switch" aria-checked={on} style={{ width: 50, height: 30, borderRadius: 99, background: on ? A : "rgba(255,255,255,0.1)", cursor: "pointer", position: "relative", transition: "all 0.25s", flexShrink: 0 }}>
       <div style={{ width: 24, height: 24, borderRadius: "50%", background: "#fff", position: "absolute", top: 3, left: on ? 23 : 3, transition: "left 0.25s", boxShadow: "0 1px 4px rgba(0,0,0,0.3)" }} />
+    </div>
+  );
+}
+
+const CURRENCY_DISPLAY_OPTS: Array<{ id: "both" | "real" | "converted"; label: string }> = [
+  { id: "real", label: "Original" },
+  { id: "converted", label: "My currency" },
+  { id: "both", label: "Both" },
+];
+
+function Segmented({ value, onChange, fullWidth = false }: { value: "both" | "real" | "converted"; onChange: (v: "both" | "real" | "converted") => void; fullWidth?: boolean }) {
+  return (
+    <div style={{ display: "inline-flex", width: fullWidth ? "100%" : undefined, background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 12, padding: 3, gap: 2 }}>
+      {CURRENCY_DISPLAY_OPTS.map((opt) => {
+        const sel = value === opt.id;
+        return (
+          <button
+            key={opt.id}
+            onClick={() => onChange(opt.id)}
+            style={{
+              flex: fullWidth ? 1 : undefined,
+              padding: "7px 14px", borderRadius: 9, border: "none",
+              background: sel ? A : "transparent",
+              color: sel ? "#0a0a0a" : T.body,
+              fontSize: 12, fontWeight: 700, cursor: "pointer", fontFamily: "inherit",
+              transition: "all 0.15s",
+            }}
+          >
+            {opt.label}
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -570,6 +604,7 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
     settlementPrefs, isLoadingPref, isSavingPref, isRemovingPref, isUpdatingWallet,
     onSaveSettlementPref, onRemoveSettlementPref, onUpdateSettlementWallet,
     allCurrencies,
+    currencyDisplay, onCurrencyDisplayChange,
   } = props;
 
   const [notificationsOn, setNotificationsOn] = React.useState(true);
@@ -636,6 +671,15 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
             <div><p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Default Currency</p><p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>{preferredCurrency || "USD"}</p></div>
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.muted }}><span style={{ fontSize: 20 }}>{currencyFlag}</span><span style={{ fontSize: 16 }}>&rsaquo;</span></div>
           </MobileRow>
+          <MobileRow>
+            <div style={{ flex: 1 }}>
+              <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Show amounts in</p>
+              <p style={{ fontSize: 13, color: T.muted, marginTop: 2, fontWeight: 500 }}>When an expense was paid in a different currency</p>
+              <div style={{ marginTop: 12 }}>
+                <Segmented value={currencyDisplay} onChange={onCurrencyDisplayChange} fullWidth />
+              </div>
+            </div>
+          </MobileRow>
           <MobileRow last>
             <p style={{ fontSize: 15, fontWeight: 700, color: "#fff" }}>Language</p>
             <div style={{ display: "flex", alignItems: "center", gap: 6, color: T.muted }}><span style={{ fontSize: 14, fontWeight: 500 }}>English</span><span style={{ fontSize: 16 }}>&rsaquo;</span></div>
@@ -687,11 +731,18 @@ export function SettingsPageContent(props: SettingsPageContentProps) {
         <SLabel>Preferences</SLabel>
         <Card style={{ padding: "0 22px" }}>
           <Row><div><p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Notifications</p><p style={{ color: T.muted, fontSize: 12, marginTop: 2, fontWeight: 500 }}>Email reminders and updates</p></div><Toggle on={notificationsOn} onChange={() => setNotificationsOn((p) => !p)} /></Row>
-          <Row style={{ borderBottom: "none", alignItems: "center" }}>
+          <Row style={{ alignItems: "center" }}>
             <p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Default Currency</p>
             <div style={{ minWidth: 220 }}>
               <CurrencyDropdown selectedCurrencies={preferredCurrency ? [preferredCurrency] : []} setSelectedCurrencies={(currencies) => { const c = currencies[0] || ""; setPreferredCurrency(c); onCurrencyChange?.(c); }} mode="single" showFiatCurrencies={true} filterCurrencies={(currency: Currency) => currency.symbol !== "ETH" && currency.symbol !== "USDC"} disableChainCurrencies={true} />
             </div>
+          </Row>
+          <Row style={{ borderBottom: "none", alignItems: "center" }}>
+            <div>
+              <p style={{ color: T.bright, fontSize: 14, fontWeight: 600 }}>Show amounts in</p>
+              <p style={{ color: T.muted, fontSize: 12, marginTop: 2, fontWeight: 500 }}>When an expense was paid in a different currency</p>
+            </div>
+            <Segmented value={currencyDisplay} onChange={onCurrencyDisplayChange} />
           </Row>
         </Card>
 

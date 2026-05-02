@@ -20,7 +20,7 @@ import {
   DollarSign,
   Settings,
 } from "lucide-react";
-import { useQueryClient, useQueries } from "@tanstack/react-query";
+import { useQueryClient } from "@tanstack/react-query";
 import { QueryKeys } from "@/lib/constants";
 import { useAuthStore } from "@/stores/authStore";
 import Link from "next/link";
@@ -30,8 +30,8 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { formatRelativeTime } from "@/lib/utils";
-import { useConvertedBalanceTotal, CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
-import { getExchangeRate } from "@/features/currencies/api/client";
+import { useConvertedBalanceTotal } from "@/features/currencies/hooks/use-currencies";
+import { DualAmount } from "@/components/dual-amount";
 import {
   A,
   Card,
@@ -430,40 +430,20 @@ export default function Page() {
 
   const netOwed = (overallGetLoading || overallOweLoading) ? 0 : overallGetTotal - overallOweTotal;
 
-  // Collect all unique expense currencies across groups for the activity card
-  const activityCurrencies = useMemo(() => {
-    if (!groups?.length) return [];
-    const currencies = new Set<string>();
-    for (const group of groups) {
-      const expenses = (group as { expenses?: { currency: string }[] }).expenses ?? [];
-      expenses.forEach((e) => { if (e.currency) currencies.add(e.currency); });
-    }
-    currencies.delete(defaultCurrency);
-    return [...currencies].filter(Boolean);
-  }, [groups, defaultCurrency]);
-
-  const activityRateQueries = useQueries({
-    queries: activityCurrencies.map((from) => ({
-      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
-      queryFn: () => getExchangeRate(from, defaultCurrency),
-      staleTime: 1000 * 60 * 5,
-      enabled: !!defaultCurrency && !!from,
-    })),
-  });
-
-  const activityRateMap = useMemo(() => {
-    const map: Record<string, number> = { [defaultCurrency]: 1 };
-    activityCurrencies.forEach((c, i) => {
-      const rate = activityRateQueries[i]?.data?.rate;
-      if (rate) map[c] = rate;
-    });
-    return map;
-  }, [activityCurrencies, activityRateQueries, defaultCurrency]);
-
   /** Recent activity from all groups (expenses + settlements) for Dashboard card */
   const recentActivityFromGroups = useMemo(() => {
     if (!user || !groups?.length) return [];
-    const items: { id: string; text: string; subtext: string; date: Date; dotColor: string }[] = [];
+    const items: {
+      id: string;
+      lead: string;
+      label: string | null;
+      amount: number;
+      currency: string;
+      kind: "expense" | "settlement";
+      subtext: string;
+      date: Date;
+      dotColor: string;
+    }[] = [];
     for (const group of groups) {
       const expenses = (group as { expenses?: { id: string; name: string; amount: number; currency: string; paidBy: string; createdAt: Date; splitType: string }[] }).expenses ?? [];
       const groupUsers = (group as { groupUsers?: { user: { id: string; name?: string | null } }[] }).groupUsers ?? [];
@@ -472,14 +452,16 @@ export default function Page() {
       for (const exp of expenses) {
         const date = exp.createdAt instanceof Date ? exp.createdAt : new Date(exp.createdAt);
         const src = exp.currency || defaultCurrency;
-        const rate = activityRateMap[src] ?? 1;
-        const amountStr = formatCurrency(Math.abs(exp.amount) * rate, defaultCurrency);
         const timeAgo = formatRelativeTime(date);
         const subtext = `${timeAgo} · ${group.name}`;
         if (exp.splitType === "SETTLEMENT") {
           items.push({
             id: exp.id,
-            text: `${paidByName(exp.paidBy)} settled ${amountStr}`,
+            lead: `${paidByName(exp.paidBy)} settled`,
+            label: null,
+            amount: Math.abs(exp.amount),
+            currency: src,
+            kind: "settlement",
             subtext,
             date,
             dotColor: "#A78BFA",
@@ -487,7 +469,11 @@ export default function Page() {
         } else {
           items.push({
             id: exp.id,
-            text: `${paidByName(exp.paidBy)} added ${exp.name} (${amountStr})`,
+            lead: `${paidByName(exp.paidBy)} added`,
+            label: exp.name,
+            amount: Math.abs(exp.amount),
+            currency: src,
+            kind: "expense",
             subtext,
             date,
             dotColor: A,
@@ -497,7 +483,7 @@ export default function Page() {
     }
     items.sort((a, b) => b.date.getTime() - a.date.getTime());
     return items.slice(0, 5);
-  }, [groups, user?.id, defaultCurrency, activityRateMap]);
+  }, [groups, user?.id, defaultCurrency]);
 
   const groupAvatarItems = (g: { groupUsers?: { user: { name: string | null; id: string } }[] }) =>
     (g.groupUsers ?? [])
@@ -806,7 +792,17 @@ export default function Page() {
                       }}
                     />
                     <div style={{ flex: 1 }}>
-                      <p style={{ fontSize: 13, color: T.body, lineHeight: 1.5 }}>{a.text}</p>
+                      <p style={{ fontSize: 13, color: T.body, lineHeight: 1.5 }}>
+                        {a.lead}
+                        {a.label && <> <span style={{ color: T.bright, fontWeight: 600 }}>{a.label}</span></>}
+                        {" "}
+                        <DualAmount
+                          amount={a.amount}
+                          currency={a.currency}
+                          style={{ fontWeight: 700, color: T.bright }}
+                          secondaryStyle={{ fontWeight: 500, color: T.muted }}
+                        />
+                      </p>
                       <p style={{ fontSize: 11, color: T.sub, marginTop: 3, fontWeight: 600 }}>
                         {a.subtext}
                       </p>
@@ -899,7 +895,17 @@ export default function Page() {
                     <div key={a.id} className="flex gap-3 py-[9px] border-b border-white/[0.06] last:border-b-0">
                       <div className="w-2 h-2 rounded-full flex-shrink-0 mt-[5px]" style={{ background: a.dotColor }} />
                       <div className="min-w-0">
-                        <p className="text-[13px] font-[500] text-[#d4d4d4] leading-snug">{a.text}</p>
+                        <p className="text-[13px] font-[500] text-[#d4d4d4] leading-snug">
+                          {a.lead}
+                          {a.label && <> <span style={{ color: T.bright, fontWeight: 600 }}>{a.label}</span></>}
+                          {" "}
+                          <DualAmount
+                            amount={a.amount}
+                            currency={a.currency}
+                            style={{ fontWeight: 700, color: T.bright }}
+                            secondaryStyle={{ fontWeight: 500, color: T.muted }}
+                          />
+                        </p>
                         <p className="text-[11px] mt-0.5 font-[600]" style={{ color: T.sub }}>{a.subtext}</p>
                       </div>
                     </div>

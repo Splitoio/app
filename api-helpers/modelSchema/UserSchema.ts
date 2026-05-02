@@ -11,6 +11,7 @@ export const UserSchema = z.object({
   emailVerified: z.boolean(),
   image: z.string().nullable(),
   currency: z.string(),
+  currencyDisplay: z.string().default("both"),
   analyticsEnabled: z.boolean(),
   onboardedPersonal: z.boolean(),
   onboardedOrgNoOrg: z.boolean(),

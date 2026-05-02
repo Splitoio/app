@@ -1,13 +1,11 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { formatRelativeTime } from "@/lib/utils";
 import { Card, SectionLabel, T, A, G } from "@/lib/splito-design";
-import { getExchangeRate } from "@/features/currencies/api/client";
-import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
+import { DualAmount } from "@/components/dual-amount";
 
 type ExpenseItem = {
   id: string;
@@ -49,44 +47,7 @@ const DOT_COLORS: Record<string, string> = {
 
 export default function GroupActivityPage() {
   const { user } = useAuthStore();
-  const { group, formatCurrency } = useGroupLayout();
-  const defaultCurrency = user?.currency || "USD";
-
-  // Fetch exchange rates for all unique expense currencies that differ from defaultCurrency
-  const expenseCurrencies = useMemo(() => {
-    const currencies = new Set<string>();
-    (group?.expenses ?? []).forEach((e: { currency: string | null }) => {
-      if (e.currency) currencies.add(e.currency);
-    });
-    currencies.delete(defaultCurrency);
-    return [...currencies].filter(Boolean);
-  }, [group, defaultCurrency]);
-
-  const rateQueries = useQueries({
-    queries: expenseCurrencies.map((from) => ({
-      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
-      queryFn: () => getExchangeRate(from, defaultCurrency),
-      staleTime: 1000 * 60 * 5,
-      enabled: !!defaultCurrency && !!from,
-    })),
-  });
-
-  const rateMap = useMemo(() => {
-    const map: Record<string, number> = { [defaultCurrency]: 1 };
-    expenseCurrencies.forEach((c, i) => {
-      const rate = rateQueries[i]?.data?.rate;
-      if (rate) map[c] = rate;
-    });
-    return map;
-  }, [expenseCurrencies, rateQueries, defaultCurrency]);
-
-  const convertedFormatCurrency = (amount: number, currency: string | null): string => {
-    const src = currency || defaultCurrency;
-    if (src === defaultCurrency) return formatCurrency(amount, defaultCurrency);
-    const rate = rateMap[src];
-    if (!rate) return formatCurrency(amount, src); // show original while rate loads
-    return formatCurrency(amount * rate, defaultCurrency);
-  };
+  const { group } = useGroupLayout();
 
   const activities = useMemo((): ActivityItem[] => {
     if (!group || !user) return [];
@@ -203,7 +164,14 @@ export default function GroupActivityPage() {
             } = item;
             const isYouPayer = expense.paidBy === user.id;
             const payerLabel = isYouPayer ? "You" : paidByName;
-            const amountStr = convertedFormatCurrency(expense.amount, expense.currency);
+            const amountNode = (
+              <DualAmount
+                amount={expense.amount}
+                currency={expense.currency || ""}
+                style={{ color: T.bright, fontWeight: 700 }}
+                secondaryStyle={{ fontWeight: 500, color: T.muted }}
+              />
+            );
 
             let activityType: keyof typeof DOT_COLORS = "added";
             if (
@@ -254,7 +222,7 @@ export default function GroupActivityPage() {
                     }}
                   >
                     {payerLabel} marked payment to {payeeLabel} as settled{" "}
-                    <span style={{ color: T.bright }}>({amountStr})</span>
+                    {amountNode}
                   </p>
                   <span
                     style={{
@@ -301,8 +269,8 @@ export default function GroupActivityPage() {
                     fontWeight: 500,
                   }}
                 >
-                  {payerLabel} added {expense.name}{" "}
-                  <span style={{ color: T.bright }}>({amountStr})</span>
+                  {payerLabel} added <span style={{ color: T.bright, fontWeight: 600 }}>{expense.name}</span>{" "}
+                  {amountNode}
                 </p>
                 <span
                   style={{

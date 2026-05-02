@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useQueries } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useGroupLayout } from "@/contexts/group-layout-context";
 import { useAuthStore } from "@/stores/authStore";
 import { useDeleteExpense, useMarkParticipantAsPaid } from "@/features/expenses/hooks/use-create-expense";
-import { getExchangeRate } from "@/features/currencies/api/client";
-import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
+import { DualAmount } from "@/components/dual-amount";
 import {
   Card,
   SectionLabel,
@@ -60,7 +58,6 @@ function ExpenseRow({
   groupUsers,
   currentUserId,
   currentUserName,
-  formatCurrency,
   onNotify,
   onSettle,
   onDelete,
@@ -71,7 +68,6 @@ function ExpenseRow({
   groupUsers: { user: { id: string; name: string | null; image: string | null } }[];
   currentUserId: string;
   currentUserName: string | null;
-  formatCurrency: (amount: number, currency: string) => string;
   onNotify: () => void;
   onSettle: () => void;
   onDelete: () => void;
@@ -98,12 +94,14 @@ function ExpenseRow({
 
   const categoryStyle = getCategoryStyle(expense.category);
 
-  const statusLine = (() => {
+  const statusLine: { node: React.ReactNode; color: string } | null = (() => {
     if (!isInvolved) return null;
-    if (myShare > 0 && !iAmPayer && !myIsPaid) return { text: `you owe ${formatCurrency(myShare, expense.currency)}`, color: "#F87171" };
-    if (myShare > 0 && !iAmPayer && myIsPaid) return { text: "paid ✓", color: G };
-    if (iAmPayer && pending > 0) return { text: `owed ${formatCurrency(pending, expense.currency)}`, color: G };
-    if (iAmPayer && pending === 0) return { text: "all settled ✓", color: G };
+    if (myShare > 0 && !iAmPayer && !myIsPaid)
+      return { node: <>you owe <DualAmount amount={myShare} currency={expense.currency} /></>, color: "#F87171" };
+    if (myShare > 0 && !iAmPayer && myIsPaid) return { node: "paid ✓", color: G };
+    if (iAmPayer && pending > 0)
+      return { node: <>owed <DualAmount amount={pending} currency={expense.currency} /></>, color: G };
+    if (iAmPayer && pending === 0) return { node: "all settled ✓", color: G };
     return null;
   })();
 
@@ -154,11 +152,15 @@ function ExpenseRow({
               fontFamily: "'DM Mono',monospace",
             }}
           >
-            {formatCurrency(expense.amount, expense.currency)}
+            <DualAmount
+              amount={expense.amount}
+              currency={expense.currency}
+              secondaryStyle={{ fontWeight: 600, fontSize: 13, color: T.muted }}
+            />
           </p>
           {statusLine && (
             <p style={{ fontSize: 12, color: statusLine.color, fontWeight: 600, marginTop: 2 }}>
-              {statusLine.text}
+              {statusLine.node}
             </p>
           )}
         </div>
@@ -219,7 +221,11 @@ function ExpenseRow({
                           fontFamily: "'DM Mono',monospace",
                         }}
                       >
-                        {formatCurrency(p.amount, expense.currency)}
+                        <DualAmount
+                          amount={p.amount}
+                          currency={expense.currency}
+                          secondaryStyle={{ fontWeight: 500, fontSize: 11, color: T.muted }}
+                        />
                       </span>
                       {isInvolved && (
                         <Tag color={isSettled ? G : "#F87171"}>
@@ -282,13 +288,11 @@ export default function GroupSplitsPage() {
   const [expenseToDelete, setExpenseToDelete] = useState<{ id: string; name: string } | null>(null);
   const {
     group,
-    formatCurrency,
     openSettle,
     handleSendReminder,
     openAddExpense,
     openAddMember,
   } = useGroupLayout();
-  const defaultCurrency = user?.currency || "USD";
   const deleteExpenseMutation = useDeleteExpense(group?.id ?? "");
   const markPaidMutation = useMarkParticipantAsPaid(group?.id ?? "");
 
@@ -297,36 +301,6 @@ export default function GroupSplitsPage() {
     () => expenses.filter((e) => e.splitType !== "SETTLEMENT"),
     [expenses]
   );
-
-  // Fetch exchange rates for all unique expense currencies that differ from defaultCurrency
-  const expenseCurrencies = useMemo(
-    () => [...new Set(nonSettlement.map((e) => e.currency).filter((c) => c && c !== defaultCurrency))],
-    [nonSettlement, defaultCurrency]
-  );
-  const rateQueries = useQueries({
-    queries: expenseCurrencies.map((from) => ({
-      queryKey: [CURRENCY_QUERY_KEYS.EXCHANGE_RATE, from, defaultCurrency],
-      queryFn: () => getExchangeRate(from, defaultCurrency),
-      staleTime: 1000 * 60 * 5,
-      enabled: !!defaultCurrency && !!from,
-    })),
-  });
-  const rateMap = useMemo(() => {
-    const map: Record<string, number> = {};
-    expenseCurrencies.forEach((c, i) => {
-      const rate = rateQueries[i]?.data?.rate;
-      if (rate) map[c] = rate;
-    });
-    return map;
-  }, [expenseCurrencies, rateQueries]);
-
-  // Converts an amount from its expense currency to defaultCurrency, then formats
-  const convertedFormatCurrency = (amount: number, currency: string): string => {
-    if (!defaultCurrency || currency === defaultCurrency) return formatCurrency(amount, currency);
-    const rate = rateMap[currency];
-    if (!rate) return formatCurrency(amount, currency); // fall back to original if rate not loaded
-    return formatCurrency(amount * rate, defaultCurrency);
-  };
 
   const byDate = useMemo(() => {
     const map = new Map<string, ExpenseWithParticipants[]>();
@@ -423,10 +397,9 @@ export default function GroupSplitsPage() {
                 <ExpenseRow
                   key={expense.id}
                   expense={expense}
-            groupUsers={group.groupUsers}
-            currentUserId={user.id}
-            currentUserName={user.name ?? null}
-                  formatCurrency={convertedFormatCurrency}
+                  groupUsers={group.groupUsers}
+                  currentUserId={user.id}
+                  currentUserName={user.name ?? null}
                   isLast={idx === dateExpenses.length - 1}
                   onNotify={() => {
                     const firstOwer = expense.expenseParticipants?.find((p) => p.amount > 0);

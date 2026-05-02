@@ -14,6 +14,7 @@ import {
   useUpdateSettlementWallet,
 } from "@/features/user/hooks/use-update-profile";
 import { asEnhancedUser } from "@/types/user";
+import { useCurrencyDisplayStore } from "@/stores/currencyDisplayStore";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import { SettingsPageContent } from "@/app/settings/settings-page-content";
 import { useGetAllGroups } from "@/features/groups/hooks/use-create-group";
@@ -22,9 +23,12 @@ import { useGetFriends } from "@/features/friends/hooks/use-get-friends";
 // Base API URL
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
 
+type CurrencyDisplay = "both" | "real" | "converted";
+
 interface UserUpdateData {
   name?: string;
   currency?: string;
+  currencyDisplay?: CurrencyDisplay;
   [key: string]: string | undefined;
 }
 
@@ -96,6 +100,25 @@ export default function SettingsPage() {
         toast.success("Profile updated successfully");
       },
       onError: () => toast.error("Failed to update profile"),
+    });
+  };
+
+  const currencyDisplay = useCurrencyDisplayStore((s) => s.mode);
+  const setCurrencyDisplayMode = useCurrencyDisplayStore((s) => s.setMode);
+
+  const handleCurrencyDisplayChange = (mode: CurrencyDisplay) => {
+    if (mode === currencyDisplay) return;
+    const prev = currencyDisplay;
+    setCurrencyDisplayMode(mode);
+    updateUser({ currencyDisplay: mode }, {
+      onSuccess: () => {
+        if (user) setUser({ ...user, currencyDisplay: mode });
+        toast.success("Currency display updated");
+      },
+      onError: () => {
+        setCurrencyDisplayMode(prev);
+        toast.error("Failed to update currency display");
+      },
     });
   };
 
@@ -250,5 +273,7 @@ export default function SettingsPage() {
     onRemoveSettlementPref: handleRemoveSettlementPreference,
     onUpdateSettlementWallet: handleUpdateSettlementWallet,
     allCurrencies: currencyData?.currencies || [],
+    currencyDisplay,
+    onCurrencyDisplayChange: handleCurrencyDisplayChange,
   });
 }
