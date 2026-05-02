@@ -19,7 +19,7 @@ import { useReminders } from "@/features/reminders/hooks/use-reminders";
 import { useGetAllCurrencies } from "@/features/currencies/hooks/use-currencies";
 import axios from "axios";
 import Link from "next/link";
-import TimeLockToggle from "@/components/ui/TimeLockToggle";
+import { A, T } from "@/lib/splito-design";
 import {
   GroupLayoutProvider,
   type GroupLayoutContextValue,
@@ -45,11 +45,8 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
   const [settleSpecificAmount, setSettleSpecificAmount] = useState<number | undefined>(undefined);
   const [settleSpecificMemberAmounts, setSettleSpecificMemberAmounts] = useState<Record<string, number> | undefined>(undefined);
   const [settleExpenseId, setSettleExpenseId] = useState<string | undefined>(undefined);
-  const [groupSettings, setGroupSettings] = useState({
-    name: "",
-    lockPrice: true,
-    memberEmail: "",
-  });
+  const [groupSettings, setGroupSettings] = useState({ name: "" });
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [settlementBannerDismissed, setSettlementBannerDismissed] = useState(() => {
     if (typeof window === "undefined") return false;
     return sessionStorage.getItem("settlement-banner-dismissed") === "true";
@@ -276,67 +273,214 @@ function GroupLayoutInner({ children }: { children: React.ReactNode }) {
         />
 
         {isSettingsModalOpen && (
-          <div className="fixed inset-0 z-50 h-screen w-screen">
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
             <div
-              className="fixed inset-0 bg-black/80 brightness-50"
-              onClick={() => setIsSettingsModalOpen(false)}
+              className="fixed inset-0"
+              style={{ background: "rgba(0,0,0,0.88)", backdropFilter: "blur(16px)" }}
+              onClick={() => {
+                setIsSettingsModalOpen(false);
+                setConfirmDelete(false);
+              }}
             />
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[90%] max-w-[450px] max-h-[90vh] overflow-auto">
-              <div className="relative z-10 rounded-[20px] bg-black p-4 sm:p-6 border border-white/20">
-                <h2 className="text-mobile-xl sm:text-2xl font-medium text-white mb-4 sm:mb-6">
-                  Group settings
-                </h2>
-                <form className="space-y-4 sm:space-y-6" onSubmit={handleSettingsSubmit}>
-                  <div>
-                    <label
-                      htmlFor="groupName"
-                      className="block text-mobile-base sm:text-base text-white/80 mb-2"
-                    >
-                      Group Name
-                    </label>
-                    <input
-                      type="text"
-                      id="groupName"
-                      value={groupSettings.name}
-                      onChange={(e) =>
-                        setGroupSettings((prev) => ({ ...prev, name: e.target.value }))
-                      }
-                      className="w-full px-4 py-2 rounded-lg bg-[#1A1A1C] text-white border border-white/20 focus:outline-none focus:border-white/40"
-                    />
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <TimeLockToggle
-                      value={groupSettings.lockPrice}
-                      onChange={(val) =>
-                        setGroupSettings((prev) => ({ ...prev, lockPrice: val }))
-                      }
-                    />
-                  </div>
-                  <div className="flex justify-end gap-3 mt-6">
-                    <button
-                      type="button"
-                      onClick={() => setIsSettingsModalOpen(false)}
-                      className="px-4 py-2 rounded-lg text-white/80 hover:text-white"
-                    >
-                      Cancel
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-4 py-2 rounded-lg bg-white text-black hover:bg-white/90"
-                    >
-                      Save Changes
-                    </button>
-                  </div>
-                </form>
-                <div className="mt-8 pt-6 border-t border-white/20">
+            <div
+              className="relative z-10 w-full max-w-[460px] rounded-[28px] p-7"
+              style={{
+                background: "linear-gradient(160deg, #141414 0%, #0f0f0f 100%)",
+                border: "1px solid rgba(255,255,255,0.09)",
+                boxShadow: "0 40px 100px rgba(0,0,0,0.8)",
+                animation: "mIn 0.3s cubic-bezier(.34,1.56,.64,1)",
+              }}
+            >
+              <div className="flex items-start justify-between mb-6">
+                <div>
+                  <p style={{ color: "#fff", fontSize: 20, fontWeight: 800, letterSpacing: "-0.02em" }}>
+                    Group settings
+                  </p>
+                  <p style={{ color: T.mid, fontSize: 12, marginTop: 4 }}>
+                    Rename your group or delete it permanently.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setIsSettingsModalOpen(false);
+                    setConfirmDelete(false);
+                  }}
+                  style={{
+                    background: "rgba(255,255,255,0.07)",
+                    border: "1px solid rgba(255,255,255,0.10)",
+                    color: "rgba(255,255,255,0.60)",
+                    width: 34,
+                    height: 34,
+                    borderRadius: "50%",
+                    cursor: "pointer",
+                    fontSize: 18,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    flexShrink: 0,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+
+              <form onSubmit={handleSettingsSubmit}>
+                <div className="mb-5">
+                  <label
+                    htmlFor="groupName"
+                    style={{
+                      color: "rgba(204,204,204,0.9)",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      letterSpacing: "0.08em",
+                      textTransform: "uppercase",
+                      marginBottom: 8,
+                      display: "block",
+                    }}
+                  >
+                    Group Name
+                  </label>
+                  <input
+                    id="groupName"
+                    type="text"
+                    value={groupSettings.name}
+                    onChange={(e) =>
+                      setGroupSettings((prev) => ({ ...prev, name: e.target.value }))
+                    }
+                    style={{
+                      width: "100%",
+                      background: "rgba(255,255,255,0.05)",
+                      border: "1.5px solid rgba(255,255,255,0.09)",
+                      borderRadius: 14,
+                      padding: "12px 16px",
+                      color: "#fff",
+                      fontSize: 14,
+                      outline: "none",
+                      boxSizing: "border-box",
+                      fontFamily: "inherit",
+                      fontWeight: 500,
+                    }}
+                  />
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={updateGroupMutation.isPending || !groupSettings.name.trim()}
+                  style={{
+                    width: "100%",
+                    padding: "13px",
+                    background: groupSettings.name.trim() ? A : "rgba(255,255,255,0.05)",
+                    color: groupSettings.name.trim() ? "#0a0a0a" : "#555",
+                    border: "none",
+                    borderRadius: 14,
+                    fontSize: 14,
+                    fontWeight: 800,
+                    cursor: groupSettings.name.trim() ? "pointer" : "default",
+                    fontFamily: "inherit",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 8,
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {updateGroupMutation.isPending ? (
+                    <>
+                      <Loader2 style={{ width: 16, height: 16, animation: "spin 0.8s linear infinite" }} />
+                      Saving…
+                    </>
+                  ) : (
+                    "Save changes"
+                  )}
+                </button>
+              </form>
+
+              <div
+                className="mt-6 pt-6"
+                style={{ borderTop: "1px solid rgba(255,255,255,0.07)" }}
+              >
+                {!confirmDelete ? (
                   <button
-                    onClick={handleDeleteGroup}
-                    className="flex items-center gap-2 text-red-500 hover:text-red-400"
+                    type="button"
+                    onClick={() => setConfirmDelete(true)}
+                    style={{
+                      width: "100%",
+                      padding: "12px",
+                      background: "rgba(248,113,113,0.08)",
+                      border: "1px solid rgba(248,113,113,0.25)",
+                      color: "#F87171",
+                      borderRadius: 14,
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      fontFamily: "inherit",
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 8,
+                    }}
                   >
                     <Trash2 className="h-4 w-4" />
-                    <span>Delete Group</span>
+                    Delete group
                   </button>
-                </div>
+                ) : (
+                  <div>
+                    <p style={{ color: T.mid, fontSize: 12, marginBottom: 10, lineHeight: 1.5 }}>
+                      This permanently deletes the group. All balances must be settled first.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDelete(false)}
+                        style={{
+                          flex: 1,
+                          padding: "12px",
+                          background: "rgba(255,255,255,0.05)",
+                          border: "1px solid rgba(255,255,255,0.09)",
+                          color: "#f5f5f5",
+                          borderRadius: 14,
+                          fontSize: 13,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                          fontFamily: "inherit",
+                        }}
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleDeleteGroup}
+                        disabled={deleteGroupMutation.isPending}
+                        style={{
+                          flex: 1,
+                          padding: "12px",
+                          background: "#F87171",
+                          border: "none",
+                          color: "#0a0a0a",
+                          borderRadius: 14,
+                          fontSize: 13,
+                          fontWeight: 800,
+                          cursor: deleteGroupMutation.isPending ? "default" : "pointer",
+                          fontFamily: "inherit",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 8,
+                          opacity: deleteGroupMutation.isPending ? 0.7 : 1,
+                        }}
+                      >
+                        {deleteGroupMutation.isPending ? (
+                          <>
+                            <Loader2 style={{ width: 14, height: 14, animation: "spin 0.8s linear infinite" }} />
+                            Deleting…
+                          </>
+                        ) : (
+                          "Delete forever"
+                        )}
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

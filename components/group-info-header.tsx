@@ -19,7 +19,7 @@ export function GroupInfoHeader({
   onSettleClick,
   group,
   onAddExpenseClick,
-  onSettingsClick: _onSettingsClick,
+  onSettingsClick,
 }: {
   groupId: string;
   onSettleClick: () => void;
@@ -189,6 +189,17 @@ export function GroupInfoHeader({
             {isAddingExpense ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icons.plus />}
             Add Expense
           </button>
+          {isAdmin && (
+            <Btn
+              onClick={onSettingsClick}
+              variant="ghost"
+              aria-label="Group settings"
+              title="Group settings"
+              style={{ padding: "9px 12px" }}
+            >
+              <Icons.settings />
+            </Btn>
+          )}
         </div>
       </div>
 
@@ -220,6 +231,24 @@ export function GroupInfoHeader({
           {isAddingExpense ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icons.plus />}
           Add Expense
         </button>
+        {isAdmin && (
+          <button
+            type="button"
+            onClick={onSettingsClick}
+            aria-label="Group settings"
+            className="flex items-center justify-center rounded-xl"
+            style={{
+              padding: "10px 12px",
+              background: "rgba(255,255,255,0.04)",
+              border: "1px solid rgba(255,255,255,0.12)",
+              color: "#f5f5f5",
+              cursor: "pointer",
+              minHeight: 42,
+            }}
+          >
+            <Icons.settings />
+          </button>
+        )}
       </div>
 
       <div
