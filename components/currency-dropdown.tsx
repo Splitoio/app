@@ -124,6 +124,7 @@ type Props = {
   placeholder?: string;
   disableChainCurrencies?: boolean;
   compact?: boolean;
+  size?: "default" | "lg";
 };
 
 export default function CurrencyDropdown({
@@ -135,6 +136,7 @@ export default function CurrencyDropdown({
   placeholder,
   disableChainCurrencies = false,
   compact = false,
+  size = "default",
 }: Props) {
   const [activeDropdown, setActiveDropdown] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -614,11 +616,11 @@ export default function CurrencyDropdown({
           alignItems: "center",
           justifyContent: "space-between",
           width: "100%",
-          height: 40,
-          background: "rgba(255,255,255,0.04)",
-          border: `1px solid ${isOpen ? "rgba(255,255,255,0.3)" : "rgba(255,255,255,0.1)"}`,
-          borderRadius: 8,
-          padding: "0 12px",
+          height: size === "lg" ? 46 : 40,
+          background: size === "lg" ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.04)",
+          border: `1px solid ${isOpen ? "rgba(255,255,255,0.3)" : (size === "lg" ? "rgba(255,255,255,0.09)" : "rgba(255,255,255,0.1)")}`,
+          borderRadius: size === "lg" ? 12 : 8,
+          padding: size === "lg" ? "0 16px" : "0 12px",
           cursor: "pointer",
           transition: "all 0.2s",
           fontFamily: "inherit",

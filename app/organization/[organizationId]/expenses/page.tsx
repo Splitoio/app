@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { createPortal } from "react-dom";
 import { useParams } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
@@ -10,7 +10,10 @@ import {
   useDeleteExpense,
   useUpdateExpense,
 } from "@/features/expenses/hooks/use-create-expense";
-import { Loader2, Plus, Trash2, Pencil, ClipboardPaste, LayoutGrid, Table2, Search, ChevronDown, Check } from "lucide-react";
+import { Loader2, Plus, Trash2, Pencil, ClipboardPaste, LayoutGrid, Table2, Search, ChevronDown, Check, CalendarIcon, X } from "lucide-react";
+import { format } from "date-fns";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { Card, SectionLabel, T, A } from "@/lib/splito-design";
@@ -26,6 +29,10 @@ import {
 import { useQueries } from "@tanstack/react-query";
 import { getExchangeRate } from "@/features/currencies/api/client";
 import { CURRENCY_QUERY_KEYS } from "@/features/currencies/hooks/use-currencies";
+import {
+  EXPENSE_CATEGORIES as CATEGORIES,
+  getCategoryEmoji,
+} from "@/lib/expense-categories";
 
 type Expense = {
   id: string;
@@ -36,23 +43,6 @@ type Expense = {
   category: string;
   paidBy?: string;
 };
-
-const CATEGORIES = [
-  { label: "Business", emoji: "💼" },
-  { label: "Software", emoji: "💻" },
-  { label: "Hardware", emoji: "🖥️" },
-  { label: "Travel", emoji: "✈️" },
-  { label: "Marketing", emoji: "📣" },
-  { label: "Office", emoji: "🏢" },
-  { label: "Other", emoji: "🧾" },
-];
-
-function getCategoryEmoji(category: string): string {
-  const match = CATEGORIES.find(
-    (c) => c.label.toUpperCase() === (category || "").toUpperCase()
-  );
-  return match?.emoji ?? "🧾";
-}
 
 function formatDate(d: string) {
   return new Date(d).toLocaleDateString("en-US", {
@@ -92,6 +82,9 @@ export default function OrganizationExpensesPage() {
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [vendorOpen, setVendorOpen] = useState(false);
+  const [vendorActive, setVendorActive] = useState(0);
+  const vendorInputRef = useRef<HTMLInputElement>(null);
   const [importOpen, setImportOpen] = useState(false);
   const [expenseToDelete, setExpenseToDelete] = useState<Expense | null>(null);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
@@ -115,6 +108,37 @@ export default function OrganizationExpensesPage() {
     });
     return [...set].sort();
   }, [expenses]);
+
+  // Latest expense per vendor (case-insensitive) — used for autofill
+  const latestByVendor = useMemo(() => {
+    const map = new Map<string, Expense>();
+    const sorted = [...expenses].sort(
+      (a, b) => new Date(b.expenseDate).getTime() - new Date(a.expenseDate).getTime()
+    );
+    for (const e of sorted) {
+      const { vendor } = parseVendorFromName(e.name);
+      if (!vendor) continue;
+      const key = vendor.toLowerCase();
+      if (!map.has(key)) map.set(key, e);
+    }
+    return map;
+  }, [expenses]);
+
+  const autofillFromVendor = (vendor: string) => {
+    const last = latestByVendor.get(vendor.toLowerCase());
+    if (!last) {
+      setForm((p) => ({ ...p, vendor }));
+      return;
+    }
+    const fillAmount = ["software", "salary"].includes((last.category || "").toLowerCase());
+    setForm((p) => ({
+      ...p,
+      vendor,
+      category: last.category || p.category,
+      currency: last.currency || p.currency,
+      ...(fillAmount && !p.amount ? { amount: String(last.amount) } : {}),
+    }));
+  };
 
   // When opening edit modal, populate form from expense
   useEffect(() => {
@@ -632,18 +656,105 @@ export default function OrganizationExpensesPage() {
                   <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
                     Vendor / Payee
                   </label>
-                  <input
-                    type="text"
-                    value={form.vendor}
-                    onChange={(e) => setForm((p) => ({ ...p, vendor: e.target.value }))}
-                    placeholder="e.g. Vercel, Akash, Brevo"
-                    list="modal-vendor-suggestions"
-                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
-                    autoFocus
-                  />
-                  <datalist id="modal-vendor-suggestions">
-                    {knownVendors.map((v) => <option key={v} value={v} />)}
-                  </datalist>
+                  {(() => {
+                    const q = form.vendor.trim().toLowerCase();
+                    const matches = knownVendors
+                      .filter((v) => !q || v.toLowerCase().includes(q))
+                      .filter((v) => v.toLowerCase() !== q);
+                    const showList = vendorOpen && matches.length > 0;
+                    const pick = (v: string) => {
+                      autofillFromVendor(v);
+                      setVendorOpen(false);
+                    };
+                    return (
+                      <div className="relative">
+                        <input
+                          ref={vendorInputRef}
+                          type="text"
+                          value={form.vendor}
+                          onChange={(e) => {
+                            setForm((p) => ({ ...p, vendor: e.target.value }));
+                            setVendorOpen(true);
+                            setVendorActive(0);
+                          }}
+                          onFocus={() => { setVendorOpen(true); setVendorActive(0); }}
+                          onBlur={() => setTimeout(() => setVendorOpen(false), 120)}
+                          onKeyDown={(e) => {
+                            if (!showList) return;
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setVendorActive((i) => (i + 1) % matches.length);
+                            } else if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setVendorActive((i) => (i - 1 + matches.length) % matches.length);
+                            } else if (e.key === "Enter") {
+                              e.preventDefault();
+                              pick(matches[vendorActive] || matches[0]);
+                            } else if (e.key === "Escape") {
+                              setVendorOpen(false);
+                            }
+                          }}
+                          placeholder="e.g. Vercel, Akash, Brevo"
+                          autoComplete="off"
+                          className="w-full rounded-xl px-4 py-3 pr-11 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white placeholder-white/25 outline-none focus:border-white/20 transition-colors"
+                          autoFocus
+                        />
+                        {form.vendor && (
+                          <button
+                            type="button"
+                            aria-label="Reset form"
+                            title="Reset form"
+                            onMouseDown={(e) => e.preventDefault()}
+                            onClick={() => {
+                              setForm(emptyForm);
+                              setVendorActive(0);
+                              setVendorOpen(true);
+                              vendorInputRef.current?.focus();
+                            }}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 h-7 w-7 rounded-lg flex items-center justify-center transition-colors hover:bg-white/[0.08]"
+                            style={{ color: T.muted }}
+                          >
+                            <X className="h-4 w-4" />
+                          </button>
+                        )}
+                        <AnimatePresence>
+                          {showList && (
+                            <motion.div
+                              initial={{ opacity: 0, y: -4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              exit={{ opacity: 0, y: -4 }}
+                              transition={{ duration: 0.12 }}
+                              className="absolute z-30 left-0 right-0 mt-1.5 rounded-xl border overflow-hidden"
+                              style={{
+                                background: "#141414",
+                                borderColor: "rgba(255,255,255,0.09)",
+                                boxShadow: "0 20px 60px rgba(0,0,0,0.6)",
+                                maxHeight: 240,
+                                overflowY: "auto",
+                              }}
+                            >
+                              {matches.map((v, i) => (
+                                <button
+                                  key={v}
+                                  type="button"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() => pick(v)}
+                                  onMouseEnter={() => setVendorActive(i)}
+                                  className="w-full text-left px-4 py-2.5 text-[13px] transition-colors"
+                                  style={{
+                                    color: i === vendorActive ? "#fff" : T.body,
+                                    background: i === vendorActive ? "rgba(255,255,255,0.06)" : "transparent",
+                                  }}
+                                >
+                                  {v}
+                                </button>
+                              ))}
+                            </motion.div>
+                          )}
+                        </AnimatePresence>
+                      </div>
+                    );
+                  })()}
                 </div>
 
                 {/* Description */}
@@ -687,6 +798,7 @@ export default function OrganizationExpensesPage() {
                       }
                       mode="single"
                       showFiatCurrencies={true}
+                      size="lg"
                     />
                   </div>
                 </div>
@@ -721,12 +833,40 @@ export default function OrganizationExpensesPage() {
                   <label className="block text-[11px] font-bold uppercase tracking-wider mb-1.5" style={{ color: T.soft }}>
                     Date
                   </label>
-                  <input
-                    type="date"
-                    value={form.expenseDate}
-                    onChange={(e) => setForm((p) => ({ ...p, expenseDate: e.target.value }))}
-                    className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors [color-scheme:dark]"
-                  />
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button
+                        type="button"
+                        className="w-full rounded-xl px-4 py-3 text-[14px] bg-white/[0.05] border border-white/[0.09] text-white outline-none focus:border-white/20 transition-colors flex items-center gap-2.5 hover:bg-white/[0.07]"
+                      >
+                        <CalendarIcon className="h-4 w-4 shrink-0" style={{ color: T.muted }} />
+                        <span>
+                          {form.expenseDate
+                            ? format(new Date(form.expenseDate + "T00:00:00"), "EEE, dd MMM yyyy")
+                            : "Pick a date"}
+                        </span>
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      align="start"
+                      className="dark w-auto p-0 rounded-xl border"
+                      style={{ background: "#141414", borderColor: "rgba(255,255,255,0.09)", boxShadow: "0 20px 60px rgba(0,0,0,0.6)" }}
+                    >
+                      <Calendar
+                        mode="single"
+                        selected={form.expenseDate ? new Date(form.expenseDate + "T00:00:00") : undefined}
+                        onSelect={(date) => {
+                          if (!date) return;
+                          const yyyy = date.getFullYear();
+                          const mm = String(date.getMonth() + 1).padStart(2, "0");
+                          const dd = String(date.getDate()).padStart(2, "0");
+                          setForm((p) => ({ ...p, expenseDate: `${yyyy}-${mm}-${dd}` }));
+                        }}
+                        defaultMonth={form.expenseDate ? new Date(form.expenseDate + "T00:00:00") : new Date()}
+                        className="rounded-xl"
+                      />
+                    </PopoverContent>
+                  </Popover>
                 </div>
 
                 {/* Actions */}

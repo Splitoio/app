@@ -20,20 +20,10 @@ import { useCreateExpense } from "@/features/expenses/hooks/use-create-expense";
 import { useAuthStore } from "@/stores/authStore";
 import { toast } from "sonner";
 import type { ParsedExpenseItem, ParseNoteItem, InferredDate } from "@/features/expenses/api/client";
-
-const CATEGORIES = [
-  { label: "Business", emoji: "💼" },
-  { label: "Software", emoji: "💻" },
-  { label: "Hardware", emoji: "🖥️" },
-  { label: "Travel", emoji: "✈️" },
-  { label: "Marketing", emoji: "📣" },
-  { label: "Office", emoji: "🏢" },
-  { label: "Other", emoji: "🧾" },
-];
-
-function getCategoryEmoji(cat: string) {
-  return CATEGORIES.find((c) => c.label === cat)?.emoji ?? "🧾";
-}
+import {
+  EXPENSE_CATEGORIES as CATEGORIES,
+  getCategoryEmoji,
+} from "@/lib/expense-categories";
 
 /**
  * Resolves a partial inferred date into a full YYYY-MM-DD string.
