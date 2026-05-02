@@ -104,9 +104,9 @@ export const IncomeStreamSchema = z.object({
   organizationId: z.string(),
   name: z.string(),
   currency: z.string(),
-  expectedAmount: z.number().nullable(),
+  amount: z.number(),
   description: z.string().nullable(),
-  streamDate: z.coerce.date(),
+  receivedDate: z.coerce.date(),
   createdAt: z.coerce.date(),
   updatedAt: z.coerce.date(),
 });
@@ -213,7 +213,7 @@ export const deleteInvoice = async (invoiceId: string) => {
   await apiClient.delete(`/invoices/${invoiceId}`);
 };
 
-// Income streams (organization admin only)
+// Income received entries — fills the org treasury (admin only)
 export const getStreamsByOrganization = async (organizationId: string) => {
   const response = await apiClient.get(`/groups/${organizationId}/streams`);
   return IncomeStreamSchema.array().parse(response);
@@ -221,7 +221,7 @@ export const getStreamsByOrganization = async (organizationId: string) => {
 
 export const createStream = async (
   organizationId: string,
-  payload: { name: string; currency?: string; expectedAmount?: number | null; description?: string | null; streamDate?: string }
+  payload: { name: string; currency?: string; amount: number; description?: string | null; receivedDate?: string }
 ) => {
   const response = await apiClient.post(`/groups/${organizationId}/streams`, payload);
   return IncomeStreamSchema.parse(response);
@@ -230,7 +230,7 @@ export const createStream = async (
 export const updateStream = async (
   organizationId: string,
   streamId: string,
-  payload: { name?: string; currency?: string; expectedAmount?: number | null; description?: string | null; streamDate?: string }
+  payload: { name?: string; currency?: string; amount?: number; description?: string | null; receivedDate?: string }
 ) => {
   const response = await apiClient.put(`/groups/${organizationId}/streams/${streamId}`, payload);
   return IncomeStreamSchema.parse(response);

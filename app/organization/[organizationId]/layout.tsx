@@ -64,7 +64,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
   const [invoiceToEdit, setInvoiceToEdit] = useState<InvoiceForEdit | null>(null);
   const [isStreamModalOpen, setIsStreamModalOpen] = useState(false);
   const [streamToEdit, setStreamToEdit] = useState<IncomeStream | null>(null);
-  const [streamForm, setStreamForm] = useState({ name: "", currency: "USD", expectedAmount: "" as string | number, description: "", streamDate: new Date().toISOString().slice(0, 10) });
+  const [streamForm, setStreamForm] = useState({ name: "", currency: "USD", amount: "" as string | number, description: "", receivedDate: new Date().toISOString().slice(0, 10) });
   const [isCreateContractModalOpen, setIsCreateContractModalOpen] = useState(false);
 
   const updateGroupMutation = useUpdateGroup();
@@ -111,7 +111,7 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
 
   const openAddStreamModal = () => {
     setStreamToEdit(null);
-    setStreamForm({ name: "", currency: "USD", expectedAmount: "", description: "", streamDate: new Date().toISOString().slice(0, 10) });
+    setStreamForm({ name: "", currency: "USD", amount: "", description: "", receivedDate: new Date().toISOString().slice(0, 10) });
     setIsStreamModalOpen(true);
   };
 
@@ -120,25 +120,29 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
     setStreamForm({
       name: stream.name,
       currency: stream.currency,
-      expectedAmount: stream.expectedAmount ?? "",
+      amount: stream.amount,
       description: stream.description ?? "",
-      streamDate: new Date(stream.streamDate).toISOString().slice(0, 10),
+      receivedDate: new Date(stream.receivedDate).toISOString().slice(0, 10),
     });
     setIsStreamModalOpen(true);
   };
 
   const handleStreamSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const expectedNum = streamForm.expectedAmount === "" ? null : Number(streamForm.expectedAmount);
+    const amountNum = streamForm.amount === "" ? NaN : Number(streamForm.amount);
+    if (!streamForm.name.trim() || !Number.isFinite(amountNum) || amountNum < 0) {
+      toast.error("Enter a source and a valid amount");
+      return;
+    }
     if (streamToEdit) {
       updateStreamMutation.mutate(
-        { organizationId, streamId: streamToEdit.id, payload: { name: streamForm.name.trim(), currency: streamForm.currency, expectedAmount: expectedNum, description: streamForm.description.trim() || null, streamDate: streamForm.streamDate } },
-        { onSuccess: () => { toast.success("Stream updated"); setIsStreamModalOpen(false); setStreamToEdit(null); }, onError: () => toast.error("Failed to update stream") }
+        { organizationId, streamId: streamToEdit.id, payload: { name: streamForm.name.trim(), currency: streamForm.currency, amount: amountNum, description: streamForm.description.trim() || null, receivedDate: streamForm.receivedDate } },
+        { onSuccess: () => { toast.success("Income updated"); setIsStreamModalOpen(false); setStreamToEdit(null); }, onError: () => toast.error("Failed to update income") }
       );
     } else {
       createStreamMutation.mutate(
-        { organizationId, payload: { name: streamForm.name.trim(), currency: streamForm.currency, expectedAmount: expectedNum ?? undefined, description: streamForm.description.trim() || undefined, streamDate: streamForm.streamDate } },
-        { onSuccess: () => { toast.success("Stream added"); setIsStreamModalOpen(false); }, onError: () => toast.error("Failed to add stream") }
+        { organizationId, payload: { name: streamForm.name.trim(), currency: streamForm.currency, amount: amountNum, description: streamForm.description.trim() || undefined, receivedDate: streamForm.receivedDate } },
+        { onSuccess: () => { toast.success("Income logged"); setIsStreamModalOpen(false); }, onError: () => toast.error("Failed to log income") }
       );
     }
   };
@@ -417,41 +421,44 @@ function OrganizationLayoutInner({ children }: { children: React.ReactNode }) {
                 style={{ background: "linear-gradient(145deg, #111 0%, #0d0d0d 100%)", border: "1px solid rgba(255,255,255,0.08)", boxShadow: "0 4px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04)" }}
                 onClick={(e) => e.stopPropagation()}
               >
-                <h2 className="text-xl font-extrabold tracking-[-0.02em] mb-6" style={{ color: T.bright }}>{streamToEdit ? "Edit stream" : "Add income stream"}</h2>
+                <h2 className="text-xl font-extrabold tracking-[-0.02em] mb-1" style={{ color: T.bright }}>{streamToEdit ? "Edit income" : "Log income received"}</h2>
+                <p className="text-[12px] mb-5" style={{ color: T.muted }}>{streamToEdit ? "Update this entry in your treasury." : "Record money you actually received — this fills your treasury."}</p>
                 <form onSubmit={handleStreamSubmit} className="space-y-4">
                   <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Name</label>
-                    <input type="text" value={streamForm.name} onChange={(e) => setStreamForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Client A" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" required />
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Source / From</label>
+                    <input type="text" value={streamForm.name} onChange={(e) => setStreamForm((p) => ({ ...p, name: e.target.value }))} placeholder="e.g. Client A, Stripe payout" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" required />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Amount received</label>
+                      <input type="number" step="any" min="0" value={streamForm.amount} onChange={(e) => setStreamForm((p) => ({ ...p, amount: e.target.value }))} placeholder="0" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" required />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Currency</label>
+                      <CurrencyDropdown
+                        selectedCurrencies={streamForm.currency ? [streamForm.currency] : []}
+                        setSelectedCurrencies={(currencies) => setStreamForm((p) => ({ ...p, currency: currencies[0] || "USD" }))}
+                        mode="single"
+                        showFiatCurrencies={true}
+                        filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"}
+                        disableChainCurrencies={true}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Currency</label>
-                    <CurrencyDropdown
-                      selectedCurrencies={streamForm.currency ? [streamForm.currency] : []}
-                      setSelectedCurrencies={(currencies) => setStreamForm((p) => ({ ...p, currency: currencies[0] || "USD" }))}
-                      mode="single"
-                      showFiatCurrencies={true}
-                      filterCurrencies={(c: Currency) => c.symbol !== "ETH" && c.symbol !== "USDC"}
-                      disableChainCurrencies={true}
-                    />
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Note <span className="opacity-50 font-normal">(optional)</span></label>
+                    <input type="text" value={streamForm.description} onChange={(e) => setStreamForm((p) => ({ ...p, description: e.target.value }))} placeholder="e.g. Q1 retainer" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Expected Amount</label>
-                    <input type="number" step="any" min="0" value={streamForm.expectedAmount} onChange={(e) => setStreamForm((p) => ({ ...p, expectedAmount: e.target.value }))} placeholder="0" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Description</label>
-                    <input type="text" value={streamForm.description} onChange={(e) => setStreamForm((p) => ({ ...p, description: e.target.value }))} placeholder="Notes" className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white placeholder-white/40 outline-none focus:border-white/20" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Date</label>
-                    <input type="date" value={streamForm.streamDate} onChange={(e) => setStreamForm((p) => ({ ...p, streamDate: e.target.value }))} className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white outline-none focus:border-white/20 [color-scheme:dark]" required />
+                    <label className="block text-sm font-semibold mb-2" style={{ color: T.soft }}>Received on</label>
+                    <input type="date" value={streamForm.receivedDate} onChange={(e) => setStreamForm((p) => ({ ...p, receivedDate: e.target.value }))} className="w-full rounded-xl px-4 py-2.5 bg-white/[0.05] border border-white/[0.1] text-white outline-none focus:border-white/20 [color-scheme:dark]" required />
                   </div>
                   <div className="flex gap-3 pt-2">
                     <Btn variant="ghost" className="flex-1" onClick={() => { setIsStreamModalOpen(false); setStreamToEdit(null); }}>Cancel</Btn>
                     <button type="submit" disabled={createStreamMutation.isPending || updateStreamMutation.isPending} className="flex-1 rounded-xl py-2.5 font-semibold text-sm disabled:opacity-50" style={{ background: A, color: "#0a0a0a" }}>
                       {streamToEdit
                         ? (updateStreamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Save changes")
-                        : (createStreamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Add stream")}
+                        : (createStreamMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mx-auto" /> : "Log income")}
                     </button>
                   </div>
                 </form>

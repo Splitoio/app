@@ -10,7 +10,6 @@ import {
   ChevronLeft,
   ChevronsUpDown,
   Plus,
-  TrendingUp,
   Activity,
   FileSignature,
   FileText,
@@ -56,7 +55,7 @@ export function Sidebar() {
   const { data: groups = [] } = useGetAllGroups({ type: "PERSONAL" });
   const logo = "/logo.svg";
 
-  const orgPathMatch = pathname.match(/^\/organization\/([^/]+)\/(invoices|streams|activity|contracts|members|settings)$/);
+  const orgPathMatch = pathname.match(/^\/organization\/([^/]+)\/(invoices|finances|streams|expenses|activity|contracts|members|settings)$/);
   const currentOrgId = orgPathMatch?.[1] ?? null;
   const currentOrgTab = orgPathMatch?.[2] ?? "invoices";
   const linkOrgId = currentOrgId ?? organizations[0]?.id ?? null;
@@ -172,39 +171,28 @@ export function Sidebar() {
                   Invoices
                 </Link>
 
-                {isAdminOfLinkOrg && (
-                  <Link
-                    id="sidebar-org-expenses-link"
-                    href={`/organization/${linkOrgId}/expenses`}
-                    onClick={close}
-                    className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                      pathname === `/organization/${linkOrgId}/expenses`
-                        ? "bg-white/[0.09] text-white font-bold"
-                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                    )}
-                  >
-                    <span className={pathname === `/organization/${linkOrgId}/expenses` ? "text-[#22D3EE]" : "inherit"}><Receipt className="h-4 w-4" strokeWidth={1.5} /></span>
-                    Expenses
-                  </Link>
-                )}
-
-                {isAdminOfLinkOrg && (
-                  <Link
-                    id="sidebar-org-streams-link"
-                    href={`/organization/${linkOrgId}/streams`}
-                    onClick={close}
-                    className={cn(
-                      "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
-                      pathname === `/organization/${linkOrgId}/streams`
-                        ? "bg-white/[0.09] text-white font-bold"
-                        : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
-                    )}
-                  >
-                    <span className={pathname === `/organization/${linkOrgId}/streams` ? "text-[#22D3EE]" : "inherit"}><TrendingUp className="h-4 w-4" strokeWidth={1.5} /></span>
-                    Streams
-                  </Link>
-                )}
+                {isAdminOfLinkOrg && (() => {
+                  const financesActive =
+                    pathname === `/organization/${linkOrgId}/finances` ||
+                    pathname === `/organization/${linkOrgId}/expenses` ||
+                    pathname === `/organization/${linkOrgId}/streams`;
+                  return (
+                    <Link
+                      id="sidebar-org-finances-link"
+                      href={`/organization/${linkOrgId}/finances`}
+                      onClick={close}
+                      className={cn(
+                        "splito-nav-item flex items-center gap-2.5 rounded-[13px] py-2.5 px-[13px] text-sm transition-all",
+                        financesActive
+                          ? "bg-white/[0.09] text-white font-bold"
+                          : "text-white/60 font-medium hover:bg-white/[0.07] hover:text-[#e8e8e8]"
+                      )}
+                    >
+                      <span className={financesActive ? "text-[#22D3EE]" : "inherit"}><Receipt className="h-4 w-4" strokeWidth={1.5} /></span>
+                      Finances
+                    </Link>
+                  );
+                })()}
 
                 {isAdminOfLinkOrg && (
                   <Link

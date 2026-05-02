@@ -115,9 +115,6 @@ export default function OrganizationDashboardPage() {
 
   const memberCountForOrg = selectedOrg ? (selectedOrg.groupUsers?.length ?? 0) : 0;
   const totalStreamsCount = streamsForOrg.length;
-  const expectedUsd = streamsForOrg
-    .filter((s) => s.currency === "USD" && s.expectedAmount != null)
-    .reduce((sum, s) => sum + (s.expectedAmount ?? 0), 0);
 
   const totalOutstanding = invoicesForOrg
     .filter((i) => i.status === "SENT" || i.status === "OVERDUE" || i.status === "APPROVED")
@@ -134,25 +131,23 @@ export default function OrganizationDashboardPage() {
   const { data: analyticsData, isLoading: isAnalyticsLoading } = useGetOrganizationAnalytics(selectedOrgId, chartRange);
   const expenseThisMonth = convert(analyticsData?.expenseThisMonth ?? 0, analyticsCurrency);
   const totalPaid = convert(analyticsData?.totalPaid ?? 0, analyticsCurrency);
-  const totalInflow = streamsForOrg.reduce((sum, s) => sum + convert(s.expectedAmount ?? 0, s.currency), 0);
+  const totalInflow = streamsForOrg.reduce((sum, s) => sum + convert(s.amount, s.currency), 0);
   const outflowByPeriod = analyticsData?.outflowByPeriod ?? [];
 
-  // Compute inflow per bucket from streams createdAt (same bucketing logic as backend)
+  // Compute inflow per bucket from received income (same bucketing logic as backend)
   const lineChartData = outflowByPeriod.map((bucket) => {
     const bucketLabel = bucket.month;
-    // Find matching streams: parse the label back to a date range for comparison
     const inflow = streamsForOrg
       .filter((s) => {
-        const d = new Date(s.streamDate);
+        const d = new Date(s.receivedDate);
         if (chartRange === "year") {
           const label = d.toLocaleDateString("en-US", { month: "short" }) + " " + String(d.getFullYear()).slice(-2);
           return label === bucketLabel;
         }
-        // week / month: label is "Mon D" (e.g. "Mar 16")
         const label = d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
         return label === bucketLabel;
       })
-      .reduce((sum, s) => sum + convert(s.expectedAmount ?? 0, s.currency), 0);
+      .reduce((sum, s) => sum + convert(s.amount, s.currency), 0);
     return { month: bucketLabel, inflow, outflow: convert(bucket.outflow, analyticsCurrency) };
   });
 
@@ -298,7 +293,7 @@ export default function OrganizationDashboardPage() {
                 {[
                   { label: "Members", value: String(memberCountForOrg), accent: T.bright },
                   { label: "Invoices", value: String(totalInvoicesForOrg), accent: paymentsOverdue > 0 ? "#F87171" : T.bright },
-                  { label: "Streams", value: String(totalStreamsCount), accent: "#34D399" },
+                  { label: "Income", value: String(totalStreamsCount), accent: "#34D399" },
                   { label: "Contracts", value: String(contractsForOrg.length), accent: A },
                 ].flatMap((s, i) => {
                   const el = (
@@ -608,7 +603,7 @@ export default function OrganizationDashboardPage() {
                   {[
                     { label: "Expense this month", value: formatCurrency(expenseThisMonth, orgCurrency), sub: "Approved & paid invoices" },
                     { label: "Total paid", value: formatCurrency(totalPaid, orgCurrency), sub: "All time" },
-                    { label: "Expected inflow", value: formatCurrency(totalInflow, orgCurrency), sub: "Income streams" },
+                    { label: "Total received", value: formatCurrency(totalInflow, orgCurrency), sub: "Treasury fills" },
                   ].map((stat, i, arr) => (
                     <div key={stat.label} className="px-5 py-4 flex-1 min-h-0"
                       style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(255,255,255,0.06)" : undefined }}>

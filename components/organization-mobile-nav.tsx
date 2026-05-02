@@ -2,16 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { FileText, TrendingUp, Activity, FileSignature, Users, LayoutDashboard } from "lucide-react";
+import { FileText, Receipt, Activity, FileSignature, Users, LayoutDashboard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { A } from "@/lib/splito-design";
 import { useGetAllOrganizations } from "@/features/business/hooks/use-organizations";
 
-// 6 tabs: Dashboard first, then Invoices, Streams, Activity, Contracts, Members
+// 6 tabs: Dashboard first, then Invoices, Finances, Activity, Contracts, Members
 const DASHBOARD_TAB = { key: "dashboard", label: "Dashboard", path: "dashboard", icon: LayoutDashboard };
 const ORG_NAV_ITEMS = [
   { key: "invoices", label: "Invoices", path: "invoices", icon: FileText },
-  { key: "streams", label: "Streams", path: "streams", icon: TrendingUp },
+  { key: "finances", label: "Finances", path: "finances", icon: Receipt },
   { key: "activity", label: "Activity", path: "activity", icon: Activity },
   { key: "contracts", label: "Contracts", path: "contracts", icon: FileSignature },
   { key: "members", label: "Members", path: "members", icon: Users },
