@@ -17,7 +17,6 @@ import {
   allowAllModules,
   XBULL_ID,
 } from "@creit.tech/stellar-wallets-kit";
-import { useWallet } from "@aptos-labs/wallet-adapter-react";
 
 export interface SettingsPageContentProps {
   user: User;
@@ -60,7 +59,6 @@ const CHAIN_META: Record<string, { color: string; icon: string; label: string }>
   stellar:  { color: "#34D399", icon: "\u2726",     label: "Stellar" },
   solana:   { color: "#A78BFA", icon: "\u25CE",     label: "Solana" },
   base:     { color: "#3B82F6", icon: "\u{1F535}",  label: "Base" },
-  aptos:    { color: "#22D3EE", icon: "\u2B21",     label: "Aptos" },
 };
 
 function getChainMeta(chainId: string) {
@@ -244,8 +242,6 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   const [isConnecting, setIsConnecting] = React.useState(false);
   const walletKitRef = React.useRef<StellarWalletsKit | null>(null);
 
-  const { account, connected, wallets: aptosWallets, connect: connectAptos } = useWallet();
-
   // Derive unique chains from crypto currencies
   const cryptoTokens = allCurrencies.filter((c) => c.type !== "FIAT" && c.chainId);
   const chainIds = [...new Set(cryptoTokens.map((c) => c.chainId!))];
@@ -293,13 +289,6 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
     setWalletAddress("");
   };
 
-  React.useEffect(() => {
-    if (connected && account?.address && selectedChainId === "aptos") {
-      const addr = account.address.toString ? account.address.toString() : String(account.address);
-      setWalletAddress(addr);
-    }
-  }, [connected, account, selectedChainId]);
-
   const handleConnectStellar = async () => {
     if (isConnecting || !walletKitRef.current) return;
     setIsConnecting(true);
@@ -321,15 +310,6 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
       console.error(err);
       toast.error("Failed to connect Stellar wallet");
       setIsConnecting(false);
-    }
-  };
-
-  const handleConnectAptos = () => {
-    if (aptosWallets && aptosWallets.length > 0) {
-      try { connectAptos(aptosWallets[0].name); }
-      catch { toast.error("Failed to connect Aptos wallet"); }
-    } else {
-      toast.error("No Aptos wallets found. Install Petra or Martian.");
     }
   };
 
@@ -381,7 +361,7 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
   };
 
   const isWorking = mode === "edit-wallet" ? isUpdatingWallet : isSaving;
-  const connectSupported = ["stellar", "aptos", "solana", "base"].includes(selectedChainId);
+  const connectSupported = ["stellar", "solana", "base"].includes(selectedChainId);
 
   return (
     <AnimatePresence>
@@ -471,7 +451,6 @@ function SettlementPrefModal({ isOpen, onClose, onSave, isSaving, allCurrencies,
                         type="button"
                         onClick={() => {
                           if (selectedChainId === "stellar") handleConnectStellar();
-                          else if (selectedChainId === "aptos") handleConnectAptos();
                           else if (selectedChainId === "solana") handleConnectSolana();
                           else if (selectedChainId === "base") handleConnectBase();
                         }}

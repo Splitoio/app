@@ -22,7 +22,6 @@ import { useAuthStore } from "@/stores/authStore";
 import { getExchangeRate } from "@/features/currencies/api/client";
 import { useWallet } from "@/hooks/useWallet";
 import { useUserWallets } from "@/features/wallets/hooks/use-wallets";
-import { WalletSelector as ShadcnWalletSelector } from "@/components/WalletSelector";
 import { useGetSettlementPreference, useGetUserSettlementPreference } from "@/features/user/hooks/use-update-profile";
 
 type ExpenseWithParticipants = Expense & { expenseParticipants?: ExpenseParticipant[] };
@@ -66,7 +65,6 @@ export function SettleDebtsModal({
     isConnecting: _isConnecting,
     connectWallet,
     wallet,
-    aptosWallet,
     address,
     walletType: _walletType,
   } = useWallet();
@@ -605,7 +603,8 @@ export function SettleDebtsModal({
     }
   }, [selectedToken, organizedCurrencies]);
 
-  // When chain changes, update selectedToken to the token on that chain
+  // When chain changes, update selectedToken to a token on that chain.
+  // Prefer same-symbol; fall back to a stablecoin (USDC/USDT/DAI); else first token on chain.
   useEffect(() => {
     if (
       selectedToken &&
@@ -613,19 +612,21 @@ export function SettleDebtsModal({
       organizedCurrencies &&
       selectedToken.chainId !== selectedChain
     ) {
-      const chainCurrencies = Object.values(organizedCurrencies.chainGroups || {}).flat();
-      const tokenOnChain = chainCurrencies.find(
-        (t) => t.symbol === selectedToken.symbol && t.chainId === selectedChain
-      );
-      if (tokenOnChain) {
-        setSelectedToken({
-          id: tokenOnChain.id,
-          symbol: tokenOnChain.symbol,
-          name: tokenOnChain.name,
-          chainId: tokenOnChain.chainId || undefined,
-          type: tokenOnChain.type,
-        });
-      }
+      const chainTokens = (organizedCurrencies.chainGroups?.[selectedChain] || []);
+      if (chainTokens.length === 0) return;
+
+      const PREF = ["USDC", "USDT", "DAI"];
+      const sameSymbol = chainTokens.find((t) => t.symbol === selectedToken.symbol);
+      const stable = PREF.map((s) => chainTokens.find((t) => t.symbol === s)).find(Boolean);
+      const next = sameSymbol || stable || chainTokens[0];
+
+      setSelectedToken({
+        id: next.id,
+        symbol: next.symbol,
+        name: next.name,
+        chainId: next.chainId || undefined,
+        type: next.type,
+      });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps -- only run when selectedChain changes to avoid loops
   }, [selectedChain]);
@@ -692,9 +693,7 @@ export function SettleDebtsModal({
   // Helper to get the correct wallet address based on selected chain
   const getUserWalletAddress = (chain?: string | null) => {
     const c = chain ?? selectedChain;
-    if (c === 'aptos') {
-      return aptosWallet?.account?.address?.toString() || getSettlementWallet('aptos');
-    } else if (c === 'stellar') {
+    if (c === 'stellar') {
       return address || userStellarAddress || getSettlementWallet('stellar');
     }
     return getSettlementWallet(c);
@@ -702,9 +701,7 @@ export function SettleDebtsModal({
 
   const _isWalletConnectedForChain = (chain?: string | null) => {
     const c = chain ?? selectedChain;
-    if (c === 'aptos') {
-      return (aptosWallet.connected && aptosWallet.account?.address) || !!getSettlementWallet('aptos');
-    } else if (c === 'stellar') {
+    if (c === 'stellar') {
       return !!(walletConnected && wallet && (address || userStellarAddress));
     }
     return !!getSettlementWallet(c);
@@ -712,9 +709,7 @@ export function SettleDebtsModal({
 
   const canProceedWithSettlement = (chain?: string | null) => {
     const c = chain ?? selectedChain;
-    if (c === 'aptos') {
-      return (aptosWallet.connected && aptosWallet.account?.address) || !!getSettlementWallet('aptos');
-    } else if (c === 'stellar') {
+    if (c === 'stellar') {
       // Browser wallet MUST be connected — a saved DB address alone can't sign transactions
       return !!(walletConnected && wallet && (address || userStellarAddress));
     }
@@ -729,10 +724,7 @@ export function SettleDebtsModal({
     const chainLabel = selectedChain ? selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1) : "chain";
     
     if (!canProceedWithSettlement()) {
-      if (selectedChain === 'aptos') {
-        toast.error("Please connect your Aptos wallet first.");
-        return;
-      } else if (selectedChain === 'stellar') {
+      if (selectedChain === 'stellar') {
         toast.error("Please connect your Stellar wallet first.");
         connectWallet();
         return;
@@ -772,9 +764,6 @@ export function SettleDebtsModal({
       },
       onError: (err) => {
         console.error("[SettleDebtsModal] Error settling debt:", err);
-        toast.error("Failed to settle debt", {
-          description: "Please try again or check your wallet connection.",
-        });
       }
     });
   };
@@ -784,10 +773,7 @@ export function SettleDebtsModal({
     const chainLabel = selectedChain ? selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1) : "chain";
     
     if (!canProceedWithSettlement()) {
-      if (selectedChain === 'aptos') {
-        toast.error("Please connect your Aptos wallet first.");
-        return;
-      } else if (selectedChain === 'stellar') {
+      if (selectedChain === 'stellar') {
         toast.error("Please connect your Stellar wallet first.");
         connectWallet();
         return;
@@ -825,10 +811,8 @@ export function SettleDebtsModal({
         onClose();
         toast.success("Successfully settled debts");
       },
-      onError: (_err) => {
-        toast.error("Failed to settle debts", {
-          description: "Please try again or check your wallet connection.",
-        });
+      onError: (err) => {
+        console.error("[SettleDebtsModal] Error settling debts:", err);
       }
     });
   };
@@ -971,12 +955,11 @@ export function SettleDebtsModal({
     stellar: { icon: "✦", color: "#34D399" },
     solana:  { icon: "◎", color: "#A78BFA" },
     base:    { icon: "🔵", color: "#3B82F6" },
-    aptos:   { icon: "⬡", color: "#22D3EE" },
   };
 
   const availableChains = organizedCurrencies?.chainGroups
     ? Object.keys(organizedCurrencies.chainGroups)
-    : ["stellar", "solana", "base", "aptos"];
+    : ["stellar", "solana", "base"];
 
   // Step navigation helpers
   const goToStep = useCallback((step: number) => {
@@ -1571,7 +1554,6 @@ export function SettleDebtsModal({
                                   if (!canProceedWithSettlement(effectiveChain)) {
                                     return (
                                       <div>
-                                        {effectiveChain === "aptos" && <ShadcnWalletSelector />}
                                         {effectiveChain === "stellar" && (
                                           <button
                                             type="button"
@@ -1823,7 +1805,6 @@ export function SettleDebtsModal({
                 {/* Show wallet connection component for any chain if not connected */}
                 {!canProceedWithSettlement() && (
                   <div className="mt-4">
-                    {selectedChain === 'aptos' && <ShadcnWalletSelector />}
                     {(selectedChain === 'solana' || selectedChain === 'base') && (
                       <p className="text-xs text-amber-400 text-center py-2">
                         Add your {selectedChain.charAt(0).toUpperCase() + selectedChain.slice(1)} wallet address in Settings → Wallet first.

@@ -3,23 +3,16 @@ import { settleDebt } from "../api/client";
 import { QueryKeys, invalidateSettlementCaches } from "@/lib/constants";
 import { useWallet } from "@/hooks/useWallet";
 import { toast } from "sonner";
+import type { StellarWalletsKit } from "@creit.tech/stellar-wallets-kit";
 
 export const useSettleDebt = (groupId: string) => {
   const queryClient = useQueryClient();
-  const { wallet, walletType, isConnected, address, aptosWallet } = useWallet();
+  const { wallet, walletType } = useWallet();
 
   return useMutation({
     mutationFn: (payload: Parameters<typeof settleDebt>[0]) => {
-      // Use aptosWallet as fallback if main wallet is not available but we're on Aptos
-      const walletToUse = wallet || (payload.selectedChainId === 'aptos' && aptosWallet?.connected ? {
-        account: aptosWallet.account,
-        connected: aptosWallet.connected,
-        signTransaction: aptosWallet.signTransaction,
-        submitTransaction: aptosWallet.submitTransaction,
-        signAndSubmitTransaction: aptosWallet.signAndSubmitTransaction,
-      } : undefined);
-
-      return settleDebt(payload, walletToUse);
+      const stellarWallet = walletType === "stellar" ? (wallet as StellarWalletsKit) : undefined;
+      return settleDebt(payload, stellarWallet);
     },
     onSuccess: (data) => {
       // Add a small delay to ensure backend processing is complete
